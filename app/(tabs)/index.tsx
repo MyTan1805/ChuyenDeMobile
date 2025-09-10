@@ -1,11 +1,10 @@
 import React from 'react';
 import { Text, View } from 'react-native';
 
-// Đảm bảo có dòng export default này!
-export default function LoginScreen() {
+export default function HomeScreen() {
   return (
     <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-      <Text>Login Screen</Text>
+      <Text>Home / AQI Screen</Text>
     </View>
   );
-}   
+}
