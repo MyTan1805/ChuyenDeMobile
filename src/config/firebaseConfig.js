@@ -1,5 +1,9 @@
-import { initializeApp } from "firebase/app";
-import { getAuth } from "firebase/auth";
+// src/config/firebaseConfig.js
+
+import { initializeApp, getApps, getApp } from "firebase/app";
+import { getAuth, initializeAuth, getReactNativePersistence } from "firebase/auth";
+import { getDatabase } from "firebase/database";
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const firebaseConfig = {
   apiKey: "AIzaSyC3eG8zT3gHc4x1x5m_aY0AIXKhdJ-tl-U",
@@ -12,5 +16,27 @@ const firebaseConfig = {
   measurementId: "G-DQ5VXF8C7X"
 };
 
-const app = initializeApp(firebaseConfig);
-export const auth = getAuth(app);
+// 1. Kiểm tra xem App đã được khởi tạo chưa để tránh lỗi "App already exists"
+let app;
+if (getApps().length === 0) {
+  app = initializeApp(firebaseConfig);
+} else {
+  app = getApp();
+}
+
+// 2. Khởi tạo Auth với Persistence (QUAN TRỌNG CHO MOBILE)
+// Dùng try-catch để tránh lỗi nếu Auth đã được khởi tạo trước đó
+let auth;
+try {
+  auth = initializeAuth(app, {
+    persistence: getReactNativePersistence(AsyncStorage)
+  });
+} catch (e) {
+  // Nếu đã có auth instance thì lấy lại cái cũ
+  auth = getAuth(app); 
+}
+
+// 3. Khởi tạo Database
+const database = getDatabase(app);
+
+export { auth, database };

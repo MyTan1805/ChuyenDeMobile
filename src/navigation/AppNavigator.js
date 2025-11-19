@@ -21,6 +21,9 @@ import PostScreen from '../screens/PostScreen';         // Giả sử bạn có 
 import StoreScreen from '../screens/StoreScreen';         // Giả sử bạn có màn hình này
 import ProfileScreen from '../screens/ProfileScreen';     // Giả sử bạn có màn hình này
 
+import WasteClassificationScreen from '../screens/WasteClassificationScreen';
+import WasteDetailScreen from '../screens/WasteDetailScreen';
+
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
 
@@ -38,6 +41,18 @@ function AuthStack() {
     );
 }
 
+const CommunityStack = createStackNavigator();
+
+function CommunityStackNavigator() {
+    return (
+        <CommunityStack.Navigator screenOptions={{ headerShown: false }}>
+            <CommunityStack.Screen name="CommunityMain" component={CommunityScreen} />
+            <CommunityStack.Screen name="WasteClassification" component={WasteClassificationScreen} />
+            <CommunityStack.Screen name="WasteDetail" component={WasteDetailScreen} />
+        </CommunityStack.Navigator>
+    );
+}
+
 // 2. Luồng chính của ứng dụng (Khi người dùng đã đăng nhập)
 //    Chúng ta sẽ dùng BottomTabNavigator ở đây
 function MainAppTabNavigator() {
@@ -45,7 +60,7 @@ function MainAppTabNavigator() {
     // Sử dụng prop `tabBar` để thay thế thanh điều hướng mặc định bằng component của chúng ta
     <Tab.Navigator tabBar={(props) => <CustomTabBar {...props} />}>
       <Tab.Screen name="Trang chủ" component={HomeScreen} options={{ headerShown: false }}/>
-      <Tab.Screen name="Cộng đồng" component={CommunityScreen} options={{ headerShown: false }}/>
+      <Tab.Screen name="Cộng đồng" component={CommunityStackNavigator} options={{ headerShown: false }}/>
       <Tab.Screen name="Đăng tin" component={PostScreen} options={{ headerShown: false }}/>
       <Tab.Screen name="Cửa hàng" component={StoreScreen} options={{ headerShown: false }}/>
       <Tab.Screen name="Hồ sơ" component={ProfileScreen} options={{ headerShown: false }}/>

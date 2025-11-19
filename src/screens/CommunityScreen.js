@@ -1,28 +1,32 @@
+// src/screens/CommunityScreen.js
+
 import React, { useState } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
-
-// Import component SearchHeader để sử dụng
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native'; // Thêm TouchableOpacity
 import SearchHeader from '../component/SearchHeader';
+import { Ionicons } from '@expo/vector-icons'; // Import Icon
 
-const CommunityScreen = () => {
-    // Thêm một state để lưu lại nội dung tìm kiếm và hiển thị ra màn hình
+const CommunityScreen = ({ navigation }) => { // Nhận prop navigation
     const [searchTerm, setSearchTerm] = useState('');
 
     return (
         <View style={styles.container}>
-            {/* Đã thay thế CustomHeader cũ bằng SearchHeader mới ở đây */}
             <SearchHeader 
-                onSearchChange={(text) => {
-                    // Cập nhật state mỗi khi người dùng gõ chữ
-                    setSearchTerm(text);
-                    console.log('Nội dung tìm kiếm:', text);
-                }}
+                onSearchChange={(text) => setSearchTerm(text)}
                 onFilterPress={() => alert('Đã nhấn nút Lọc!')}
             />
 
-            {/* Phần nội dung bên dưới để hiển thị kết quả test */}
             <View style={styles.content}>
-                <Text style={styles.title}>Màn hình Cộng đồng</Text>
+                {/* === NÚT BẤM VÀO CHỨC NĂNG PHÂN LOẠI RÁC === */}
+                <TouchableOpacity 
+                    style={styles.featureBox}
+                    onPress={() => navigation.navigate('WasteClassification')}
+                >
+                    <View style={styles.iconContainer}>
+                        <Ionicons name="trash-bin-outline" size={40} color="#fff" />
+                    </View>
+                    <Text style={styles.featureText}>Phân loại rác</Text>
+                </TouchableOpacity>
+
                 <Text style={styles.searchText}>Bạn đang tìm kiếm: "{searchTerm}"</Text>
             </View>
         </View>
@@ -32,18 +36,37 @@ const CommunityScreen = () => {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#fff', // Đổi màu nền cho đồng bộ
+        backgroundColor: '#fff',
     },
     content: {
         flex: 1,
-        justifyContent: 'center',
         alignItems: 'center',
         padding: 20,
+        paddingTop: 50, // Đẩy nội dung xuống một chút
     },
-    title: {
-        fontSize: 22,
-        fontWeight: 'bold',
-        marginBottom: 20,
+    // Style cho nút bấm hình vuông
+    featureBox: {
+        width: 150,
+        height: 150,
+        backgroundColor: '#4CAF50', // Màu xanh lá
+        borderRadius: 20,
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginBottom: 30,
+        elevation: 5, // Bóng đổ
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.25,
+        shadowRadius: 3.84,
+    },
+    iconContainer: {
+        marginBottom: 10,
+    },
+    featureText: {
+        color: '#fff',
+        fontSize: 18,
+        fontFamily: 'Nunito-Bold',
+        textAlign: 'center',
     },
     searchText: {
         fontSize: 16,
