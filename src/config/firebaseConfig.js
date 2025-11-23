@@ -1,16 +1,35 @@
 import { initializeApp } from "firebase/app";
-import { getAuth } from "firebase/auth";
+import { initializeAuth, getReactNativePersistence } from 'firebase/auth';
+import ReactNativeAsyncStorage from '@react-native-async-storage/async-storage';
 
+// Import các biến môi trường
+import { 
+  API_KEY, 
+  AUTH_DOMAIN, 
+  DATABASE_URL, 
+  PROJECT_ID, 
+  STORAGE_BUCKET, 
+  MESSAGING_SENDER_ID, 
+  APP_ID, 
+  MEASUREMENT_ID 
+} from '@env';
+
+// --- Cấu hình Firebase đọc từ .env ---
 const firebaseConfig = {
-  apiKey: "AIzaSyC3eG8zT3gHc4x1x5m_aY0AIXKhdJ-tl-U",
-  authDomain: "ecoapp-dc865.firebaseapp.com",
-  databaseURL: "https://ecoapp-dc865-default-rtdb.asia-southeast1.firebasedatabase.app",
-  projectId: "ecoapp-dc865",
-  storageBucket: "ecoapp-dc865.appspot.com",
-  messagingSenderId: "982272940577",
-  appId: "1:982272940577:web:925ea42aae240a84d82160",
-  measurementId: "G-DQ5VXF8C7X"
+  apiKey: API_KEY,
+  authDomain: AUTH_DOMAIN,
+  databaseURL: DATABASE_URL,
+  projectId: PROJECT_ID,
+  storageBucket: STORAGE_BUCKET,
+  messagingSenderId: MESSAGING_SENDER_ID,
+  appId: APP_ID,
+  measurementId: MEASUREMENT_ID
 };
 
+// --- Khởi tạo Dịch vụ (giữ nguyên) ---
 const app = initializeApp(firebaseConfig);
-export const auth = getAuth(app);
+const auth = initializeAuth(app, {
+  persistence: getReactNativePersistence(ReactNativeAsyncStorage)
+});
+
+export { app, auth };

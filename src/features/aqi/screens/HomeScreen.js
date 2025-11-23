@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import CustomHeader from '../component/CustomHeader'; // Import header
+import CustomHeader from '@/components/CustomHeader'; // Import header
 
 const HomeScreen = () => {
     return (

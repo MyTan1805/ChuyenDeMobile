@@ -12,7 +12,8 @@ import {
     Alert              // Thêm
 } from 'react-native';
 import { Svg, Path } from 'react-native-svg';
-import { AuthContext } from '../context/AuthContext'; // Import Context
+import { AuthContext } from '@/context/AuthContext'; // Import Context
+import { useNavigation } from '@react-navigation/native';
 
 // Component Input tái sử dụng
 const CustomTextInput = ({ placeholder, icon, value, onChangeText }) => (
@@ -32,7 +33,7 @@ const CustomTextInput = ({ placeholder, icon, value, onChangeText }) => (
 
 // Component Header tái sử dụng
 const AuthHeader = () => (
-    <ImageBackground style={styles.headerBackground} source={require('../../assets/header.jpg')} resizeMode="cover">
+    <ImageBackground style={styles.headerBackground} source={require('@/assets/images/header.jpg')} resizeMode="cover">
         <Text style={styles.headerTitle}>ECOMATE</Text>
     </ImageBackground>
 );
@@ -45,33 +46,37 @@ const BackButton = ({ onPress }) => (
     </TouchableOpacity>
 );
 
-export default function ForgetPasswordScreen({ navigation }) {
+export default function ForgetPasswordScreen() {
+    const navigation = useNavigation(); 
+    
     const [email, setEmail] = useState('');
     const [loading, setLoading] = useState(false);
 
-    // Lấy hàm resetPassword từ context
-    const { resetPassword } = useContext(AuthContext);
+    const { resetPassword } = useUserStore();
 
     const handleResetPassword = async () => {
-        if (!email) {
+        if (!email.trim()) { 
             Alert.alert("Lỗi", "Vui lòng nhập email của bạn.");
             return;
         }
 
         setLoading(true);
         try {
-            await resetPassword(email);
+            await resetPassword(email.trim());
             Alert.alert(
                 "Thành công", 
                 "Một liên kết đặt lại mật khẩu đã được gửi đến email của bạn. Vui lòng kiểm tra hộp thư.",
-                [{ text: "OK", onPress: () => navigation.navigate("Login") }] // Chuyển về màn hình đăng nhập
+                [{ text: "OK", onPress: () => navigation.navigate("Login") }]
             );
         } catch (error) {
-            let friendlyMessage = "Đã xảy ra lỗi. Vui lòng thử lại.";
-            if (error.code === 'auth/user-not-found') {
-                friendlyMessage = "Không tìm thấy người dùng với email này.";
-            } else if (error.code === 'auth/invalid-email') {
-                friendlyMessage = "Email không hợp lệ.";
+            let friendlyMessage = "Đã xảy ra lỗi không xác định. Vui lòng thử lại.";
+            switch (error?.code) {
+                case 'auth/user-not-found':
+                    friendlyMessage = "Không tìm thấy người dùng nào với địa chỉ email này.";
+                    break;
+                case 'auth/invalid-email':
+                    friendlyMessage = "Địa chỉ email không hợp lệ.";
+                    break;
             }
             console.log("Reset Password Error:", error);
             Alert.alert("Thất bại", friendlyMessage);

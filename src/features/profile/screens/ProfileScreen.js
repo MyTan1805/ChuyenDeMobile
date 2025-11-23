@@ -1,7 +1,7 @@
 import React, { useContext } from 'react';
 import { View, Text, StyleSheet, Button } from 'react-native';
-import { AuthContext } from '../context/AuthContext';
-import CustomHeader from '../component/CustomHeader'; // Import header
+import { AuthContext } from '@/context/AuthContext';
+import CustomHeader from '@/components/CustomHeader'; // Import header
 
 const ProfileScreen = () => {
     const { logout } = useContext(AuthContext);

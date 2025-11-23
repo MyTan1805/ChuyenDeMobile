@@ -14,7 +14,7 @@ import {
     Alert              // Thêm
 } from 'react-native';
 import { Svg, Path, Circle } from 'react-native-svg';
-import { AuthContext } from '../context/AuthContext'; // Import Context
+import { AuthContext } from '@/context/AuthContext'; // Import Context
 
 const { height } = Dimensions.get('window');
 
@@ -71,7 +71,7 @@ export default function LoginScreen({ navigation }) {
   return (
     <SafeAreaView style={styles.safeArea}>
       <ScrollView contentContainerStyle={styles.scrollView}>
-        <ImageBackground source={require('../../assets/header.jpg')} resizeMode="cover" style={styles.headerBackground}>
+        <ImageBackground source={require('@/assets/images/header.jpg')} resizeMode="cover" style={styles.headerBackground}>
           <Text style={styles.headerTitle}>ECOMATE</Text>
         </ImageBackground>
 

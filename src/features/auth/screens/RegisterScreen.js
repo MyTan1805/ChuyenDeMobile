@@ -13,7 +13,7 @@ import {
     Alert              // Thêm để hiển thị thông báo
 } from 'react-native';
 import { Svg, Path } from 'react-native-svg';
-import { AuthContext } from '../context/AuthContext'; // Import Context
+import { AuthContext } from '@/context/AuthContext'; // Import Context
 
 // Component Input tái sử dụng (Giữ nguyên)
 const CustomTextInput = ({ placeholder, icon, secureTextEntry = false, value, onChangeText }) => (
@@ -35,7 +35,7 @@ const CustomTextInput = ({ placeholder, icon, secureTextEntry = false, value, on
 const AuthHeader = () => (
     <ImageBackground
         style={styles.headerBackground}
-        source={require('../../assets/header.jpg')}
+        source={require('@/assets/images/header.jpg')}
         resizeMode="cover"
     >
         <Text style={styles.headerTitle}>ECOMATE</Text>

@@ -12,7 +12,7 @@ export default function WelcomeScreen({ navigation }) {
     return (
         <SafeAreaView style={styles.safeArea}>
             <ImageBackground
-                source={require('../../assets/header.jpg')}
+                source={require('@/assets/images/header.jpg')}
                 resizeMode="cover"
                 style={styles.imageBackground}
             >
