@@ -18,9 +18,11 @@
     "@google/generative-ai": "^0.24.1",
     "axios": "^1.13.2",
     "expo-location": "~19.0.7",
+    "expo-speech": "~14.0.7",
     "firebase": "^12.6.0",
     "firebase-admin": "^13.6.0",
-    "firebase-functions": "^7.0.0"
+    "firebase-functions": "^7.0.0",
+    "react-native-dotenv": "^3.4.11"
   },
   "devDependencies": {
     "eslint": "^8.15.0",
