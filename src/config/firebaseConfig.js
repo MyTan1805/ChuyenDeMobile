@@ -2,13 +2,12 @@ import { initializeApp, getApps, getApp } from "firebase/app";
 import { initializeAuth, getReactNativePersistence, getAuth } from 'firebase/auth';
 import ReactNativeAsyncStorage from '@react-native-async-storage/async-storage';
 import { getFirestore } from 'firebase/firestore';
-import { getStorage } from 'firebase/storage';
 
 import {
   API_KEY,
   AUTH_DOMAIN,
   PROJECT_ID,
-  STORAGE_BUCKET, // ⚠️ Quan trọng
+  STORAGE_BUCKET,
   MESSAGING_SENDER_ID,
   APP_ID,
 } from '@env';
@@ -37,7 +36,4 @@ if (getApps().length === 0) {
 
 const db = getFirestore(app);
 
-// ✅ SỬA LẠI STORAGE INIT (BỎ BIẾN bucketUrl)
-const storage = getStorage(app); // Đơn giản hóa
-
-export { app, auth, db, storage };
+export { app, auth, db };

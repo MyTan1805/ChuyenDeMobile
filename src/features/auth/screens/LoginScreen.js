@@ -1,17 +1,17 @@
 import React, { useState, useContext } from 'react';
-import { 
-    View, 
-    ImageBackground, 
-    Text, 
-    StyleSheet, 
-    SafeAreaView, 
-    ScrollView, 
-    TextInput, 
-    TouchableOpacity, 
-    Image, 
-    Dimensions,
-    ActivityIndicator, // Thêm
-    Alert              // Thêm
+import {
+  View,
+  ImageBackground,
+  Text,
+  StyleSheet,
+  SafeAreaView,
+  ScrollView,
+  TextInput,
+  TouchableOpacity,
+  Image,
+  Dimensions,
+  ActivityIndicator, // Thêm
+  Alert              // Thêm
 } from 'react-native';
 import { Svg, Path, Circle } from 'react-native-svg';
 import { AuthContext } from '@/context/AuthContext'; // Import Context
@@ -37,7 +37,7 @@ const CustomTextInput = ({ placeholder, icon, secureTextEntry = false, value, on
 export default function LoginScreen({ navigation }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  
+
   // State để quản lý loading
   const [loading, setLoading] = useState(false);
 
@@ -46,25 +46,25 @@ export default function LoginScreen({ navigation }) {
 
   const handleLogin = async () => {
     if (!email || !password) {
-        Alert.alert("Lỗi", "Vui lòng nhập email và mật khẩu.");
-        return;
+      Alert.alert("Lỗi", "Vui lòng nhập email và mật khẩu.");
+      return;
     }
-    
+
     setLoading(true);
     try {
-        await login(email, password);
-        // Đăng nhập thành công, tự động chuyển màn hình
+      await login(email, password);
+      // Đăng nhập thành công, tự động chuyển màn hình
     } catch (error) {
-        let friendlyMessage = "Email hoặc mật khẩu không đúng.";
-        if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') {
-            friendlyMessage = 'Email hoặc mật khẩu không chính xác.';
-        } else if (error.code === 'auth/invalid-email') {
-            friendlyMessage = 'Email không hợp lệ.';
-        }
-        console.log("Login Error:", error);
-        Alert.alert("Đăng nhập thất bại", friendlyMessage);
+      let friendlyMessage = "Email hoặc mật khẩu không đúng.";
+      if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') {
+        friendlyMessage = 'Email hoặc mật khẩu không chính xác.';
+      } else if (error.code === 'auth/invalid-email') {
+        friendlyMessage = 'Email không hợp lệ.';
+      }
+      console.log("Login Error:", error);
+      Alert.alert("Đăng nhập thất bại", friendlyMessage);
     } finally {
-        setLoading(false);
+      setLoading(false);
     }
   };
 
@@ -83,14 +83,14 @@ export default function LoginScreen({ navigation }) {
 
           <View style={styles.optionsContainer}>
             <View style={styles.rememberMe}><Svg width="12" height="12" viewBox="0 0 12 12" fill="none"><Circle cx="6" cy="6" r="6" fill="#D9D9D9" /></Svg><Text style={styles.optionsText}>Nhớ mật khẩu</Text></View>
-            <TouchableOpacity onPress={() => navigation.navigate("ForgetPassword")}><Text style={[styles.optionsText, styles.link]}>Quên mật khẩu?</Text></TouchableOpacity>
+            <TouchableOpacity onPress={() => navigation.navigate("ForgotPassword")}><Text style={[styles.optionsText, styles.link]}>Quên mật khẩu?</Text></TouchableOpacity>
           </View>
 
           <TouchableOpacity style={styles.button} onPress={handleLogin} disabled={loading}>
             {loading ? (
-                <ActivityIndicator color="#FFFFFF" />
+              <ActivityIndicator color="#FFFFFF" />
             ) : (
-                <Text style={styles.buttonText}>Đăng nhập</Text>
+              <Text style={styles.buttonText}>Đăng nhập</Text>
             )}
           </TouchableOpacity>
 

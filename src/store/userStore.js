@@ -1,11 +1,11 @@
 import { create } from 'zustand';
-
-// --- SỬA LỖI TẠI ĐÂY: Gộp tất cả import từ firebaseConfig vào 1 dòng duy nhất ---
-import { auth, db, storage } from '../config/firebaseConfig';
-
+import { auth, db } from '../config/firebaseConfig';
 import { onAuthStateChanged, signInWithEmailAndPassword, signOut } from 'firebase/auth';
 import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+
+// --- CẤU HÌNH CLOUDINARY ---
+const CLOUD_NAME = "dqpyrygyu";
+const UPLOAD_PRESET = "ecoapp_preset";
 
 export const useUserStore = create((set, get) => ({
   user: null,
@@ -79,63 +79,51 @@ export const useUserStore = create((set, get) => ({
     }
   },
 
+  // --- HÀM UPLOAD MỚI DÙNG CLOUDINARY ---
   uploadAvatar: async (uri) => {
     const uid = auth.currentUser?.uid;
-    if (!uid || !uri) {
-      return { success: false, error: "No user or URI" };
-    }
+    if (!uid || !uri) return { success: false, error: "No user or URI" };
 
     try {
-      console.log("=== UPLOAD AVATAR ===");
-      console.log("URI:", uri);
+      console.log("1. Bắt đầu upload lên Cloudinary...");
 
-      // 1. Fetch ảnh và chuyển sang Blob
-      const response = await fetch(uri);
-      if (!response.ok) throw new Error("Fetch failed");
+      // Tạo form data để gửi file
+      const formData = new FormData();
+      formData.append('file', {
+        uri: uri,
+        type: 'image/jpeg', // Hoặc lấy type từ kết quả picker
+        name: `avatar_${uid}.jpg`,
+      });
+      formData.append('upload_preset', UPLOAD_PRESET);
+      formData.append('cloud_name', CLOUD_NAME);
 
-      const blob = await response.blob();
-      console.log("Blob type:", blob.type, "Size:", blob.size);
+      // Gọi API Cloudinary
+      const response = await fetch(`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`, {
+        method: 'POST',
+        body: formData,
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'multipart/form-data',
+        },
+      });
 
-      // 2. Đường dẫn storage đơn giản
-      const filename = `avatars/${uid}_${Date.now()}.jpg`;
-      console.log("Path:", filename);
+      const data = await response.json();
 
-      // 3. Tạo storage reference
-      const storageRef = ref(storage, filename);
+      if (data.secure_url) {
+        console.log("2. Upload thành công:", data.secure_url);
 
-      // 4. Upload với metadata rõ ràng
-      const metadata = {
-        contentType: 'image/jpeg',
-        customMetadata: {
-          uploadedBy: uid,
-          uploadedAt: new Date().toISOString()
-        }
-      };
+        // Cập nhật link ảnh vào Firestore (Giữ nguyên logic cũ)
+        await get().updateUserProfile({ photoURL: data.secure_url });
 
-      await uploadBytes(storageRef, blob, metadata);
-      console.log("✅ Upload thành công!");
-
-      // 5. Lấy URL
-      const downloadURL = await getDownloadURL(storageRef);
-      console.log("URL:", downloadURL);
-
-      // 6. Cập nhật Firestore
-      await get().updateUserProfile({ photoURL: downloadURL });
-
-      return { success: true, url: downloadURL };
-
-    } catch (error) {
-      console.error("=== LỖI UPLOAD ===");
-      console.error("Error:", error);
-      console.error("Code:", error.code);
-      console.error("Message:", error.message);
-
-      // Log server response nếu có
-      if (error.serverResponse) {
-        console.error("Server:", error.serverResponse);
+        return { success: true, url: data.secure_url };
+      } else {
+        console.log("Lỗi Cloudinary:", data);
+        return { success: false, error: "Upload failed" };
       }
 
-      return { success: false, error: error.message };
+    } catch (error) {
+      console.error("LỖI MẠNG:", error);
+      return { success: false, error };
     }
   },
 
