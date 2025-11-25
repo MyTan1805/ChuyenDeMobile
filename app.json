@@ -1,5 +1,6 @@
 {
   "expo": {
+    "scheme": "ecomate",
     "name": "ChuyenDeMobile",
     "slug": "ChuyenDeMobile",
     "version": "1.0.0",
@@ -12,9 +13,27 @@
       "backgroundColor": "#ffffff"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "associatedDomains": ["applinks:ecoapp-dc865.firebaseapp.com"]
     },
     "android": {
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": [
+            {
+              "scheme": "https",
+              "host": "ecoapp-dc865.firebaseapp.com",
+              "pathPrefix": "/"
+            },
+            {
+              "scheme": "ecomate"
+            }
+          ],
+          "category": ["BROWSABLE", "DEFAULT"]
+        }
+      ],
       "adaptiveIcon": {
         "foregroundImage": "./src/assets/images/adaptive-icon.png",
         "backgroundColor": "#ffffff"
@@ -26,5 +45,6 @@
     "plugins": [
       "expo-font"
     ]
+    
   }
 }

@@ -3,6 +3,7 @@ import { View, ActivityIndicator } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import * as Linking from 'expo-linking';
 
 // ----- QUẢN LÝ TRẠNG THÁI -----
 import { useUserStore } from '@/store/userStore';
@@ -14,6 +15,8 @@ import WelcomeScreen from '@/features/auth/screens/WelcomeScreen';
 import LoginScreen from '@/features/auth/screens/LoginScreen';
 import RegisterScreen from '@/features/auth/screens/RegisterScreen';
 import ForgotPasswordScreen from '@/features/auth/screens/ForgetPasswordScreen';
+import VerifyEmailScreen from '@/features/auth/screens/VerifyEmailScreen';
+// ĐÃ XOÁ: import NewPasswordScreen...
 
 // 2. AQI & HOME 
 import HomeScreen from '@/features/aqi/screens/HomeScreen';
@@ -37,11 +40,63 @@ import CustomTabBar from '@/components/CustomTabBar';
 // ==================== KHỞI TẠO ====================
 const AuthStack = createStackNavigator();
 const HomeStack = createStackNavigator();       
-const CommunityStack = createStackNavigator();  
-const MainTab = createBottomTabNavigator();    
-const MainStack = createStackNavigator();      
+const CommunityStack = createStackNavigator();     
 
 // ==================== 1. AUTH NAVIGATOR ====================
+const MainTab = createBottomTabNavigator();
+const MainStack = createStackNavigator();
+
+const prefix = Linking.createURL('/');
+
+const linking = {
+  prefixes: [
+    prefix,
+    'ecomate://',
+    'https://ecoapp-dc865.firebaseapp.com',
+  ],
+  config: {
+    screens: {
+      AuthFlow: {
+        screens: {
+          // ĐÃ XOÁ: Cấu hình NewPassword ở đây để app không chặn link reset nữa
+          VerifyEmail: {
+            path: 'verify-email',
+            parse: {
+              oobCode: (oobCode) => oobCode,
+              mode: (mode) => mode,
+            },
+          },
+        },
+      },
+    },
+  },
+  // Giữ lại logic xử lý verifyEmail, nhưng bỏ resetPassword
+  getStateFromPath: (path, options) => {
+    const url = Linking.parse(path);
+
+    if (url.queryParams?.mode) {
+      const { mode, oobCode } = url.queryParams;
+
+      // Nếu là verify email thì mở app vào màn hình VerifyEmail
+      if (mode === 'verifyEmail') {
+        return {
+          routes: [
+            {
+              name: 'VerifyEmail',
+              params: { oobCode, type: 'emailVerification' } // Bỏ AuthFlow wrapper nếu không cần thiết hoặc giữ nguyên cấu trúc cũ của bạn
+            },
+          ],
+        };
+      }
+
+      // ĐÃ XOÁ: Logic check mode === 'resetPassword' để không mở app
+    }
+
+    return options.getStateFromPath(path, options);
+  },
+};
+
+// 1. NAVIGATOR XÁC THỰC
 function AuthNavigator() {
   return (
     <AuthStack.Navigator screenOptions={{ headerShown: false }}>
@@ -49,6 +104,8 @@ function AuthNavigator() {
       <AuthStack.Screen name="Login" component={LoginScreen} />
       <AuthStack.Screen name="Register" component={RegisterScreen} />
       <AuthStack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
+      <AuthStack.Screen name="VerifyEmail" component={VerifyEmailScreen} />
+      {/* ĐÃ XOÁ: AuthStack.Screen name="NewPassword" */}
     </AuthStack.Navigator>
   );
 }
@@ -75,6 +132,8 @@ function CommunityStackNavigator() {
 }
 
 // ==================== 4. MAIN TAB NAVIGATOR ====================
+// ... (Giữ nguyên MainTabNavigator, MainNavigator, AppNavigator như cũ)
+// Chỉ cần đảm bảo bỏ NewPasswordScreen ở import và AuthNavigator
 function MainTabNavigator() {
   return (
     <MainTab.Navigator 
@@ -101,7 +160,6 @@ function MainNavigator() {
   );
 }
 
-// ==================== ROOT APP ====================
 export default function AppNavigator() {
   const { user, isLoading, checkAuthState } = useUserStore((state) => state);
   
@@ -119,7 +177,7 @@ export default function AppNavigator() {
   }
 
   return (
-    <NavigationContainer>
+    <NavigationContainer linking={linking} fallback={<ActivityIndicator size="large" />}>
       {user ? <MainNavigator /> : <AuthNavigator />}
     </NavigationContainer>
   );

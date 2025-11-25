@@ -1,25 +1,20 @@
-import React, { useState } from 'react';
-import { 
-    View, 
-    ImageBackground, 
-    Text, 
-    StyleSheet, 
-    SafeAreaView, 
-    ScrollView, 
-    TextInput, 
-    TouchableOpacity, 
+import React, { useState, useContext } from 'react';
+import {
+    View,
+    ImageBackground,
+    Text,
+    StyleSheet,
+    SafeAreaView,
+    ScrollView,
+    TextInput,
+    TouchableOpacity,
     Image,
     ActivityIndicator,
     Alert
 } from 'react-native';
 import { Svg, Path } from 'react-native-svg';
+import { AuthContext } from '@/context/AuthContext';
 
-// --- SỬ DỤNG STORE CỦA BẠN (THAY VÌ AUTH CONTEXT) ---
-import { useUserStore } from '../../../store/userStore'; 
-import { auth } from '../../../config/firebaseConfig'; // Import auth để gọi createUser
-import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth'; // Firebase SDK
-
-// Component Input (Giữ nguyên)
 const CustomTextInput = ({ placeholder, icon, secureTextEntry = false, value, onChangeText }) => (
     <View style={styles.inputContainer}>
         <View style={styles.icon}>{icon}</View>
@@ -35,7 +30,6 @@ const CustomTextInput = ({ placeholder, icon, secureTextEntry = false, value, on
     </View>
 );
 
-// Header (Giữ nguyên)
 const AuthHeader = () => (
     <ImageBackground
         style={styles.headerBackground}
@@ -51,9 +45,8 @@ export default function RegisterScreen({ navigation }) {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [loading, setLoading] = useState(false);
-    
-    // Lấy hàm fetchUserProfile để tạo profile sau khi đăng ký
-    const fetchUserProfile = useUserStore((state) => state.fetchUserProfile);
+
+    const { register, sendVerification } = useContext(AuthContext);
 
     const handleRegister = async () => {
         if (!name || !email || !password) {
@@ -63,20 +56,24 @@ export default function RegisterScreen({ navigation }) {
 
         setLoading(true);
         try {
-            // 1. Tạo tài khoản Firebase Auth
-            const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-            const user = userCredential.user;
+            const userCredential = await register(email, password);
 
-            // 2. Cập nhật tên hiển thị (displayName)
-            await updateProfile(user, { displayName: name });
+            // 🆕 Gửi email xác nhận
+            await sendVerification(userCredential.user);
 
-            // 3. Gọi hàm fetchUserProfile để tạo document trong Firestore (nếu store bạn có logic này)
-            // Hàm này trong store của bạn đã có logic: Nếu chưa có doc thì tạo defaultData -> Rất tốt!
-            await fetchUserProfile(user.uid);
-
-            console.log("Register Success:", user.email);
-            // AppNavigator sẽ tự chuyển màn hình
-
+            Alert.alert(
+                "Đăng ký thành công!",
+                "Vui lòng kiểm tra email để xác nhận tài khoản.",
+                [
+                    {
+                        text: "Đến màn hình xác nhận",
+                        onPress: () => navigation.navigate("VerifyEmail", {
+                            email: email,
+                            type: 'emailVerification'
+                        })
+                    }
+                ]
+            );
         } catch (error) {
             let friendlyMessage = "Đăng ký thất bại.";
             if (error.code === 'auth/email-already-in-use') {
@@ -151,7 +148,6 @@ export default function RegisterScreen({ navigation }) {
     );
 }
 
-// Styles (Giữ nguyên 100% của bạn)
 const styles = StyleSheet.create({
     safeArea: { flex: 1, backgroundColor: '#fff' },
     scrollView: { flexGrow: 1, backgroundColor: '#fff' },
