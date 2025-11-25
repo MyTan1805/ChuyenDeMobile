@@ -21,6 +21,7 @@ const firebaseConfig = {
   storageBucket: STORAGE_BUCKET,
   messagingSenderId: MESSAGING_SENDER_ID,
   appId: APP_ID,
+  databaseURL: "https://ecoapp-dc865-default-rtdb.asia-southeast1.firebasedatabase.app",
 };
 
 // --- SINGLETON PATTERN (Chỉ khởi tạo 1 lần duy nhất) ---

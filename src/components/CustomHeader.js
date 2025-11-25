@@ -3,7 +3,6 @@ import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, Platform, Statu
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 
-<<<<<<< HEAD
 const CustomHeader = ({
     title,
     useLogo = false,
@@ -15,18 +14,6 @@ const CustomHeader = ({
     onMenuPress,
     onNotificationPress,
     onSettingsPress,        // <-- Mới: Hàm xử lý khi nhấn nút cài đặt
-=======
-const CustomHeader = ({ 
-    title,                  // Tiêu đề dạng text, vd: "Thông báo"
-    useLogo = false,        // Đặt là true nếu muốn hiển thị logo "EcoMate"
-    showBackButton = false, // Hiển thị nút quay lại
-    showMenuButton = false, // Hiển thị nút menu
-    showNotificationButton = false, // Hiển thị nút chuông
-    onBackPress,            // Hàm tùy chỉnh khi nhấn nút quay lại
-    onMenuPress,            // Hàm tùy chỉnh khi nhấn nút menu
-    onNotificationPress,    // Hàm tùy chỉnh khi nhấn nút chuông
-    
->>>>>>> parent of f49ad51 (Revert "Components_3.1")
 }) => {
     const navigation = useNavigation();
 

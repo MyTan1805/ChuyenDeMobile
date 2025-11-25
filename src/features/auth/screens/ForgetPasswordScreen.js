@@ -12,7 +12,7 @@ import {
     Alert              // Thêm
 } from 'react-native';
 import { Svg, Path } from 'react-native-svg';
-import { AuthContext } from '@/context/AuthContext'; // Import Context
+import { useUserStore } from '../../../store/userStore'; 
 import { useNavigation } from '@react-navigation/native';
 
 // Component Input tái sử dụng
