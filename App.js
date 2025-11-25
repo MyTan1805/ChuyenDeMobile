@@ -1,12 +1,19 @@
 import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, SafeAreaView, View } from 'react-native';
+// Import màn hình chính từ thư mục screens
+import CreateReportScreen from './screens/CreateReportScreen';
 
 export default function App() {
   return (
-    <View style={styles.container}>
-      <Text>Open up App.js to start working on your app!</Text>
+    <SafeAreaView style={styles.container}>
+      {/* Container chính bao bọc màn hình báo cáo */}
+      <View style={styles.contentContainer}>
+        <CreateReportScreen />
+      </View>
+      
+      {/* Thanh trạng thái (pin, sóng, giờ) tự động điều chỉnh màu */}
       <StatusBar style="auto" />
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -14,7 +21,10 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#fff',
-    alignItems: 'center',
-    justifyContent: 'center',
   },
+  contentContainer: {
+    flex: 1,
+    // Thêm padding top nếu cần thiết trên một số thiết bị Android đặc thù
+    // nhưng SafeAreaView thường đã xử lý tốt việc này.
+  }
 });
