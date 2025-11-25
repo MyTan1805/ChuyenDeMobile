@@ -12,7 +12,6 @@ const CustomTabBar = ({ state, descriptors, navigation }) => {
     'Cửa hàng': 'cart-outline',
     'Hồ sơ': 'person-circle-outline',
   };
-  
 
   const focusedIconMapping = {
     'Trang chủ': 'home',

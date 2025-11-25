@@ -12,7 +12,6 @@ const CustomHeader = ({
     onBackPress,            // Hàm tùy chỉnh khi nhấn nút quay lại
     onMenuPress,            // Hàm tùy chỉnh khi nhấn nút menu
     onNotificationPress,    // Hàm tùy chỉnh khi nhấn nút chuông
-    
 }) => {
     const navigation = useNavigation();
 

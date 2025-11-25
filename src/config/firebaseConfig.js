@@ -1,6 +1,5 @@
 import { initializeApp } from "firebase/app";
 import { initializeAuth, getReactNativePersistence } from 'firebase/auth';
-import { getDatabase } from 'firebase/database'; // <--- THÊM DÒNG NÀY
 import ReactNativeAsyncStorage from '@react-native-async-storage/async-storage';
 
 // Import các biến môi trường
@@ -27,15 +26,10 @@ const firebaseConfig = {
   measurementId: MEASUREMENT_ID
 };
 
-// --- Khởi tạo Dịch vụ ---
+// --- Khởi tạo Dịch vụ (giữ nguyên) ---
 const app = initializeApp(firebaseConfig);
-
 const auth = initializeAuth(app, {
   persistence: getReactNativePersistence(ReactNativeAsyncStorage)
 });
 
-// --- Khởi tạo Realtime Database ---
-const database = getDatabase(app); // <--- THÊM DÒNG NÀY
-
-// Export database để các màn hình khác sử dụng
-export { app, auth, database }; // <--- THÊM 'database' VÀO ĐÂY
+export { app, auth };
