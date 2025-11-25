@@ -1,27 +1,53 @@
-// src/features/aqi/screens/HomeScreen.jsx
 import React, { useState, useEffect } from 'react';
 import { 
   View, Text, StyleSheet, ScrollView, TouchableOpacity, 
-  RefreshControl, SafeAreaView, Image 
+  RefreshControl, SafeAreaView, StatusBar 
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
 
-// --- IMPORTS CÁC COMPONENTS CỦA BẠN ---
+// --- STORES & HOOKS ---
+import { useAqiStore } from '../../../store/aqiStore'; 
+import { useNotifications } from '../../../hooks/useNotifications'; 
+
+// --- COMPONENTS ---
 import { fetchAqiDataByCoords } from '../api/aqiApi'; 
 import AqiSummaryCard from '../components/AqiSummaryCard';
 import UrgentAlerts from '../components/UrgentAlerts';
 import AppShortcuts from '../components/AppShortcuts';
 import DailyActions from '../components/DailyActions';
+import { AqiLineChart } from '../components/AqiCharts';
+import AqiSettingsModal from '../components/AqiSettingsModal';
+import CustomHeader from '../../../components/CustomHeader'; // Import Header chuẩn
 
 const HomeScreen = ({ navigation }) => {
-  // 1. State quản lý dữ liệu
+  // 1. State & Store
   const [aqiData, setAqiData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [locationName, setLocationName] = useState("Đang định vị...");
+  
+  // State cho Modal
+  const [modalVisible, setModalVisible] = useState(false);
 
-  // 2. Logic Call API (Giữ nguyên logic cũ)
+  // Lấy ngưỡng từ Store và hàm bắn thông báo
+  const threshold = useAqiStore((state) => state.threshold);
+  const { sendAlert } = useNotifications();
+
+  // 2. Logic kiểm tra cảnh báo
+  const checkAndAlert = (data) => {
+    if (!data) return;
+    const pm25 = data.components.pm2_5;
+    
+    // So sánh: Nếu PM2.5 thực tế > Ngưỡng cài đặt
+    if (pm25 > threshold) {
+      sendAlert(
+        "⚠️ Cảnh báo chất lượng không khí!",
+        `Chỉ số PM2.5 hiện tại là ${pm25.toFixed(1)}, vượt quá ngưỡng an toàn (${threshold}).`
+      );
+    }
+  };
+
+  // 3. Logic Call API
   const loadData = async () => {
     setLoading(true);
     try {
@@ -33,16 +59,18 @@ const HomeScreen = ({ navigation }) => {
       }
 
       let location = await Location.getCurrentPositionAsync({});
-      
-      // Lấy tên thành phố (Optional)
       let address = await Location.reverseGeocodeAsync(location.coords);
+      
       if(address.length > 0) {
-        setLocationName(address[0].city || address[0].region || "Vị trí của bạn");
+        // Ưu tiên hiển thị Quận/Huyện
+        setLocationName(`${address[0].subAdminArea || ''}, ${address[0].region || ''}`);
       }
 
-      // Gọi API lấy AQI
       const data = await fetchAqiDataByCoords(location.coords.latitude, location.coords.longitude);
       setAqiData(data);
+
+      // Kiểm tra cảnh báo ngay khi có dữ liệu
+      checkAndAlert(data); 
 
     } catch (error) {
       console.error("Lỗi trang chủ:", error);
@@ -63,89 +91,86 @@ const HomeScreen = ({ navigation }) => {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      {/* --- HEADER (Logo & Menu) --- */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => { /* Mở Menu */ }}>
-          <Ionicons name="menu-outline" size={28} color="#333" />
-        </TouchableOpacity>
-        <Text style={styles.logoText}>EcoMate</Text>
-        <TouchableOpacity>
-          <Ionicons name="notifications-outline" size={28} color="#333" />
-        </TouchableOpacity>
-      </View>
+    <View style={styles.container}>
+      <StatusBar barStyle="dark-content" backgroundColor="white" />
+      
+      {/* --- 1. HEADER ĐỒNG BỘ --- */}
+      {/* Bấm nút chuông sẽ mở Modal cài đặt */}
+      <CustomHeader 
+        useLogo={true}
+        showNotificationButton={true}
+        onNotificationPress={() => setModalVisible(true)}
+      />
+
+      {/* --- 2. MODAL CÀI ĐẶT --- */}
+      <AqiSettingsModal 
+        visible={modalVisible} 
+        onClose={() => setModalVisible(false)}
+      />
 
       <ScrollView 
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-        contentContainerStyle={{ paddingBottom: 20 }}
+        contentContainerStyle={styles.scrollContent}
       >
-        {/* 1. Thẻ AQI (Truyền dữ liệu API vào đây) */}
+        
+        {/* Thẻ AQI Chính */}
         <View style={styles.section}>
-          <AqiSummaryCard aqiData={aqiData} locationName={locationName} loading={loading} />
+          <TouchableOpacity 
+            activeOpacity={0.9}
+            onPress={() => {
+              navigation.navigate('AqiDetail', { aqiData: aqiData, locationName: locationName });
+            }}
+          >
+            <AqiSummaryCard aqiData={aqiData} locationName={locationName} loading={loading} />
+          </TouchableOpacity>
         </View>
 
-        {/* 2. Thông báo khẩn cấp */}
+        {/* Thông báo khẩn cấp */}
         <View style={styles.section}>
            <UrgentAlerts />
         </View>
 
-        {/* 3. Biểu đồ xu hướng (Placeholder - Giả lập ảnh như wireframe) */}
+        {/* Biểu đồ */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Biểu đồ xu hướng AQI</Text>
-          <Image 
-            source={{ uri: 'https://via.placeholder.com/350x150.png?text=Chart+Placeholder' }} 
-            style={{ width: '100%', height: 150, borderRadius: 12, opacity: 0.5 }}
-            resizeMode="cover"
-          />
+          <AqiLineChart /> 
         </View>
 
-        {/* 4. Ứng dụng (Grid menu) */}
+        {/* Grid Menu */}
         <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Ứng dụng</Text>
           <AppShortcuts navigation={navigation} />
         </View>
 
-        {/* 5. Hành động xanh mỗi ngày */}
-        <View style={styles.section}>
+        {/* Hành động xanh */}
+        <View style={[styles.section, { marginBottom: 40 }]}>
+          <Text style={styles.sectionTitle}>Gợi ý hành động xanh mỗi ngày</Text>
           <DailyActions />
         </View>
 
-        {/* Bài đăng cộng đồng (Bạn nói là của module khác nên ta chưa bỏ vào đây hoặc để trống) */}
-
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: '#FFFFFF',
   },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 15,
-    backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
-  },
-  logoText: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    fontStyle: 'italic',
-    color: '#2E7D32', // Màu xanh lá đậm
+  scrollContent: {
+    paddingTop: 10,
+    paddingBottom: 30,
   },
   section: {
     paddingHorizontal: 20,
-    marginTop: 20,
+    marginBottom: 25, // Khoảng cách thoáng hơn giữa các mục
   },
   sectionTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 10,
+    fontSize: 18,
+    fontWeight: '700', // Đậm hơn chút cho giống thiết kế
+    marginBottom: 15,
     color: '#333',
   }
 });

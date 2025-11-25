@@ -70,3 +70,32 @@ exports.getAqiData = onCall(
     }
   }
 );
+
+exports.getAqiHistory = onCall(
+  {
+    region: "asia-southeast1",
+    secrets: [openWeatherApiKey],
+    cors: true,
+  },
+  async (request) => {
+    const { lat, lon, start, end } = request.data;
+
+    if (!lat || !lon || !start || !end) {
+      throw new HttpsError("invalid-argument", "Thiếu thông tin tọa độ hoặc thời gian.");
+    }
+
+    try {
+      const apiKey = openWeatherApiKey.value();
+      // Gọi API History của OpenWeatherMap
+      const url = `http://api.openweathermap.org/data/2.5/air_pollution/history?lat=${lat}&lon=${lon}&start=${start}&end=${end}&appid=${apiKey}`;
+      
+      console.log(`Gọi History: ${start} -> ${end}`);
+      
+      const response = await axios.get(url);
+      return response.data; // Trả về object chứa mảng 'list'
+    } catch (error) {
+      console.error("Lỗi History:", error.message);
+      throw new HttpsError("internal", "Lỗi lấy dữ liệu lịch sử.");
+    }
+  }
+);

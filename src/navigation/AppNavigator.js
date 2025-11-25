@@ -8,14 +8,15 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { useUserStore } from '@/store/userStore';
 
 // ----- CÁC MÀN HÌNH -----
-// Luồng Xác thực
 import WelcomeScreen from '@/features/auth/screens/WelcomeScreen';
 import LoginScreen from '@/features/auth/screens/LoginScreen';
 import RegisterScreen from '@/features/auth/screens/RegisterScreen';
 import ForgotPasswordScreen from '@/features/auth/screens/ForgetPasswordScreen';
 
-// Luồng Chính - Sử dụng tên màn hình gốc của bạn
+// Màn hình AQI
 import HomeScreen from '@/features/aqi/screens/HomeScreen';
+import AqiDetailScreen from '@/features/aqi/screens/AqiDetailScreen'; 
+
 import CommunityScreen from '@/features/community/screens/CommunityScreen';
 import PostScreen from '@/features/community/screens/PostScreen';
 import StoreScreen from '@/features/gamification/screens/StoreScreen';
@@ -24,14 +25,11 @@ import ProfileScreen from '@/features/profile/screens/ProfileScreen';
 // ----- CÁC COMPONENT TÙY CHỈNH -----
 import CustomTabBar from '@/components/CustomTabBar'; 
 
-
 const AuthStack = createStackNavigator();
+const HomeStack = createStackNavigator(); // Tạo Stack cho Home
 const MainTab = createBottomTabNavigator();
 
-// ============================================================================
-// CÁC LUỒNG ĐIỀU HƯỚNG (NAVIGATORS)
-// ============================================================================
-
+// 1. Auth Navigator
 function AuthNavigator() {
   return (
     <AuthStack.Navigator screenOptions={{ headerShown: false }}>
@@ -43,13 +41,23 @@ function AuthNavigator() {
   );
 }
 
-/**
- * Luồng chính của ứng dụng sau khi đăng nhập, sử dụng Bottom Tab.
- */
+// 2. Home Stack Navigator (Để chuyển từ Dashboard -> Detail)
+function HomeStackNavigator() {
+  return (
+    <HomeStack.Navigator screenOptions={{ headerShown: false }}>
+      <HomeStack.Screen name="AqiDashboard" component={HomeScreen} />
+      <HomeStack.Screen name="AqiDetail" component={AqiDetailScreen} />
+    </HomeStack.Navigator>
+  );
+}
+
+// 3. Main Tab Navigator
 function MainTabNavigator() {
   return (
     <MainTab.Navigator tabBar={(props) => <CustomTabBar {...props} />}>
-      <MainTab.Screen name="Trang chủ" component={HomeScreen} options={{ headerShown: false }} />
+      {/* Tab Trang chủ giờ trỏ đến HomeStackNavigator */}
+      <MainTab.Screen name="Trang chủ" component={HomeStackNavigator} options={{ headerShown: false }} />
+      
       <MainTab.Screen name="Cộng đồng" component={CommunityScreen} options={{ headerShown: true }} />
       <MainTab.Screen name="Đăng tin" component={PostScreen} options={{ headerShown: true }} />
       <MainTab.Screen name="Cửa hàng" component={StoreScreen} options={{ headerShown: true }} />
@@ -58,9 +66,6 @@ function MainTabNavigator() {
   );
 }
 
-// ============================================================================
-// COMPONENT ĐIỀU HƯỚNG GỐC
-// ============================================================================
 export default function AppNavigator() {
   const { user, isLoading, checkAuthState } = useUserStore((state) => state);
   

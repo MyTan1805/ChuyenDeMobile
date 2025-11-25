@@ -1,53 +1,66 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { MaterialCommunityIcons } from '@expo/vector-icons'; 
 import { useNavigation } from '@react-navigation/native';
 
 const shortcuts = [
-    { label: 'Báo cáo vi phạm', screen: 'Báo cáo' },
-    { label: 'Phân loại rác', screen: 'Phân loại rác' }, // Tên màn hình trong Navigator
-    { label: 'AI Chatbot', screen: 'Chatbot' },
-    { label: 'Bản đồ', screen: 'Bản đồ' },
-    { label: 'Huy hiệu', screen: 'Hồ sơ' }, // Dẫn về hồ sơ để xem huy hiệu
-    { label: 'Hướng dẫn', screen: 'Học tập' },
+    { label: 'Báo cáo vi phạm', screen: 'Report', icon: 'alert-circle-outline' },
+    { label: 'Phân loại rác', screen: 'Recycle', icon: 'trash-can-outline' },
+    { label: 'AI Chatbot', screen: 'Chatbot', icon: 'robot-happy-outline' },
+    { label: 'Bản đồ MT', screen: 'Map', icon: 'map-outline' }, // Viết tắt cho gọn
+    { label: 'Huy hiệu', screen: 'Profile', icon: 'medal-outline' },
+    { label: 'Hướng dẫn', screen: 'Guide', icon: 'book-open-variant' },
 ];
 
-const AppShortcuts = () => {
-    const navigation = useNavigation();
+const AppShortcuts = ({ navigation }) => { 
+    // Nhận navigation từ props hoặc dùng hook đều được
+    // const nav = useNavigation(); 
 
     return (
-        <View style={styles.container}>
-            <Text style={styles.title}>Ứng dụng</Text>
-            <View style={styles.grid}>
-                {shortcuts.map((item, index) => (
-                    <TouchableOpacity 
-                        key={index} 
-                        style={styles.item}
-                        onPress={() => navigation.navigate(item.screen)}
-                    >
-                        {/* Có thể thêm Icon ở đây */}
-                        <Text style={styles.label}>{item.label}</Text>
-                    </TouchableOpacity>
-                ))}
-            </View>
+        <View style={styles.grid}>
+            {shortcuts.map((item, index) => (
+                <TouchableOpacity 
+                    key={index} 
+                    style={styles.item}
+                    onPress={() => navigation && navigation.navigate(item.screen)}
+                >
+                    {/* Icon Box */}
+                    <View style={styles.iconBox}>
+                        <MaterialCommunityIcons name={item.icon} size={28} color="#555" />
+                    </View>
+                    <Text style={styles.label}>{item.label}</Text>
+                </TouchableOpacity>
+            ))}
         </View>
     );
 };
 
 const styles = StyleSheet.create({
-    container: { marginBottom: 30 },
-    title: { fontSize: 18, fontWeight: 'bold', marginBottom: 15 },
-    grid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },
+    grid: { 
+        flexDirection: 'row', 
+        flexWrap: 'wrap', 
+        justifyContent: 'space-between',
+        marginTop: 5
+    },
     item: {
-        width: '31%', // 3 cột
-        aspectRatio: 1, // Hình vuông
-        backgroundColor: '#E8E8E8',
-        borderRadius: 15,
+        width: '31%', 
+        aspectRatio: 1, 
+        backgroundColor: '#F0F0F0', // Màu nền xám
+        borderRadius: 20, // Bo góc to
         justifyContent: 'center',
         alignItems: 'center',
         marginBottom: 15,
-        padding: 5,
+        padding: 8,
     },
-    label: { textAlign: 'center', fontSize: 12, fontWeight: '500', color: '#333' },
+    iconBox: {
+        marginBottom: 8,
+    },
+    label: { 
+        textAlign: 'center', 
+        fontSize: 12, 
+        fontWeight: '600', 
+        color: '#444' 
+    },
 });
 
 export default AppShortcuts;

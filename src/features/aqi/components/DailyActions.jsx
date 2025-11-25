@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 const mockActions = [
     { id: 1, text: 'Tắt đèn khi ra khỏi phòng', points: 10, completed: false },
@@ -20,52 +21,99 @@ const DailyActions = () => {
     const progress = Math.round((completedCount / actions.length) * 100);
 
     return (
-        <View style={styles.container}>
-            <Text style={styles.title}>Gợi ý hành động xanh mỗi ngày</Text>
-            <View style={styles.card}>
-                <View style={styles.header}>
-                    <Text style={styles.headerText}>Tiến độ</Text>
-                    <Text style={styles.headerText}>{progress}% hoàn thành</Text>
-                </View>
-                
-                {/* Thanh Progress Bar */}
+        <View style={styles.card}>
+            {/* Header Progress */}
+            <View style={styles.header}>
+                <Text style={styles.headerText}>Tiến độ</Text>
                 <View style={styles.progressBarBg}>
                     <View style={[styles.progressBarFill, { width: `${progress}%` }]} />
                 </View>
-
-                {/* Danh sách hành động */}
-                {actions.map((action) => (
-                    <TouchableOpacity 
-                        key={action.id} 
-                        style={styles.actionItem}
-                        onPress={() => toggleAction(action.id)}
-                    >
-                        <View style={[styles.checkbox, action.completed && styles.checked]}>
-                            {action.completed && <Text style={styles.checkmark}>✓</Text>}
-                        </View>
-                        <Text style={styles.actionText}>{action.text}</Text>
-                        <Text style={styles.points}>{action.points} điểm</Text>
-                    </TouchableOpacity>
-                ))}
+                <Text style={styles.headerText}>{progress}% hoàn thành</Text>
             </View>
+
+            {/* Danh sách hành động */}
+            {actions.map((action) => (
+                <TouchableOpacity 
+                    key={action.id} 
+                    style={styles.actionItem}
+                    activeOpacity={0.7}
+                    onPress={() => toggleAction(action.id)}
+                >
+                    {/* Checkbox */}
+                    <MaterialCommunityIcons 
+                        name={action.completed ? "checkbox-marked" : "checkbox-blank-outline"} 
+                        size={24} 
+                        color={action.completed ? "#2E7D32" : "#CCC"} 
+                        style={styles.checkboxIcon}
+                    />
+                    
+                    <Text style={[
+                        styles.actionText, 
+                        action.completed && styles.textCompleted // Gạch ngang nếu xong
+                    ]}>
+                        {action.text}
+                    </Text>
+                    
+                    <Text style={styles.points}>{action.points} điểm</Text>
+                </TouchableOpacity>
+            ))}
         </View>
     );
 };
 
 const styles = StyleSheet.create({
-    container: { marginBottom: 30 },
-    title: { fontSize: 18, fontWeight: 'bold', marginBottom: 15 },
-    card: { backgroundColor: '#F0F0F0', borderRadius: 15, padding: 15 },
-    header: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 },
-    headerText: { fontSize: 12, color: '#666' },
-    progressBarBg: { height: 8, backgroundColor: '#FFF', borderRadius: 4, marginBottom: 20, overflow: 'hidden' },
-    progressBarFill: { height: '100%', backgroundColor: '#4CAF50', borderRadius: 4 },
-    actionItem: { flexDirection: 'row', alignItems: 'center', marginBottom: 15 },
-    checkbox: { width: 20, height: 20, borderRadius: 5, borderWidth: 2, borderColor: '#666', marginRight: 12, justifyContent: 'center', alignItems: 'center', backgroundColor: '#FFF' },
-    checked: { backgroundColor: '#4CAF50', borderColor: '#4CAF50' },
-    checkmark: { color: '#FFF', fontSize: 12, fontWeight: 'bold' },
-    actionText: { flex: 1, fontSize: 14, color: '#333' },
-    points: { fontSize: 12, fontWeight: 'bold', color: '#666' },
+    card: { 
+        backgroundColor: '#F5F5F5', // Màu nền xám của khối
+        borderRadius: 20, 
+        padding: 20,
+    },
+    header: { 
+        flexDirection: 'row', 
+        justifyContent: 'space-between', 
+        alignItems: 'center',
+        marginBottom: 20 
+    },
+    headerText: { 
+        fontSize: 12, 
+        color: '#666', 
+        fontWeight: '600' 
+    },
+    progressBarBg: { 
+        flex: 1, 
+        height: 10, 
+        backgroundColor: '#FFF', // Nền trắng cho thanh bar
+        borderRadius: 5, 
+        marginHorizontal: 10,
+        overflow: 'hidden' 
+    },
+    progressBarFill: { 
+        height: '100%', 
+        backgroundColor: '#5E60CE', // Màu tím xanh (Gradient giả lập)
+        borderRadius: 5 
+    },
+    actionItem: { 
+        flexDirection: 'row', 
+        alignItems: 'center', 
+        marginBottom: 18 
+    },
+    checkboxIcon: {
+        marginRight: 12
+    },
+    actionText: { 
+        flex: 1, 
+        fontSize: 14, 
+        color: '#333',
+        fontWeight: '500'
+    },
+    textCompleted: {
+        textDecorationLine: 'line-through',
+        color: '#999'
+    },
+    points: { 
+        fontSize: 12, 
+        fontWeight: 'bold', 
+        color: '#555' 
+    },
 });
 
 export default DailyActions;
