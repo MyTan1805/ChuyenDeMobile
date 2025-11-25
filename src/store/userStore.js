@@ -1,6 +1,11 @@
 import { create } from 'zustand';
 import { auth, db } from '../config/firebaseConfig';
-import { onAuthStateChanged, signInWithEmailAndPassword, signOut } from 'firebase/auth';
+import {
+  onAuthStateChanged,
+  signInWithEmailAndPassword,
+  signOut,
+  signInAnonymously // <-- 1. Import thêm cái này
+} from 'firebase/auth';
 import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
 
 // --- CẤU HÌNH CLOUDINARY ---
@@ -31,9 +36,9 @@ export const useUserStore = create((set, get) => ({
       if (docSnap.exists()) {
         set({ userProfile: docSnap.data(), isLoading: false });
       } else {
-        // Dữ liệu mặc định (Stats = 0)
+        // Dữ liệu mặc định (Nếu là Guest thì email là null -> Lấy tên mặc định)
         const defaultData = {
-          displayName: auth.currentUser?.email?.split('@')[0] || "User Name",
+          displayName: auth.currentUser?.email?.split('@')[0] || "Khách ghé thăm",
           location: "Chưa cập nhật",
           phoneNumber: "",
           photoURL: "",
@@ -69,7 +74,6 @@ export const useUserStore = create((set, get) => ({
       const docRef = doc(db, "users", uid);
       await updateDoc(docRef, data);
 
-      // Cập nhật state local để UI đổi ngay
       set((state) => ({
         userProfile: { ...state.userProfile, ...data }
       }));
@@ -79,25 +83,21 @@ export const useUserStore = create((set, get) => ({
     }
   },
 
-  // --- HÀM UPLOAD MỚI DÙNG CLOUDINARY ---
   uploadAvatar: async (uri) => {
     const uid = auth.currentUser?.uid;
     if (!uid || !uri) return { success: false, error: "No user or URI" };
 
     try {
       console.log("1. Bắt đầu upload lên Cloudinary...");
-
-      // Tạo form data để gửi file
       const formData = new FormData();
       formData.append('file', {
         uri: uri,
-        type: 'image/jpeg', // Hoặc lấy type từ kết quả picker
+        type: 'image/jpeg',
         name: `avatar_${uid}.jpg`,
       });
       formData.append('upload_preset', UPLOAD_PRESET);
       formData.append('cloud_name', CLOUD_NAME);
 
-      // Gọi API Cloudinary
       const response = await fetch(`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`, {
         method: 'POST',
         body: formData,
@@ -111,10 +111,7 @@ export const useUserStore = create((set, get) => ({
 
       if (data.secure_url) {
         console.log("2. Upload thành công:", data.secure_url);
-
-        // Cập nhật link ảnh vào Firestore (Giữ nguyên logic cũ)
         await get().updateUserProfile({ photoURL: data.secure_url });
-
         return { success: true, url: data.secure_url };
       } else {
         console.log("Lỗi Cloudinary:", data);
@@ -130,6 +127,16 @@ export const useUserStore = create((set, get) => ({
   login: async (email, password) => {
     try {
       await signInWithEmailAndPassword(auth, email, password);
+      return { success: true };
+    } catch (error) {
+      return { success: false, error: error };
+    }
+  },
+
+  // --- 2. HÀM ĐĂNG NHẬP KHÁCH MỚI ---
+  loginGuest: async () => {
+    try {
+      await signInAnonymously(auth);
       return { success: true };
     } catch (error) {
       return { success: false, error: error };
