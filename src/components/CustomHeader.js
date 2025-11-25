@@ -1,21 +1,22 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, Platform, StatusBar } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 
-const CustomHeader = ({ 
-    title,                  // Tiêu đề dạng text, vd: "Thông báo"
-    useLogo = false,        // Đặt là true nếu muốn hiển thị logo "EcoMate"
-    showBackButton = false, // Hiển thị nút quay lại
-    showMenuButton = false, // Hiển thị nút menu
-    showNotificationButton = false, // Hiển thị nút chuông
-    onBackPress,            // Hàm tùy chỉnh khi nhấn nút quay lại
-    onMenuPress,            // Hàm tùy chỉnh khi nhấn nút menu
-    onNotificationPress,    // Hàm tùy chỉnh khi nhấn nút chuông
+const CustomHeader = ({
+    title,
+    useLogo = false,
+    showBackButton = false,
+    showMenuButton = false,
+    showNotificationButton = false,
+    showSettingsButton = false, // <-- Mới: Hiển thị nút cài đặt
+    onBackPress,
+    onMenuPress,
+    onNotificationPress,
+    onSettingsPress,        // <-- Mới: Hàm xử lý khi nhấn nút cài đặt
 }) => {
     const navigation = useNavigation();
 
-    // Xử lý sự kiện nhấn nút quay lại mặc định
     const handleBackPress = () => {
         if (onBackPress) {
             onBackPress();
@@ -27,51 +28,71 @@ const CustomHeader = ({
     const renderLeft = () => {
         if (showBackButton) {
             return (
-                <TouchableOpacity onPress={handleBackPress}>
-                    <Ionicons name="arrow-back" size={28} color="black" />
+                <TouchableOpacity onPress={handleBackPress} style={styles.iconButton}>
+                    <Ionicons name="arrow-back" size={28} color="#333" />
                 </TouchableOpacity>
             );
         }
         if (showMenuButton) {
             return (
-                <TouchableOpacity onPress={onMenuPress}>
-                    <Ionicons name="menu" size={32} color="black" />
+                <TouchableOpacity onPress={onMenuPress} style={styles.iconButton}>
+                    <Ionicons name="menu" size={32} color="#333" />
                 </TouchableOpacity>
             );
         }
-        return <View />; // Trả về View rỗng để giữ layout
+        return <View style={styles.placeholder} />;
     };
 
     const renderCenter = () => {
         if (useLogo) {
             return <Text style={styles.logo}>EcoMate</Text>;
         }
-        return <Text style={styles.title}>{title}</Text>;
+        return <Text style={styles.title} numberOfLines={1}>{title}</Text>;
     };
 
     const renderRight = () => {
-        if (showNotificationButton) {
-            return (
-                <TouchableOpacity onPress={onNotificationPress}>
-                    <Ionicons name="notifications-outline" size={26} color="black" />
-                </TouchableOpacity>
-            );
-        }
-        return <View />; // Trả về View rỗng để giữ layout
+        return (
+            <View style={styles.rightContainer}>
+                {showNotificationButton && (
+                    <TouchableOpacity onPress={onNotificationPress} style={styles.iconButton}>
+                        <Ionicons name="notifications-outline" size={26} color="#333" />
+                    </TouchableOpacity>
+                )}
+                {showSettingsButton && (
+                    <TouchableOpacity onPress={onSettingsPress} style={[styles.iconButton, { marginLeft: 10 }]}>
+                        <Ionicons name="settings-outline" size={26} color="#333" />
+                    </TouchableOpacity>
+                )}
+                {!showNotificationButton && !showSettingsButton && <View style={styles.placeholder} />}
+            </View>
+        );
     };
 
     return (
-        <SafeAreaView style={styles.safeArea}>
-            <View style={styles.container}>
-                <View style={styles.leftContainer}>{renderLeft()}</View>
-                <View style={styles.centerContainer}>{renderCenter()}</View>
-                <View style={styles.rightContainer}>{renderRight()}</View>
-            </View>
-        </SafeAreaView>
+        <View style={styles.safeAreaWrapper}>
+            <SafeAreaView style={styles.safeArea}>
+                <View style={styles.container}>
+                    <View style={styles.leftWrapper}>{renderLeft()}</View>
+                    <View style={styles.centerWrapper}>{renderCenter()}</View>
+                    <View style={styles.rightWrapper}>{renderRight()}</View>
+                </View>
+            </SafeAreaView>
+        </View>
     );
 };
 
 const styles = StyleSheet.create({
+    safeAreaWrapper: {
+        backgroundColor: 'white',
+        // Xử lý bóng đổ nhẹ cho header tách biệt nội dung
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.05,
+        shadowRadius: 2,
+        elevation: 3,
+        zIndex: 10,
+        paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0, // Tránh tai thỏ Android
+    },
     safeArea: {
         backgroundColor: 'white',
     },
@@ -81,36 +102,41 @@ const styles = StyleSheet.create({
         justifyContent: 'space-between',
         height: 60,
         paddingHorizontal: 16,
-        backgroundColor: 'white',
-        borderBottomWidth: 1,
-        borderBottomColor: '#f0f0f0',
     },
-    leftContainer: {
+    leftWrapper: {
         flex: 1,
-        justifyContent: 'flex-start',
         alignItems: 'flex-start',
     },
-    centerContainer: {
-        flex: 2,
-        justifyContent: 'center',
+    centerWrapper: {
+        flex: 3,
         alignItems: 'center',
+        justifyContent: 'center',
+    },
+    rightWrapper: {
+        flex: 1,
+        alignItems: 'flex-end',
     },
     rightContainer: {
-        flex: 1,
-        justifyContent: 'flex-end',
-        alignItems: 'flex-end',
+        flexDirection: 'row',
+        alignItems: 'center',
     },
     title: {
         fontSize: 20,
-        fontWeight: 'bold',
         color: '#333',
-        fontFamily: 'Nunito-Bold', // Sử dụng font bạn đã import
+        fontFamily: 'Nunito-Bold',
+        textAlign: 'center',
     },
     logo: {
         fontSize: 26,
-        color: 'black',
-        fontFamily: 'LogoFont', 
+        color: '#2F847C', // Dùng màu thương hiệu
+        fontFamily: 'LogoFont',
     },
+    iconButton: {
+        padding: 4,
+    },
+    placeholder: {
+        width: 28,
+    }
 });
 
 export default CustomHeader;

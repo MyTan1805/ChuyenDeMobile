@@ -14,24 +14,25 @@ import LoginScreen from '@/features/auth/screens/LoginScreen';
 import RegisterScreen from '@/features/auth/screens/RegisterScreen';
 import ForgotPasswordScreen from '@/features/auth/screens/ForgetPasswordScreen';
 
-// Luồng Chính - Sử dụng tên màn hình gốc của bạn
+// Luồng Chính
 import HomeScreen from '@/features/aqi/screens/HomeScreen';
 import CommunityScreen from '@/features/community/screens/CommunityScreen';
 import PostScreen from '@/features/community/screens/PostScreen';
 import StoreScreen from '@/features/gamification/screens/StoreScreen';
 import ProfileScreen from '@/features/profile/screens/ProfileScreen';
+// 👇 1. THÊM IMPORT EDIT PROFILE
+import EditProfileScreen from '@/features/profile/screens/EditProfileScreen';
 
 // ----- CÁC COMPONENT TÙY CHỈNH -----
-import CustomTabBar from '@/components/CustomTabBar'; 
-
+import CustomTabBar from '@/components/CustomTabBar';
 
 const AuthStack = createStackNavigator();
 const MainTab = createBottomTabNavigator();
+const MainStack = createStackNavigator(); // 👇 2. TẠO THÊM STACK CHO LUỒNG CHÍNH
 
 // ============================================================================
-// CÁC LUỒNG ĐIỀU HƯỚNG (NAVIGATORS)
+// 1. LUỒNG XÁC THỰC (AUTH NAVIGATOR)
 // ============================================================================
-
 function AuthNavigator() {
   return (
     <AuthStack.Navigator screenOptions={{ headerShown: false }}>
@@ -43,9 +44,9 @@ function AuthNavigator() {
   );
 }
 
-/**
- * Luồng chính của ứng dụng sau khi đăng nhập, sử dụng Bottom Tab.
- */
+// ============================================================================
+// 2. LUỒNG TAB CHÍNH (MAIN TAB NAVIGATOR)
+// ============================================================================
 function MainTabNavigator() {
   return (
     <MainTab.Navigator tabBar={(props) => <CustomTabBar {...props} />}>
@@ -59,14 +60,30 @@ function MainTabNavigator() {
 }
 
 // ============================================================================
+// 3. LUỒNG STACK CHÍNH (Bao bọc Tab + Các màn hình con như EditProfile)
+// ============================================================================
+// 👇 Hàm này mới thêm vào để xử lý EditProfile
+function MainNavigator() {
+  return (
+    <MainStack.Navigator screenOptions={{ headerShown: false }}>
+      {/* Màn hình mặc định là Tab Bar */}
+      <MainStack.Screen name="MainTabs" component={MainTabNavigator} />
+
+      {/* Các màn hình con khác (sẽ đè lên Tab Bar) */}
+      <MainStack.Screen name="EditProfile" component={EditProfileScreen} />
+    </MainStack.Navigator>
+  );
+}
+
+// ============================================================================
 // COMPONENT ĐIỀU HƯỚNG GỐC
 // ============================================================================
 export default function AppNavigator() {
   const { user, isLoading, checkAuthState } = useUserStore((state) => state);
-  
+
   useEffect(() => {
     const unsubscribe = checkAuthState();
-    return () => unsubscribe(); 
+    return () => unsubscribe();
   }, [checkAuthState]);
 
   if (isLoading) {
@@ -79,7 +96,8 @@ export default function AppNavigator() {
 
   return (
     <NavigationContainer>
-      {user ? <MainTabNavigator /> : <AuthNavigator />}
+      {/* 👇 Thay MainTabNavigator bằng MainNavigator mới tạo */}
+      {user ? <MainNavigator /> : <AuthNavigator />}
     </NavigationContainer>
   );
 }
