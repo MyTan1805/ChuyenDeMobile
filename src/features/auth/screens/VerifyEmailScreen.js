@@ -5,7 +5,7 @@ import { View, ImageBackground, Text, StyleSheet, SafeAreaView, ScrollView, Touc
 const AuthHeader = () => (
     <ImageBackground
         style={styles.headerBackground}
-        source={require('@images/header.jpg')}
+        source={require('@/assets/images/header.jpg')}
         resizeMode="cover"
     >
         <Text style={styles.headerTitle}>ECOMATE</Text>
