@@ -1,4 +1,4 @@
-import React, { useState, useContext } from 'react';
+import React, { useState } from 'react';
 import {
     View,
     ImageBackground,
@@ -12,9 +12,11 @@ import {
     Alert
 } from 'react-native';
 import { Svg, Path } from 'react-native-svg';
-import { useUserStore } from '../../../store/userStore'; 
-import { AuthContext } from '@/context/AuthContext';
 import { useNavigation } from '@react-navigation/native';
+
+// --- THAY VÌ DÙNG CONTEXT, GỌI TRỰC TIẾP FIREBASE ---
+import { auth } from '../../../config/firebaseConfig'; 
+import { sendPasswordResetEmail } from 'firebase/auth';
 
 const CustomTextInput = ({ placeholder, icon, value, onChangeText }) => (
     <View style={styles.inputContainer}>
@@ -32,7 +34,7 @@ const CustomTextInput = ({ placeholder, icon, value, onChangeText }) => (
 );
 
 const AuthHeader = () => (
-    <ImageBackground style={styles.headerBackground} source={require('@/assets/images/header.jpg')} resizeMode="cover">
+    <ImageBackground style={styles.headerBackground} source={require('../../../assets/images/header.jpg')} resizeMode="cover">
         <Text style={styles.headerTitle}>ECOMATE</Text>
     </ImageBackground>
 );
@@ -50,7 +52,6 @@ export default function ForgetPasswordScreen() {
     const navigation = useNavigation();
     const [email, setEmail] = useState('');
     const [loading, setLoading] = useState(false);
-    const { resetPassword } = useContext(AuthContext);
 
     const handleResetPassword = async () => {
         if (!email.trim()) {
@@ -60,27 +61,25 @@ export default function ForgetPasswordScreen() {
 
         setLoading(true);
         try {
-            await resetPassword(email.trim());
+            // Gọi hàm gửi mail trực tiếp từ Firebase
+            await sendPasswordResetEmail(auth, email.trim());
+            
             Alert.alert(
                 "Thành công",
-                "Link đổi mật khẩu đã gửi tới email. Vui lòng kiểm tra và đổi mật khẩu trên trình duyệt.",
+                "Link đổi mật khẩu đã gửi tới email. Vui lòng kiểm tra hòm thư.",
                 [
                     {
                         text: "OK",
-                        onPress: () => navigation.navigate("VerifyEmail", { email: email.trim(), type: 'resetPassword' })
+                        onPress: () => navigation.navigate("Login")
                     }
                 ]
             );
         } catch (error) {
-            let friendlyMessage = "Đã xảy ra lỗi không xác định. Vui lòng thử lại.";
-            switch (error?.code) {
-                case 'auth/user-not-found':
-                    friendlyMessage = "Không tìm thấy người dùng nào với địa chỉ email này.";
-                    break;
-                case 'auth/invalid-email':
-                    friendlyMessage = "Địa chỉ email không hợp lệ.";
-                    break;
-            }
+            let friendlyMessage = "Đã xảy ra lỗi. Vui lòng thử lại.";
+            // Xử lý các mã lỗi phổ biến
+            if (error.code === 'auth/user-not-found') friendlyMessage = "Email này chưa đăng ký tài khoản.";
+            if (error.code === 'auth/invalid-email') friendlyMessage = "Email không hợp lệ.";
+            
             console.log("Reset Password Error:", error);
             Alert.alert("Thất bại", friendlyMessage);
         } finally {

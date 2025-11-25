@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { auth, db } from '../config/firebaseConfig';
+import { auth, db, storage } from '../config/firebaseConfig';
 import {
   onAuthStateChanged,
   signInWithEmailAndPassword,
@@ -7,6 +7,8 @@ import {
   signInAnonymously // <-- 1. Import thêm cái này
 } from 'firebase/auth';
 import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { sendPasswordResetEmail } from 'firebase/auth';
 
 // --- CẤU HÌNH CLOUDINARY ---
 const CLOUD_NAME = "dqpyrygyu";
