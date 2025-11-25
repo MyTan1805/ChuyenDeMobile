@@ -15,6 +15,8 @@ const HomeStackNavigator = () => {
       
       {/* Màn hình Chi tiết */}
       <Stack.Screen name="AqiDetail" component={AqiDetailScreen} />
+
+      
     </Stack.Navigator>
   );
 };

@@ -7,9 +7,12 @@ const { onCall, HttpsError } = require("firebase-functions/v2/https");
 const { defineSecret } = require("firebase-functions/params");
 const axios = require("axios");
 
+const { GoogleGenerativeAI } = require("@google/generative-ai");
+
 // 1. Khai báo Secret (Key bảo mật)
 // Bạn phải đã chạy lệnh: firebase functions:secrets:set OPENWEATHER_API_KEY
 const openWeatherApiKey = defineSecret("OPENWEATHER_API_KEY");
+const geminiApiKey = defineSecret("GEMINI_API_KEY");
 
 // 2. Định nghĩa Cloud Function 'getAqiData'
 exports.getAqiData = onCall(
@@ -96,6 +99,56 @@ exports.getAqiHistory = onCall(
     } catch (error) {
       console.error("Lỗi History:", error.message);
       throw new HttpsError("internal", "Lỗi lấy dữ liệu lịch sử.");
+    }
+  }
+);
+
+exports.chatWithAI = onCall(
+  {
+    region: "asia-southeast1",
+    secrets: [geminiApiKey],
+    timeoutSeconds: 60, // Tăng thời gian chờ vì AI cần suy nghĩ
+    cors: true,
+  },
+  async (request) => {
+    const { message } = request.data;
+
+    if (!message) {
+      throw new HttpsError("invalid-argument", "Tin nhắn không được để trống.");
+    }
+
+    try {
+      // Kết nối với Google AI
+      const apiKey = geminiApiKey.value();
+      const genAI = new GoogleGenerativeAI(apiKey);
+      const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+
+      // Cấu hình "Tính cách" cho AI (System Instruction)
+      // Đây là chỗ quan trọng để AI biết nó là trợ lý môi trường (FR-5.1)
+      const prompt = `
+        Bạn là EcoBot, một trợ lý ảo thân thiện của ứng dụng EcoMate.
+        Nhiệm vụ của bạn là trả lời các câu hỏi về:
+        - Bảo vệ môi trường, sống xanh.
+        - Cách phân loại rác thải chi tiết.
+        - Luật bảo vệ môi trường tại Việt Nam.
+        
+        Quy tắc:
+        - Trả lời ngắn gọn, xúc tích, dễ hiểu.
+        - Dùng nhiều emoji (🌱, ♻️, 🌍) để thân thiện.
+        - Nếu người dùng hỏi chủ đề khác (như chính trị, toán học...), hãy từ chối khéo và lái về môi trường.
+
+        Người dùng hỏi: "${message}"
+      `;
+
+      const result = await model.generateContent(prompt);
+      const response = await result.response;
+      const text = response.text();
+
+      return { text: text };
+
+    } catch (error) {
+      console.error("Lỗi Gemini:", error);
+      throw new HttpsError("internal", "EcoBot đang bận, vui lòng thử lại sau.");
     }
   }
 );

@@ -7,14 +7,14 @@ const shortcuts = [
     { label: 'Báo cáo vi phạm', screen: 'Report', icon: 'alert-circle-outline' },
     { label: 'Phân loại rác', screen: 'Recycle', icon: 'trash-can-outline' },
     { label: 'AI Chatbot', screen: 'Chatbot', icon: 'robot-happy-outline' },
-    { label: 'Bản đồ MT', screen: 'Map', icon: 'map-outline' }, // Viết tắt cho gọn
+    { label: 'Bản đồ MT', screen: 'Map', icon: 'map-outline' }, 
     { label: 'Huy hiệu', screen: 'Profile', icon: 'medal-outline' },
     { label: 'Hướng dẫn', screen: 'Guide', icon: 'book-open-variant' },
 ];
 
-const AppShortcuts = ({ navigation }) => { 
-    // Nhận navigation từ props hoặc dùng hook đều được
-    // const nav = useNavigation(); 
+// 2. Bỏ prop { navigation } đi, ta dùng hook bên trong
+const AppShortcuts = () => { 
+    const navigation = useNavigation(); 
 
     return (
         <View style={styles.grid}>
@@ -22,9 +22,12 @@ const AppShortcuts = ({ navigation }) => {
                 <TouchableOpacity 
                     key={index} 
                     style={styles.item}
-                    onPress={() => navigation && navigation.navigate(item.screen)}
+                    onPress={() => {
+                        // Thêm log để kiểm tra
+                        console.log("Navigating to:", item.screen);
+                        navigation.navigate(item.screen);
+                    }}
                 >
-                    {/* Icon Box */}
                     <View style={styles.iconBox}>
                         <MaterialCommunityIcons name={item.icon} size={28} color="#555" />
                     </View>
@@ -45,8 +48,8 @@ const styles = StyleSheet.create({
     item: {
         width: '31%', 
         aspectRatio: 1, 
-        backgroundColor: '#F0F0F0', // Màu nền xám
-        borderRadius: 20, // Bo góc to
+        backgroundColor: '#F0F0F0', 
+        borderRadius: 20, 
         justifyContent: 'center',
         alignItems: 'center',
         marginBottom: 15,
