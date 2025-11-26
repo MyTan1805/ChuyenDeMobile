@@ -5,6 +5,19 @@ import { createStackNavigator } from '@react-navigation/stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import * as Linking from 'expo-linking';
 
+// ----- IMPORT CÁC MÀN HÌNH SETTING -----
+import SettingsScreen from '@/features/settings/screens/SettingsScreen';
+import AccountManagementScreen from '@/features/settings/screens/AccountManagementScreen';
+import ChangePasswordScreen from '@/features/settings/screens/ChangePasswordScreen';
+import NotificationSettingsScreen from '@/features/settings/screens/NotificationSettingsScreen';
+import AQISettingsScreen from '@/features/settings/screens/AQISettingsScreen';
+import PrivacyLocationScreen from '@/features/settings/screens/PrivacyLocationScreen';
+import ReportHistoryScreen from '@/features/settings/screens/ReportHistoryScreen';
+import ChatbotHistoryScreen from '@/features/settings/screens/ChatbotHistoryScreen';
+import AboutScreen from '@/features/settings/screens/AboutScreen';
+import TermsScreen from '@/features/settings/screens/TermsScreen';
+import PrivacyScreen from '@/features/settings/screens/PrivacyScreen';
+
 // ----- QUẢN LÝ TRẠNG THÁI -----
 import { useUserStore } from '@/store/userStore';
 
@@ -14,7 +27,6 @@ import LoginScreen from '@/features/auth/screens/LoginScreen';
 import RegisterScreen from '@/features/auth/screens/RegisterScreen';
 import ForgotPasswordScreen from '@/features/auth/screens/ForgetPasswordScreen';
 import VerifyEmailScreen from '@/features/auth/screens/VerifyEmailScreen';
-// ĐÃ XOÁ: import NewPasswordScreen...
 
 // ----- CÁC MÀN HÌNH CHÍNH -----
 import HomeScreen from '@/features/aqi/screens/HomeScreen';
@@ -30,6 +42,7 @@ import CustomTabBar from '@/components/CustomTabBar';
 const AuthStack = createStackNavigator();
 const MainTab = createBottomTabNavigator();
 const MainStack = createStackNavigator();
+const VerifyStack = createStackNavigator();
 
 const prefix = Linking.createURL('/');
 
@@ -41,9 +54,9 @@ const linking = {
   ],
   config: {
     screens: {
+      // Cấu hình Deep Link
       AuthFlow: {
         screens: {
-          // ĐÃ XOÁ: Cấu hình NewPassword ở đây để app không chặn link reset nữa
           VerifyEmail: {
             path: 'verify-email',
             parse: {
@@ -53,36 +66,44 @@ const linking = {
           },
         },
       },
+      VerifyEmailCheck: {
+        path: 'verify-email-check',
+        parse: {
+          oobCode: (oobCode) => oobCode,
+          mode: (mode) => mode,
+        },
+      }
     },
   },
-  // Giữ lại logic xử lý verifyEmail, nhưng bỏ resetPassword
   getStateFromPath: (path, options) => {
     const url = Linking.parse(path);
-
     if (url.queryParams?.mode) {
       const { mode, oobCode } = url.queryParams;
-
-      // Nếu là verify email thì mở app vào màn hình VerifyEmail
       if (mode === 'verifyEmail') {
         return {
           routes: [
             {
-              name: 'VerifyEmail',
-              params: { oobCode, type: 'emailVerification' } // Bỏ AuthFlow wrapper nếu không cần thiết hoặc giữ nguyên cấu trúc cũ của bạn
+              name: 'VerifyEmailCheck',
+              params: { oobCode, type: 'emailVerification' }
             },
           ],
         };
       }
-
-      // ĐÃ XOÁ: Logic check mode === 'resetPassword' để không mở app
     }
-
     return options.getStateFromPath(path, options);
   },
 };
 
-// 1. NAVIGATOR XÁC THỰC
+// 1. NAVIGATOR XÁC THỰC (Chưa login)
 function AuthNavigator() {
+  return (
+    <AuthStack.Navigator screenOptions={{ headerShown: false }}>
+      <AuthStack.Screen name="AuthFlow" component={AuthFlowGroup} />
+    </AuthStack.Navigator>
+  );
+}
+
+function AuthFlowGroup() {
   return (
     <AuthStack.Navigator screenOptions={{ headerShown: false }}>
       <AuthStack.Screen name="Welcome" component={WelcomeScreen} />
@@ -90,13 +111,24 @@ function AuthNavigator() {
       <AuthStack.Screen name="Register" component={RegisterScreen} />
       <AuthStack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
       <AuthStack.Screen name="VerifyEmail" component={VerifyEmailScreen} />
-      {/* ĐÃ XOÁ: AuthStack.Screen name="NewPassword" */}
     </AuthStack.Navigator>
-  );
+  )
 }
 
-// ... (Giữ nguyên MainTabNavigator, MainNavigator, AppNavigator như cũ)
-// Chỉ cần đảm bảo bỏ NewPasswordScreen ở import và AuthNavigator
+// 2. NAVIGATOR XÁC NHẬN EMAIL (Đã login nhưng chưa xác thực và KHÔNG phải khách)
+function VerifyNavigator() {
+  return (
+    <VerifyStack.Navigator screenOptions={{ headerShown: false }}>
+      <VerifyStack.Screen
+        name="VerifyEmailCheck"
+        component={VerifyEmailScreen}
+        initialParams={{ type: 'emailVerification' }}
+      />
+    </VerifyStack.Navigator>
+  )
+}
+
+// 3. NAVIGATOR CHÍNH (Tab Bar)
 function MainTabNavigator() {
   return (
     <MainTab.Navigator tabBar={(props) => <CustomTabBar {...props} />}>
@@ -109,11 +141,26 @@ function MainTabNavigator() {
   );
 }
 
+// Stack chứa Tab Bar và các màn hình con khác
 function MainNavigator() {
   return (
     <MainStack.Navigator screenOptions={{ headerShown: false }}>
       <MainStack.Screen name="MainTabs" component={MainTabNavigator} />
       <MainStack.Screen name="EditProfile" component={EditProfileScreen} />
+
+      {/* Nhóm Setting */}
+      <MainStack.Screen name="Settings" component={SettingsScreen} />
+      <MainStack.Screen name="AccountManagement" component={AccountManagementScreen} />
+      <MainStack.Screen name="ChangePasswordSettings" component={ChangePasswordScreen} />
+      <MainStack.Screen name="NotificationSettings" component={NotificationSettingsScreen} />
+      <MainStack.Screen name="AQISettings" component={AQISettingsScreen} />
+      <MainStack.Screen name="PrivacyLocation" component={PrivacyLocationScreen} />
+      <MainStack.Screen name="ReportHistory" component={ReportHistoryScreen} />
+      <MainStack.Screen name="ChatbotHistory" component={ChatbotHistoryScreen} />
+
+      <MainStack.Screen name="AboutApp" component={AboutScreen} />
+      <MainStack.Screen name="TermsOfService" component={TermsScreen} />
+      <MainStack.Screen name="PrivacyPolicy" component={PrivacyScreen} />
     </MainStack.Navigator>
   );
 }
@@ -136,7 +183,19 @@ export default function AppNavigator() {
 
   return (
     <NavigationContainer linking={linking} fallback={<ActivityIndicator size="large" />}>
-      {user ? <MainNavigator /> : <AuthNavigator />}
+      {
+        !user ? (
+          // Case 1: Chưa đăng nhập -> Hiện Auth
+          <AuthNavigator />
+        ) : (user.emailVerified || user.isAnonymous) ? (
+          // Case 2: (Đã xác thực) HOẶC (Là khách) -> Vào Main
+          // Đây là chỗ sửa quan trọng nhất: thêm user.isAnonymous
+          <MainNavigator />
+        ) : (
+          // Case 3: Đã đăng nhập, chưa xác thực, KHÔNG phải khách -> Bắt xác thực
+          <VerifyNavigator />
+        )
+      }
     </NavigationContainer>
   );
 }

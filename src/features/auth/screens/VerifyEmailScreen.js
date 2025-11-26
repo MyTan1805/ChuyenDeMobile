@@ -1,6 +1,9 @@
-import React, { useContext } from 'react';
-import { View, ImageBackground, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity, Alert } from 'react-native';
-import { AuthContext } from '@/context/AuthContext';
+import React, { useEffect, useState } from 'react';
+import {
+    View, ImageBackground, Text, StyleSheet, SafeAreaView, ScrollView,
+    TouchableOpacity, Alert, AppState, ActivityIndicator
+} from 'react-native';
+import { useUserStore } from '@/store/userStore';
 import { useNavigation, useRoute } from '@react-navigation/native';
 
 const AuthHeader = () => (
@@ -16,31 +19,65 @@ const AuthHeader = () => (
 export default function VerifyEmailScreen() {
     const navigation = useNavigation();
     const route = useRoute();
-    const { resetPassword, sendVerification, user } = useContext(AuthContext);
 
-    // Nhận params từ màn hình trước
+    const { checkVerificationStatus, sendVerification, resetPassword, logout } = useUserStore();
+    const [checking, setChecking] = useState(false);
+
     const { email, type } = route.params || {};
+
+    // Logic kiểm tra verify
+    const handleCheckVerification = async () => {
+        setChecking(true);
+        const isVerified = await checkVerificationStatus();
+        setChecking(false);
+
+        if (isVerified) {
+            // Nếu verify thành công, AppNavigator sẽ tự chuyển sang MainStack
+            // Không cần navigate thủ công
+        } else {
+            // Alert.alert("Chưa xác thực", "Vui lòng kiểm tra email và ấn link xác nhận.");
+        }
+    };
+
+    // Tự động kiểm tra khi app quay lại từ background (sau khi user check mail xong)
+    useEffect(() => {
+        const handleAppStateChange = async (nextAppState) => {
+            if (nextAppState === 'active' && type === 'emailVerification') {
+                await handleCheckVerification();
+            }
+        };
+
+        const subscription = AppState.addEventListener('change', handleAppStateChange);
+        return () => subscription.remove();
+    }, []);
 
     const handleResend = async () => {
         try {
             if (type === 'resetPassword') {
                 await resetPassword(email);
-                Alert.alert("Thành công", "Email đã được gửi lại!");
-            } else if (type === 'emailVerification') {
-                await sendVerification(user);
-                Alert.alert("Thành công", "Email xác nhận đã được gửi lại!");
+                Alert.alert("Đã gửi lại", "Link đặt lại mật khẩu đã được gửi.");
+            } else {
+                await sendVerification();
+                Alert.alert("Đã gửi lại", "Email xác nhận đã được gửi.");
             }
         } catch (error) {
-            Alert.alert("Lỗi", "Không thể gửi lại email. Vui lòng thử lại sau.");
+            Alert.alert("Lỗi", "Vui lòng thử lại sau ít phút.");
         }
+    };
+
+    const handleLogout = async () => {
+        await logout();
+        // AppNavigator tự chuyển về màn Login
     };
 
     const getMessage = () => {
         if (type === 'resetPassword') {
-            return `Chúng tôi đã gửi một liên kết đặt lại mật khẩu đến ${email}. Vui lòng kiểm tra hộp thư, nhấn vào link để đổi mật khẩu, sau đó quay lại đây để đăng nhập.`;
+            return `Chúng tôi đã gửi link reset password tới ${email}. Vui lòng kiểm tra.`;
         }
-        return `Chúng tôi đã gửi email xác nhận đến ${email}. Vui lòng kiểm tra hộp thư và xác nhận tài khoản của bạn.`;
+        return `Chúng tôi đã gửi email xác nhận. Vui lòng kiểm tra hộp thư, ấn vào link xác nhận, sau đó quay lại đây.`;
     };
+
+    const isVerifyFlow = type === 'emailVerification';
 
     return (
         <SafeAreaView style={styles.safeArea}>
@@ -55,15 +92,34 @@ export default function VerifyEmailScreen() {
                         <Text style={styles.messageText}>{getMessage()}</Text>
                     </View>
 
-                    {/* --- SỬA LOGIC NÚT BẤM --- */}
-                    <TouchableOpacity
-                        style={styles.button}
-                        onPress={() => navigation.navigate('Login')} // Luôn quay về Login
-                    >
-                        <Text style={styles.buttonText}>
-                            Quay lại Đăng nhập
-                        </Text>
-                    </TouchableOpacity>
+                    {/* Nút xác nhận thủ công (cho trường hợp AppState chưa kịp bắt) */}
+                    {isVerifyFlow && (
+                        <TouchableOpacity
+                            style={styles.button}
+                            onPress={handleCheckVerification}
+                            disabled={checking}
+                        >
+                            {checking ? (
+                                <ActivityIndicator color="#fff" />
+                            ) : (
+                                <Text style={styles.buttonText}>Tôi đã xác nhận</Text>
+                            )}
+                        </TouchableOpacity>
+                    )}
+
+                    {/* Nút quay lại / Đăng xuất */}
+                    {isVerifyFlow ? (
+                        <TouchableOpacity onPress={handleLogout} style={{ marginTop: 20 }}>
+                            <Text style={styles.link}>Đăng nhập tài khoản khác</Text>
+                        </TouchableOpacity>
+                    ) : (
+                        <TouchableOpacity
+                            style={styles.button}
+                            onPress={() => navigation.navigate('Login')}
+                        >
+                            <Text style={styles.buttonText}>Quay lại Đăng nhập</Text>
+                        </TouchableOpacity>
+                    )}
 
                     <View style={styles.linkContainer}>
                         <Text style={styles.bottomText}>{"Chưa nhận được email? "}</Text>
@@ -88,7 +144,7 @@ const styles = StyleSheet.create({
     messageText: { fontFamily: 'Inter-Regular', fontSize: 17, color: '#000', textAlign: 'center', lineHeight: 24 },
     button: { backgroundColor: "#2F847C", borderRadius: 20, paddingVertical: 13, width: '100%', alignItems: 'center', elevation: 5, marginBottom: 30 },
     buttonText: { color: "#FFFFFF", fontSize: 20, fontFamily: 'Inter-Bold' },
-    linkContainer: { flexDirection: 'row' },
+    linkContainer: { flexDirection: 'row', marginTop: 10 },
     bottomText: { fontFamily: 'Inter-Regular', fontSize: 15, color: '#000' },
-    link: { fontFamily: 'Inter-Bold', textDecorationLine: 'underline' }
+    link: { fontFamily: 'Inter-Bold', textDecorationLine: 'underline', color: '#555' }
 });
