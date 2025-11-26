@@ -1,3 +1,4 @@
+// src/store/userStore.js
 import { create } from 'zustand';
 import { auth, db, storage } from '../config/firebaseConfig';
 import {
@@ -7,6 +8,7 @@ import {
   signInAnonymously // <-- 1. Import thêm cái này
 } from 'firebase/auth';
 import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
+
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { sendPasswordResetEmail } from 'firebase/auth';
 
@@ -66,6 +68,37 @@ export const useUserStore = create((set, get) => ({
     } catch (error) {
       console.error("Lỗi lấy profile:", error);
       set({ isLoading: false });
+    }
+  },
+
+  // HÀM MỚI: Cập nhật điểm cho người dùng
+  addPointsToUser: async (pointsToAdd) => {
+    const uid = auth.currentUser?.uid;
+    if (!uid) return { success: false, error: "User not authenticated" };
+
+    try {
+      const docRef = doc(db, "users", uid);
+      
+      // Sử dụng increment để cập nhật số điểm một cách an toàn
+      await updateDoc(docRef, {
+        "stats.points": increment(pointsToAdd)
+      });
+
+      // Cập nhật state local ngay lập tức
+      set((state) => ({
+        userProfile: {
+          ...state.userProfile,
+          stats: {
+            ...state.userProfile.stats,
+            points: (state.userProfile.stats.points || 0) + pointsToAdd
+          }
+        }
+      }));
+
+      return { success: true };
+    } catch (error) {
+      console.error("Lỗi cộng điểm:", error);
+      return { success: false, error: error.message };
     }
   },
 
