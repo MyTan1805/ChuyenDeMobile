@@ -1,21 +1,23 @@
-import React, { useState, useContext } from 'react';
-import { 
-    View, 
-    ImageBackground, 
-    Text, 
-    StyleSheet, 
-    SafeAreaView, 
-    ScrollView, 
-    TextInput, 
+import React, { useState } from 'react';
+import {
+    View,
+    ImageBackground,
+    Text,
+    StyleSheet,
+    SafeAreaView,
+    ScrollView,
+    TextInput,
     TouchableOpacity,
-    ActivityIndicator, // Thêm
-    Alert              // Thêm
+    ActivityIndicator,
+    Alert
 } from 'react-native';
 import { Svg, Path } from 'react-native-svg';
-import { AuthContext } from '@/context/AuthContext'; // Import Context
 import { useNavigation } from '@react-navigation/native';
 
-// Component Input tái sử dụng
+// --- THAY VÌ DÙNG CONTEXT, GỌI TRỰC TIẾP FIREBASE ---
+import { auth } from '../../../config/firebaseConfig'; 
+import { sendPasswordResetEmail } from 'firebase/auth';
+
 const CustomTextInput = ({ placeholder, icon, value, onChangeText }) => (
     <View style={styles.inputContainer}>
         <View style={styles.icon}>{icon}</View>
@@ -31,53 +33,53 @@ const CustomTextInput = ({ placeholder, icon, value, onChangeText }) => (
     </View>
 );
 
-// Component Header tái sử dụng
 const AuthHeader = () => (
-    <ImageBackground style={styles.headerBackground} source={require('@/assets/images/header.jpg')} resizeMode="cover">
+    <ImageBackground style={styles.headerBackground} source={require('../../../assets/images/header.jpg')} resizeMode="cover">
         <Text style={styles.headerTitle}>ECOMATE</Text>
     </ImageBackground>
 );
 
-// Component Nút Quay Lại
 const BackButton = ({ onPress }) => (
     <TouchableOpacity onPress={onPress} style={styles.backButton}>
-        <Svg width="20" height="20" viewBox="0 0 20 20" fill="none"><Path d="M12.5 16.6667L5.83333 10L12.5 3.33333" stroke="black" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></Svg>
+        <Svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+            <Path d="M12.5 16.6667L5.83333 10L12.5 3.33333" stroke="black" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+        </Svg>
         <Text style={styles.backButtonText}>Quay lại Đăng nhập</Text>
     </TouchableOpacity>
 );
 
 export default function ForgetPasswordScreen() {
-    const navigation = useNavigation(); 
-    
+    const navigation = useNavigation();
     const [email, setEmail] = useState('');
     const [loading, setLoading] = useState(false);
 
-    const { resetPassword } = useUserStore();
-
     const handleResetPassword = async () => {
-        if (!email.trim()) { 
+        if (!email.trim()) {
             Alert.alert("Lỗi", "Vui lòng nhập email của bạn.");
             return;
         }
 
         setLoading(true);
         try {
-            await resetPassword(email.trim());
+            // Gọi hàm gửi mail trực tiếp từ Firebase
+            await sendPasswordResetEmail(auth, email.trim());
+            
             Alert.alert(
-                "Thành công", 
-                "Một liên kết đặt lại mật khẩu đã được gửi đến email của bạn. Vui lòng kiểm tra hộp thư.",
-                [{ text: "OK", onPress: () => navigation.navigate("Login") }]
+                "Thành công",
+                "Link đổi mật khẩu đã gửi tới email. Vui lòng kiểm tra hòm thư.",
+                [
+                    {
+                        text: "OK",
+                        onPress: () => navigation.navigate("Login")
+                    }
+                ]
             );
         } catch (error) {
-            let friendlyMessage = "Đã xảy ra lỗi không xác định. Vui lòng thử lại.";
-            switch (error?.code) {
-                case 'auth/user-not-found':
-                    friendlyMessage = "Không tìm thấy người dùng nào với địa chỉ email này.";
-                    break;
-                case 'auth/invalid-email':
-                    friendlyMessage = "Địa chỉ email không hợp lệ.";
-                    break;
-            }
+            let friendlyMessage = "Đã xảy ra lỗi. Vui lòng thử lại.";
+            // Xử lý các mã lỗi phổ biến
+            if (error.code === 'auth/user-not-found') friendlyMessage = "Email này chưa đăng ký tài khoản.";
+            if (error.code === 'auth/invalid-email') friendlyMessage = "Email không hợp lệ.";
+            
             console.log("Reset Password Error:", error);
             Alert.alert("Thất bại", friendlyMessage);
         } finally {
@@ -114,7 +116,6 @@ export default function ForgetPasswordScreen() {
     );
 }
 
-// Styles (Giữ nguyên)
 const styles = StyleSheet.create({
     safeArea: { flex: 1, backgroundColor: '#fff' },
     scrollView: { flexGrow: 1, backgroundColor: '#fff' },

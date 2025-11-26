@@ -1,21 +1,20 @@
 import React, { useState, useContext } from 'react';
-import { 
-    View, 
-    ImageBackground, 
-    Text, 
-    StyleSheet, 
-    SafeAreaView, 
-    ScrollView, 
-    TextInput, 
-    TouchableOpacity, 
+import {
+    View,
+    ImageBackground,
+    Text,
+    StyleSheet,
+    SafeAreaView,
+    ScrollView,
+    TextInput,
+    TouchableOpacity,
     Image,
-    ActivityIndicator, // Thêm để hiển thị loading
-    Alert              // Thêm để hiển thị thông báo
+    ActivityIndicator,
+    Alert
 } from 'react-native';
 import { Svg, Path } from 'react-native-svg';
-import { AuthContext } from '@/context/AuthContext'; // Import Context
+import { AuthContext } from '@/context/AuthContext';
 
-// Component Input tái sử dụng (Giữ nguyên)
 const CustomTextInput = ({ placeholder, icon, secureTextEntry = false, value, onChangeText }) => (
     <View style={styles.inputContainer}>
         <View style={styles.icon}>{icon}</View>
@@ -26,16 +25,15 @@ const CustomTextInput = ({ placeholder, icon, secureTextEntry = false, value, on
             secureTextEntry={secureTextEntry}
             value={value}
             onChangeText={onChangeText}
-            autoCapitalize="none" // Tắt tự động viết hoa cho email
+            autoCapitalize="none"
         />
     </View>
 );
 
-// Component Header tái sử dụng (Giữ nguyên)
 const AuthHeader = () => (
     <ImageBackground
         style={styles.headerBackground}
-        source={require('@/assets/images/header.jpg')}
+        source={require('../../../assets/images/header.jpg')}
         resizeMode="cover"
     >
         <Text style={styles.headerTitle}>ECOMATE</Text>
@@ -46,12 +44,9 @@ export default function RegisterScreen({ navigation }) {
     const [name, setName] = useState('');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
-    
-    // State để quản lý loading và error
     const [loading, setLoading] = useState(false);
-    
-    // Lấy hàm register từ context
-    const { register } = useContext(AuthContext);
+
+    const { register, sendVerification } = useContext(AuthContext);
 
     const handleRegister = async () => {
         if (!name || !email || !password) {
@@ -61,20 +56,34 @@ export default function RegisterScreen({ navigation }) {
 
         setLoading(true);
         try {
-            await register(email, password);
-            // Sau khi đăng ký thành công, onAuthStateChanged trong AuthContext
-            // sẽ tự động cập nhật state và chuyển người dùng vào trong app.
+            const userCredential = await register(email, password);
+
+            // 🆕 Gửi email xác nhận
+            await sendVerification(userCredential.user);
+
+            Alert.alert(
+                "Đăng ký thành công!",
+                "Vui lòng kiểm tra email để xác nhận tài khoản.",
+                [
+                    {
+                        text: "Đến màn hình xác nhận",
+                        onPress: () => navigation.navigate("VerifyEmail", {
+                            email: email,
+                            type: 'emailVerification'
+                        })
+                    }
+                ]
+            );
         } catch (error) {
-            let friendlyMessage = "Đã có lỗi xảy ra. Vui lòng thử lại.";
+            let friendlyMessage = "Đăng ký thất bại.";
             if (error.code === 'auth/email-already-in-use') {
                 friendlyMessage = 'Email này đã được sử dụng.';
             } else if (error.code === 'auth/invalid-email') {
                 friendlyMessage = 'Email không hợp lệ.';
             } else if (error.code === 'auth/weak-password') {
-                friendlyMessage = 'Mật khẩu phải có ít nhất 6 ký tự.';
+                friendlyMessage = 'Mật khẩu quá yếu (cần ít nhất 6 ký tự).';
             }
-            console.log("Register Error:", error);
-            Alert.alert("Đăng ký thất bại", friendlyMessage);
+            Alert.alert("Lỗi", friendlyMessage);
         } finally {
             setLoading(false);
         }
@@ -84,6 +93,7 @@ export default function RegisterScreen({ navigation }) {
         <SafeAreaView style={styles.safeArea}>
             <ScrollView contentContainerStyle={styles.scrollView}>
                 <AuthHeader />
+                
                 <View style={styles.formContainer}>
                     <Text style={styles.title}>Đăng kí</Text>
 
@@ -138,7 +148,6 @@ export default function RegisterScreen({ navigation }) {
     );
 }
 
-// Styles (Giữ nguyên)
 const styles = StyleSheet.create({
     safeArea: { flex: 1, backgroundColor: '#fff' },
     scrollView: { flexGrow: 1, backgroundColor: '#fff' },

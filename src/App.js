@@ -1,34 +1,38 @@
 import 'react-native-gesture-handler';
-import React from "react";
-import AppNavigator from "@/navigation/AppNavigator";
+import React from 'react';
+import { View, ActivityIndicator, StatusBar } from 'react-native';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 
-import { View } from "react-native";
-import { useFonts } from "expo-font";
+import { useFonts } from 'expo-font';
+import { Nunito_400Regular, Nunito_700Bold } from '@expo-google-fonts/nunito';
+import { Pacifico_400Regular } from '@expo-google-fonts/pacifico';
+import { LilitaOne_400Regular } from '@expo-google-fonts/lilita-one';
+import { Inter_400Regular, Inter_700Bold } from '@expo-google-fonts/inter';
 
-// BƯỚC 1: Tên import đã được đổi thành "LilitaOne_400Regular"
-import { LilitaOne_400Regular } from "@expo-google-fonts/lilita-one";
-import { Quicksand_500Medium } from '@expo-google-fonts/quicksand';
-//import { Pacifico_400Regular } from '@expo-google-fonts/pacifico'; 
-import { Nunito_400Regular, Nunito_700Bold } from "@expo-google-fonts/nunito";
-import { AuthProvider } from "@/context/AuthContext";
+import AppNavigator from './navigation/AppNavigator';
 
 export default function App() {
-  let [fontsLoaded, fontError] = useFonts({
-
-    //"LogoFont": Pacifico_400Regular, 
-    "LogoFont": Quicksand_500Medium,
-    "Lilitatone-Regular": LilitaOne_400Regular,
-    "Nunito-Regular": Nunito_400Regular,
-    "Nunito-Bold": Nunito_700Bold,
+  const [fontsLoaded] = useFonts({
+    'Nunito-Regular': Nunito_400Regular,
+    'Nunito-Bold': Nunito_700Bold,
+    'LogoFont': Pacifico_400Regular,     
+    'LilitaOne-Regular': LilitaOne_400Regular, 
+    'Inter-Regular': Inter_400Regular,
+    'Inter-Bold': Inter_700Bold,         
   });
 
-  if (!fontsLoaded && !fontError) {
-    return <View style={{ flex: 1, backgroundColor: "#fff" }} />;
+  if (!fontsLoaded) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#fff' }}>
+        <ActivityIndicator size="large" color="#2E7D32" />
+      </View>
+    );
   }
 
   return (
-    <AuthProvider>
+    <SafeAreaProvider>
+      <StatusBar barStyle="dark-content" backgroundColor="white" />
       <AppNavigator />
-    </AuthProvider>
+    </SafeAreaProvider>
   );
 }
