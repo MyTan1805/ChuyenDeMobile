@@ -25,6 +25,10 @@ import CommunityScreen from '@/features/community/screens/CommunityScreen';
 import WasteClassificationScreen from '@/features/community/screens/WasteClassificationScreen';
 import WasteDetailScreen from '@/features/community/screens/WasteDetailScreen';
 import PostScreen from '@/features/community/screens/PostScreen';
+import EcoLibraryScreen from '@/features/community/screens/EcoLibraryScreen';
+import ArticleDetailScreen from '@/features/community/screens/ArticleDetailScreen';
+import QuizScreen from '@/features/community/screens/QuizScreen';
+import QuizCollectionScreen from '@/features/community/screens/QuizCollectionScreen';
 
 // 4. GAMIFICATION & PROFILE
 import StoreScreen from '@/features/gamification/screens/StoreScreen';
@@ -70,6 +74,10 @@ function CommunityStackNavigator() {
       <CommunityStack.Screen name="CommunityMain" component={CommunityScreen} />
       <CommunityStack.Screen name="WasteClassification" component={WasteClassificationScreen} />
       <CommunityStack.Screen name="WasteDetail" component={WasteDetailScreen} />
+      <CommunityStack.Screen name="EcoLibrary" component={EcoLibraryScreen} /> 
+      <CommunityStack.Screen name="ArticleDetail" component={ArticleDetailScreen} />
+      <CommunityStack.Screen name="QuizCollection" component={QuizCollectionScreen} /> 
+      <CommunityStack.Screen name="Quiz" component={QuizScreen} />
     </CommunityStack.Navigator>
   );
 }

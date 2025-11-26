@@ -1,10 +1,11 @@
+// src/store/userStore.js
 import { create } from 'zustand';
 
 // --- SỬA LỖI TẠI ĐÂY: Gộp tất cả import từ firebaseConfig vào 1 dòng duy nhất ---
 import { auth, db, storage } from '../config/firebaseConfig';
 
 import { onAuthStateChanged, signInWithEmailAndPassword, signOut } from 'firebase/auth';
-import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, updateDoc, increment } from 'firebase/firestore'; // Đã thêm 'increment'
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 
 export const useUserStore = create((set, get) => ({
@@ -59,6 +60,37 @@ export const useUserStore = create((set, get) => ({
     } catch (error) {
       console.error("Lỗi lấy profile:", error);
       set({ isLoading: false });
+    }
+  },
+
+  // HÀM MỚI: Cập nhật điểm cho người dùng
+  addPointsToUser: async (pointsToAdd) => {
+    const uid = auth.currentUser?.uid;
+    if (!uid) return { success: false, error: "User not authenticated" };
+
+    try {
+      const docRef = doc(db, "users", uid);
+      
+      // Sử dụng increment để cập nhật số điểm một cách an toàn
+      await updateDoc(docRef, {
+        "stats.points": increment(pointsToAdd)
+      });
+
+      // Cập nhật state local ngay lập tức
+      set((state) => ({
+        userProfile: {
+          ...state.userProfile,
+          stats: {
+            ...state.userProfile.stats,
+            points: (state.userProfile.stats.points || 0) + pointsToAdd
+          }
+        }
+      }));
+
+      return { success: true };
+    } catch (error) {
+      console.error("Lỗi cộng điểm:", error);
+      return { success: false, error: error.message };
     }
   },
 
@@ -117,7 +149,6 @@ export const useUserStore = create((set, get) => ({
 
       // 5. Lấy URL
       const downloadURL = await getDownloadURL(storageRef);
-      console.log("URL:", downloadURL);
 
       // 6. Cập nhật Firestore
       await get().updateUserProfile({ photoURL: downloadURL });
