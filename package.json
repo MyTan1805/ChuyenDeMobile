@@ -28,7 +28,11 @@
     "expo-location": "~19.0.7",
     "expo-notifications": "~0.32.13",
     "expo-linking": "~8.0.9",
+<<<<<<< HEAD
     "expo-speech": "~14.0.7",
+=======
+    "expo-notifications": "~0.32.13",
+>>>>>>> dev/ThieuVy
     "expo-status-bar": "~3.0.8",
     "firebase": "^12.6.0",
     "react": "19.1.0",
