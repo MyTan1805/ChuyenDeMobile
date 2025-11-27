@@ -34,6 +34,10 @@ import StoreScreen from '@/features/gamification/screens/StoreScreen';
 import ProfileScreen from '@/features/profile/screens/ProfileScreen';
 import EditProfileScreen from '@/features/profile/screens/EditProfileScreen';
 
+// 5. REPORT
+import CreateReportScreen from '@/features/reports/screens/CreateReportScreen';
+
+
 // ----- COMPONENT -----
 import CustomTabBar from '@/components/CustomTabBar'; 
 
@@ -116,6 +120,8 @@ function HomeStackNavigator() {
     <HomeStack.Navigator screenOptions={{ headerShown: false }}>
       <HomeStack.Screen name="AqiDashboard" component={HomeScreen} />
       <HomeStack.Screen name="AqiDetail" component={AqiDetailScreen} />
+
+      <HomeStack.Screen name="CreateReport" component={CreateReportScreen} />
     </HomeStack.Navigator>
   );
 }
