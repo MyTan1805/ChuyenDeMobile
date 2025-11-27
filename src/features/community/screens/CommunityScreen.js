@@ -63,7 +63,7 @@ const CommunityScreen = () => {
         { 
             id: 'diy', 
             title: 'Tái chế &\nDIY', 
-            icon: 'tools', 
+             icon: 'construct-outline',
             iconLib: 'Ionicons', 
             screen: null 
         },

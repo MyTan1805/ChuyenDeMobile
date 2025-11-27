@@ -14,9 +14,14 @@
     },
     "ios": {
       "supportsTablet": true,
-      "associatedDomains": ["applinks:ecoapp-dc865.firebaseapp.com"]
+      "associatedDomains": ["applinks:ecoapp-dc865.firebaseapp.com"],
+      "infoPlist": {
+        "NSCameraUsageDescription": "Ứng dụng cần truy cập camera để chụp ảnh phân loại rác thải.",
+        "NSPhotoLibraryUsageDescription": "Ứng dụng cần truy cập thư viện ảnh để chọn ảnh rác thải cần phân loại."
+      }
     },
     "android": {
+      "package": "com.tan.chuyendemobile", 
       "intentFilters": [
         {
           "action": "VIEW",
@@ -37,14 +42,25 @@
       "adaptiveIcon": {
         "foregroundImage": "./src/assets/images/adaptive-icon.png",
         "backgroundColor": "#ffffff"
-      }
+      },
+      "permissions": [
+        "CAMERA",
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE"
+      ]
     },
     "web": {
       "favicon": "./src/assets/images/favicon.png"
     },
     "plugins": [
-      "expo-font"
+      "expo-font",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Cho phép EcoMate truy cập ảnh để phân loại rác.",
+          "cameraPermission": "Cho phép EcoMate dùng camera để chụp ảnh rác."
+        }
+      ]
     ]
-    
   }
 }

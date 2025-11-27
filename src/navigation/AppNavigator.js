@@ -53,6 +53,7 @@ import ProfileScreen from '@/features/profile/screens/ProfileScreen';
 import EditProfileScreen from '@/features/profile/screens/EditProfileScreen';
 
 import NotificationListScreen from '@/features/notifications/screens/NotificationListScreen';
+import WasteSearchScreen from '@/features/waste-guide/screens/WasteSearchScreen';
 
 // ----- COMPONENT -----
 import CustomTabBar from '@/components/CustomTabBar'; 
@@ -153,7 +154,6 @@ function CommunityStackNavigator() {
     <CommunityStack.Navigator screenOptions={{ headerShown: false }}>
       <CommunityStack.Screen name="CommunityMain" component={CommunityScreen} />
       <CommunityStack.Screen name="WasteClassification" component={WasteClassificationScreen} />
-      <CommunityStack.Screen name="WasteDetail" component={WasteDetailScreen} />
       <CommunityStack.Screen name="EcoLibrary" component={EcoLibraryScreen} /> 
       <CommunityStack.Screen name="ArticleDetail" component={ArticleDetailScreen} />
       <CommunityStack.Screen name="QuizCollection" component={QuizCollectionScreen} /> 
@@ -206,6 +206,9 @@ function MainNavigator() {
 
       <MainStack.Screen name="AqiDetail" component={AqiDetailScreen} />
       <MainStack.Screen name="Notifications" component={NotificationListScreen} /> 
+      
+      <MainStack.Screen name="WasteSearch" component={WasteSearchScreen} />
+      <MainStack.Screen name="WasteDetail" component={WasteDetailScreen} />
 
       {/* Nhóm Setting */}
       <MainStack.Screen name="Settings" component={SettingsScreen} />
