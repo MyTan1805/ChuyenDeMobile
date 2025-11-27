@@ -21,6 +21,8 @@ import PrivacyScreen from '@/features/settings/screens/PrivacyScreen';
 // ----- QUẢN LÝ TRẠNG THÁI -----
 import { useUserStore } from '@/store/userStore';
 
+import { useNotifications } from '@/hooks/useNotifications';
+
 // ==================== IMPORT MÀN HÌNH ====================
 
 // 1. AUTH 
@@ -49,6 +51,8 @@ import QuizCollectionScreen from '@/features/community/screens/QuizCollectionScr
 import StoreScreen from '@/features/gamification/screens/StoreScreen';
 import ProfileScreen from '@/features/profile/screens/ProfileScreen';
 import EditProfileScreen from '@/features/profile/screens/EditProfileScreen';
+
+import NotificationListScreen from '@/features/notifications/screens/NotificationListScreen';
 
 // ----- COMPONENT -----
 import CustomTabBar from '@/components/CustomTabBar'; 
@@ -139,7 +143,6 @@ function HomeStackNavigator() {
   return (
     <HomeStack.Navigator screenOptions={{ headerShown: false }}>
       <HomeStack.Screen name="AqiDashboard" component={HomeScreen} />
-      <HomeStack.Screen name="AqiDetail" component={AqiDetailScreen} />
     </HomeStack.Navigator>
   );
 }
@@ -193,11 +196,16 @@ function MainTabNavigator() {
 
 // ==================== 5. MAIN NAVIGATOR (ROOT STACK) ====================
 function MainNavigator() {
+
+  useNotifications();
   return (
     <MainStack.Navigator screenOptions={{ headerShown: false }}>
       <MainStack.Screen name="MainTabs" component={MainTabNavigator} />
       <MainStack.Screen name="Chatbot" component={ChatbotScreen} />
       <MainStack.Screen name="EditProfile" component={EditProfileScreen} />
+
+      <MainStack.Screen name="AqiDetail" component={AqiDetailScreen} />
+      <MainStack.Screen name="Notifications" component={NotificationListScreen} /> 
 
       {/* Nhóm Setting */}
       <MainStack.Screen name="Settings" component={SettingsScreen} />

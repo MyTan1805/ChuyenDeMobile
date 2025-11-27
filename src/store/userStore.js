@@ -15,7 +15,8 @@ import {
 // ✅ ĐÃ SỬA: Import đầy đủ các hàm cần thiết từ firestore
 import {
   doc, getDoc, setDoc, updateDoc, deleteDoc,
-  collection, query, where, orderBy, limit, getDocs
+  collection, query, where, orderBy, limit, getDocs,
+  increment
 } from 'firebase/firestore';
 
 import * as Notifications from 'expo-notifications';
@@ -338,8 +339,10 @@ export const useUserStore = create((set, get) => ({
 
   // --- TRIGGER NOTIFICATION ---
   triggerDynamicNotification: async (type) => {
+    // 1. Lấy các hàm helper và dữ liệu từ Store
     const { userProfile, getRealtimeAQI, getLatestCampaign, countActiveEvents, getTrashSchedule } = get();
 
+    // 2. Lấy ngưỡng cài đặt (Mặc định 150 nếu chưa set)
     const aqiSettings = userProfile?.aqiSettings || { threshold: "150" };
     const userThreshold = parseInt(aqiSettings.threshold);
 
@@ -348,18 +351,20 @@ export const useUserStore = create((set, get) => ({
     switch (type) {
       case 'weather':
         const currentAQI = await getRealtimeAQI();
-
+        
+        // So sánh AQI thực tế với ngưỡng user cài
         if (currentAQI > userThreshold) {
           content = {
             title: `⚠️ Cảnh báo AQI: ${currentAQI}`,
             body: `Chỉ số ô nhiễm ${currentAQI} đã vượt ngưỡng an toàn (${userThreshold}) của bạn.`,
-            data: { screen: 'HomeScreen' }
+            // SỬA: Điều hướng đến màn hình Chi tiết AQI
+            data: { screen: 'AqiDetail' } 
           };
         } else {
           content = {
             title: `✅ Không khí ổn định`,
             body: `AQI hiện tại là ${currentAQI}. Thấp hơn ngưỡng cảnh báo (${userThreshold}) của bạn.`,
-            data: { screen: 'HomeScreen' }
+            data: { screen: 'AqiDetail' }
           };
         }
         break;
@@ -370,12 +375,14 @@ export const useUserStore = create((set, get) => ({
           content = {
             title: `🚛 Lịch thu gom: ${schedule.type || 'Rác sinh hoạt'}`,
             body: `Xe rác dự kiến đến vào lúc ${schedule.time || 'tối nay'}. Hãy chuẩn bị rác nhé!`,
-            data: { screen: 'Community' }
+            // SỬA: Điều hướng về Tab Cộng đồng (nơi có phân loại rác)
+            data: { screen: 'MainTabs', params: { screen: 'Cộng đồng' } }
           };
         } else {
           content = {
             title: "🚛 Nhắc nhở rác",
-            body: "Hãy kiểm tra lịch thu gom rác tại địa phương hôm nay."
+            body: "Hãy kiểm tra lịch thu gom rác tại địa phương hôm nay.",
+            data: { screen: 'MainTabs', params: { screen: 'Cộng đồng' } }
           };
         }
         break;
@@ -386,10 +393,15 @@ export const useUserStore = create((set, get) => ({
           content = {
             title: `🌱 Chiến dịch mới: ${campaign.name}`,
             body: `Tham gia ngay để nhận thưởng ${campaign.reward || 0} điểm xanh!`,
-            data: { screen: 'Post' }
+            // SỬA: Điều hướng về Tab Cộng đồng
+            data: { screen: 'MainTabs', params: { screen: 'Cộng đồng' } }
           };
         } else {
-          content = { title: "🌱 EcoMate", body: "Chưa có chiến dịch mới nào đang diễn ra." };
+          content = { 
+            title: "🌱 EcoMate", 
+            body: "Hiện chưa có chiến dịch mới, hãy quay lại sau nhé!",
+            data: { screen: 'MainTabs', params: { screen: 'Trang chủ' } }
+          };
         }
         break;
 
@@ -399,14 +411,21 @@ export const useUserStore = create((set, get) => ({
           content = {
             title: `🔥 Cộng đồng sôi nổi`,
             body: `Đang có ${eventCount} sự kiện xanh sắp diễn ra. Tham gia ngay để kết nối!`,
-            data: { screen: 'Community' }
+            // SỬA: Điều hướng về Tab Cộng đồng
+            data: { screen: 'MainTabs', params: { screen: 'Cộng đồng' } }
           };
         } else {
-          content = { title: "🔥 Cộng đồng", body: "Hãy là người đầu tiên tạo sự kiện mới!" };
+          content = { 
+            title: "🔥 Cộng đồng", 
+            body: "Hãy là người đầu tiên tạo bài viết mới hôm nay!",
+            // SỬA: Điều hướng về màn hình Đăng bài
+            data: { screen: 'MainTabs', params: { screen: 'Đăng tin' } }
+          };
         }
         break;
     }
 
+    // 3. Thực hiện gửi thông báo qua Expo Notifications
     if (content) {
       await Notifications.scheduleNotificationAsync({
         content: {
@@ -414,9 +433,10 @@ export const useUserStore = create((set, get) => ({
           body: content.body,
           sound: true,
           priority: Notifications.AndroidNotificationPriority.HIGH,
-          data: content.data || {}
+          // Quan trọng: Dữ liệu này sẽ được Hook useNotifications bắt lấy để điều hướng
+          data: content.data || {} 
         },
-        trigger: null,
+        trigger: null, // Gửi ngay lập tức (hoặc chỉnh trigger: { seconds: 5 } để test)
       });
     }
   },
