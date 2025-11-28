@@ -1,6 +1,6 @@
 import 'react-native-gesture-handler';
 import React from 'react';
-import { View, ActivityIndicator, StatusBar } from 'react-native';
+import { View, ActivityIndicator, StatusBar, LogBox } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { useFonts } from 'expo-font';
@@ -11,14 +11,18 @@ import { Inter_400Regular, Inter_700Bold } from '@expo-google-fonts/inter';
 
 import AppNavigator from './navigation/AppNavigator';
 
+LogBox.ignoreLogs([
+  'expo-notifications: Android Push notifications',
+]);
+
 export default function App() {
   const [fontsLoaded] = useFonts({
     'Nunito-Regular': Nunito_400Regular,
     'Nunito-Bold': Nunito_700Bold,
-    'LogoFont': Pacifico_400Regular,     
-    'LilitaOne-Regular': LilitaOne_400Regular, 
+    'LogoFont': Pacifico_400Regular,
+    'LilitaOne-Regular': LilitaOne_400Regular,
     'Inter-Regular': Inter_400Regular,
-    'Inter-Bold': Inter_700Bold,         
+    'Inter-Bold': Inter_700Bold,
   });
 
   if (!fontsLoaded) {

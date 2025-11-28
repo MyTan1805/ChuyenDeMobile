@@ -9,11 +9,12 @@ const CustomHeader = ({
     showBackButton = false,
     showMenuButton = false,
     showNotificationButton = false,
-    showSettingsButton = false, // <-- Mới: Hiển thị nút cài đặt
+    showSettingsButton = false,
+    rightIconName = "settings-outline", // <--- THÊM MỚI: Mặc định là bánh răng, nhưng có thể đổi
     onBackPress,
     onMenuPress,
     onNotificationPress,
-    onSettingsPress,        // <-- Mới: Hàm xử lý khi nhấn nút cài đặt
+    onSettingsPress,
 }) => {
     const navigation = useNavigation();
 
@@ -60,7 +61,8 @@ const CustomHeader = ({
                 )}
                 {showSettingsButton && (
                     <TouchableOpacity onPress={onSettingsPress} style={[styles.iconButton, { marginLeft: 10 }]}>
-                        <Ionicons name="settings-outline" size={26} color="#333" />
+                        {/* SỬ DỤNG PROP rightIconName THAY VÌ HARDCODE */}
+                        <Ionicons name={rightIconName} size={26} color="#333" />
                     </TouchableOpacity>
                 )}
                 {!showNotificationButton && !showSettingsButton && <View style={styles.placeholder} />}
@@ -84,14 +86,13 @@ const CustomHeader = ({
 const styles = StyleSheet.create({
     safeAreaWrapper: {
         backgroundColor: 'white',
-        // Xử lý bóng đổ nhẹ cho header tách biệt nội dung
         shadowColor: "#000",
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.05,
         shadowRadius: 2,
         elevation: 3,
         zIndex: 10,
-        paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0, // Tránh tai thỏ Android
+        paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
     },
     safeArea: {
         backgroundColor: 'white',
@@ -128,7 +129,7 @@ const styles = StyleSheet.create({
     },
     logo: {
         fontSize: 26,
-        color: '#2F847C', // Dùng màu thương hiệu
+        color: '#2F847C',
         fontFamily: 'LogoFont',
     },
     iconButton: {

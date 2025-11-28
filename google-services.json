@@ -1,0 +1,55 @@
+{
+  "project_info": {
+    "project_number": "982272940577",
+    "firebase_url": "https://ecoapp-dc865-default-rtdb.asia-southeast1.firebasedatabase.app",
+    "project_id": "ecoapp-dc865",
+    "storage_bucket": "ecoapp-dc865.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:982272940577:android:4f457b6458cf735cd82160",
+        "android_client_info": {
+          "package_name": "com.company.EcoApp"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "982272940577-p0vi3v54rrqqtslfmr3ar3l9hh2tp2u1.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.company.EcoApp",
+            "certificate_hash": "5ad29bcecf69512097995f355666ad624b01b0c3"
+          }
+        },
+        {
+          "client_id": "982272940577-flak0p8ehmcm6dphhkohtvp7u3q6om5c.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBKea-mLGAAIjJHMuiOcRsFJ6znI4qBlEY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "982272940577-flak0p8ehmcm6dphhkohtvp7u3q6om5c.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "982272940577-b1pghar1amret407nno3ums1t6ve4shh.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.company.EcoApp"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

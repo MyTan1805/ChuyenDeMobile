@@ -31,7 +31,7 @@ let auth;
 if (getApps().length === 0) {
   // Nếu chưa có App nào, khởi tạo mới
   app = initializeApp(firebaseConfig);
-  
+
   // Khởi tạo Auth với AsyncStorage (để giữ đăng nhập khi tắt app)
   auth = initializeAuth(app, {
     persistence: getReactNativePersistence(ReactNativeAsyncStorage)

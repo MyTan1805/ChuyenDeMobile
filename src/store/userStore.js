@@ -1,5 +1,5 @@
-// src/store/userStore.js
 import { create } from 'zustand';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { auth, db, storage } from '../config/firebaseConfig';
 import {
   onAuthStateChanged,
@@ -9,19 +9,52 @@ import {
   updatePassword,
   deleteUser,
   createUserWithEmailAndPassword,
-  sendEmailVerification
+  sendEmailVerification,
+  GoogleAuthProvider,
+  signInWithCredential
 } from 'firebase/auth';
 
-// ✅ ĐÃ SỬA: Import đầy đủ các hàm cần thiết từ firestore
 import {
   doc, getDoc, setDoc, updateDoc, deleteDoc,
-  collection, query, where, orderBy, limit, getDocs
+  collection, query, where, orderBy, limit, getDocs, increment,
+  arrayUnion
 } from 'firebase/firestore';
-
-import * as Notifications from 'expo-notifications';
 
 const CLOUD_NAME = "dqpyrygyu";
 const UPLOAD_PRESET = "ecoapp_preset";
+const GUEST_DATA_KEY = "guest_user_data"; // Key để lưu dữ liệu khách cục bộ
+
+// --- Helper: Tạo dữ liệu mặc định (Dùng chung cho cả Guest và User mới) ---
+const getDefaultUserData = (displayName) => ({
+  displayName: displayName || "Người dùng",
+  location: "Chưa cập nhật",
+  phoneNumber: "",
+  photoURL: "",
+  isLocationShared: false,
+  aqiSettings: {
+    isEnabled: true,
+    threshold: "150"
+  },
+  notificationSettings: {
+    weather: false,
+    trash: false,
+    campaign: false,
+    community: false
+  },
+  createdAt: new Date().toISOString(),
+  stats: {
+    points: 0, sentReports: 0, trashSorted: 0, community: 0, levelProgress: 0,
+    communityStats: [
+      { label: 'T1', report: 0, recycle: 0 },
+      { label: 'T2', report: 0, recycle: 0 },
+      { label: 'T3', report: 0, recycle: 0 },
+      { label: 'T4', report: 0, recycle: 0 },
+      { label: 'T5', report: 0, recycle: 0 },
+    ]
+  },
+  reportHistory: [],
+  chatHistory: []
+});
 
 export const useUserStore = create((set, get) => ({
   user: null,
@@ -78,7 +111,30 @@ export const useUserStore = create((set, get) => ({
     return { success: false, error: 'No user found' };
   },
 
+  // --- 2. LOGIC LẤY PROFILE (XỬ LÝ RIÊNG CHO GUEST) ---
   fetchUserProfile: async (uid) => {
+    const user = auth.currentUser;
+
+    // TRƯỜNG HỢP 1: KHÁCH (Lưu cục bộ AsyncStorage)
+    if (user && user.isAnonymous) {
+      try {
+        const storedData = await AsyncStorage.getItem(GUEST_DATA_KEY);
+        if (storedData) {
+          set({ userProfile: JSON.parse(storedData), isLoading: false });
+        } else {
+          // Nếu chưa có dữ liệu khách, tạo mới và lưu
+          const defaultData = getDefaultUserData("Khách ghé thăm");
+          await AsyncStorage.setItem(GUEST_DATA_KEY, JSON.stringify(defaultData));
+          set({ userProfile: defaultData, isLoading: false });
+        }
+      } catch (e) {
+        console.error("Lỗi lấy dữ liệu khách:", e);
+        set({ isLoading: false });
+      }
+      return;
+    }
+
+    // TRƯỜNG HỢP 2: USER ĐĂNG KÝ (Lưu Firestore)
     try {
       const docRef = doc(db, "users", uid);
       const docSnap = await getDoc(docRef);
@@ -86,69 +142,50 @@ export const useUserStore = create((set, get) => ({
       if (docSnap.exists()) {
         set({ userProfile: docSnap.data(), isLoading: false });
       } else {
-        const defaultData = {
-          displayName: auth.currentUser?.email?.split('@')[0] || "Khách ghé thăm",
-          location: "Chưa cập nhật",
-          phoneNumber: "",
-          photoURL: "",
-          isLocationShared: false,
-          aqiSettings: {
-            isEnabled: true,
-            threshold: "150"
-          },
-          notificationSettings: {
-            weather: false,
-            trash: false,
-            campaign: false,
-            community: false
-          },
-          createdAt: new Date().toISOString(),
-          stats: {
-            points: 0, sentReports: 0, trashSorted: 0, community: 0, levelProgress: 0,
-            communityStats: [
-              { label: 'T1', report: 0, recycle: 0 },
-              { label: 'T2', report: 0, recycle: 0 },
-              { label: 'T3', report: 0, recycle: 0 },
-              { label: 'T4', report: 0, recycle: 0 },
-              { label: 'T5', report: 0, recycle: 0 },
-            ]
-          },
-          reportHistory: [],
-          chatHistory: []
-        };
+        const defaultData = getDefaultUserData(auth.currentUser?.email?.split('@')[0]);
         await setDoc(docRef, defaultData);
         set({ userProfile: defaultData, isLoading: false });
       }
     } catch (error) {
-      console.error("Lỗi lấy profile:", error);
+      console.error("Lỗi lấy profile Firestore:", error);
       set({ isLoading: false });
     }
   },
 
-  // HÀM MỚI: Cập nhật điểm cho người dùng
+  // --- 3. LOGIC CỘNG ĐIỂM (XỬ LÝ RIÊNG CHO GUEST) ---
   addPointsToUser: async (pointsToAdd) => {
-    const uid = auth.currentUser?.uid;
-    if (!uid) return { success: false, error: "User not authenticated" };
+    const user = auth.currentUser;
+    if (!user) return { success: false, error: "User not authenticated" };
 
+    // Cập nhật State Local trước để UI phản hồi nhanh
+    const currentProfile = get().userProfile;
+    const newPoints = (currentProfile?.stats?.points || 0) + pointsToAdd;
+
+    const newProfileState = {
+      ...currentProfile,
+      stats: {
+        ...currentProfile.stats,
+        points: newPoints
+      }
+    };
+    set({ userProfile: newProfileState });
+
+    // KHÁCH: Lưu vào AsyncStorage
+    if (user.isAnonymous) {
+      try {
+        await AsyncStorage.setItem(GUEST_DATA_KEY, JSON.stringify(newProfileState));
+        return { success: true };
+      } catch (e) {
+        return { success: false, error: e.message };
+      }
+    }
+
+    // USER THẬT: Lưu vào Firestore (Dùng increment để an toàn atomic)
     try {
-      const docRef = doc(db, "users", uid);
-      
-      // Sử dụng increment để cập nhật số điểm một cách an toàn
+      const docRef = doc(db, "users", user.uid);
       await updateDoc(docRef, {
         "stats.points": increment(pointsToAdd)
       });
-
-      // Cập nhật state local ngay lập tức
-      set((state) => ({
-        userProfile: {
-          ...state.userProfile,
-          stats: {
-            ...state.userProfile.stats,
-            points: (state.userProfile.stats.points || 0) + pointsToAdd
-          }
-        }
-      }));
-
       return { success: true };
     } catch (error) {
       console.error("Lỗi cộng điểm:", error);
@@ -156,13 +193,29 @@ export const useUserStore = create((set, get) => ({
     }
   },
 
+  // --- 4. LOGIC CẬP NHẬT PROFILE (XỬ LÝ RIÊNG CHO GUEST) ---
   updateUserProfile: async (data) => {
-    const uid = auth.currentUser?.uid;
-    if (!uid) return;
+    const user = auth.currentUser;
+    if (!user) return;
+
+    // Cập nhật State
+    const newProfile = { ...get().userProfile, ...data };
+    set({ userProfile: newProfile });
+
+    // KHÁCH: Lưu vào AsyncStorage
+    if (user.isAnonymous) {
+      try {
+        await AsyncStorage.setItem(GUEST_DATA_KEY, JSON.stringify(newProfile));
+        return { success: true };
+      } catch (e) {
+        return { success: false, error: e };
+      }
+    }
+
+    // USER THẬT: Lưu vào Firestore
     try {
-      const docRef = doc(db, "users", uid);
+      const docRef = doc(db, "users", user.uid);
       await updateDoc(docRef, data);
-      set((state) => ({ userProfile: { ...state.userProfile, ...data } }));
       return { success: true };
     } catch (error) {
       return { success: false, error };
@@ -172,6 +225,8 @@ export const useUserStore = create((set, get) => ({
   uploadAvatar: async (uri) => {
     const uid = auth.currentUser?.uid;
     if (!uid || !uri) return { success: false, error: "No user or URI" };
+
+    // Lưu ý: Khách vẫn cho phép upload ảnh tạm thời (hoặc có thể chặn nếu muốn tiết kiệm dung lượng cloud)
     try {
       const formData = new FormData();
       formData.append('file', { uri: uri, type: 'image/jpeg', name: `avatar_${uid}.jpg` });
@@ -206,6 +261,7 @@ export const useUserStore = create((set, get) => ({
   loginGuest: async () => {
     try {
       await signInAnonymously(auth);
+      // Không cần tạo dữ liệu ở đây, hàm fetchUserProfile sẽ tự tạo data local
       return { success: true };
     } catch (error) {
       return { success: false, error };
@@ -223,7 +279,7 @@ export const useUserStore = create((set, get) => ({
 
   changeUserPassword: async (newPassword) => {
     const user = auth.currentUser;
-    if (!user) return { success: false, error: "No user" };
+    if (!user || user.isAnonymous) return { success: false, error: "Not allowed for guest" };
     try {
       await updatePassword(user, newPassword);
       return { success: true };
@@ -232,32 +288,27 @@ export const useUserStore = create((set, get) => ({
     }
   },
 
+  // --- 5. LOGIC RESET DATA (XỬ LÝ RIÊNG CHO GUEST) ---
   resetUserData: async () => {
-    const uid = auth.currentUser?.uid;
-    if (!uid) return { success: false, error: "No user" };
+    const user = auth.currentUser;
+    if (!user) return { success: false, error: "No user" };
+
+    const resetData = getDefaultUserData(get().userProfile.displayName);
+    set({ userProfile: resetData });
+
+    // KHÁCH: Ghi đè AsyncStorage
+    if (user.isAnonymous) {
+      try {
+        await AsyncStorage.setItem(GUEST_DATA_KEY, JSON.stringify(resetData));
+        return { success: true };
+      } catch (e) {
+        return { success: false, error: e };
+      }
+    }
+
+    // USER THẬT: Ghi đè Firestore
     try {
-      const resetData = {
-        displayName: auth.currentUser?.email?.split('@')[0] || "Người dùng",
-        location: "",
-        phoneNumber: "",
-        photoURL: "",
-        isLocationShared: false,
-        updatedAt: new Date().toISOString(),
-        stats: {
-          points: 0, sentReports: 0, trashSorted: 0, community: 0, levelProgress: 0,
-          communityStats: [
-            { label: 'T1', report: 0, recycle: 0 },
-            { label: 'T2', report: 0, recycle: 0 },
-            { label: 'T3', report: 0, recycle: 0 },
-            { label: 'T4', report: 0, recycle: 0 },
-            { label: 'T5', report: 0, recycle: 0 },
-          ]
-        },
-        reportHistory: [],
-        chatHistory: []
-      };
-      await setDoc(doc(db, "users", uid), resetData);
-      set({ userProfile: resetData });
+      await setDoc(doc(db, "users", user.uid), resetData);
       return { success: true };
     } catch (error) {
       console.log("Lỗi reset data:", error);
@@ -268,9 +319,17 @@ export const useUserStore = create((set, get) => ({
   deleteUserAccount: async () => {
     const user = auth.currentUser;
     if (!user) return { success: false, error: "No user" };
+
     try {
-      const uid = user.uid;
-      await deleteDoc(doc(db, "users", uid));
+      if (user.isAnonymous) {
+        // KHÁCH: Xóa data local
+        await AsyncStorage.removeItem(GUEST_DATA_KEY);
+      } else {
+        // USER THẬT: Xóa document Firestore
+        const uid = user.uid;
+        await deleteDoc(doc(db, "users", uid));
+      }
+
       await deleteUser(user);
       set({ user: null, userProfile: null });
       return { success: true };
@@ -279,54 +338,38 @@ export const useUserStore = create((set, get) => ({
     }
   },
 
-  // --- PHẦN LẤY DỮ LIỆU THỰC TỪ FIRESTORE ---
+  // --- CÁC HÀM LẤY DỮ LIỆU CHUNG (READ-ONLY TỪ FIRESTORE) ---
+  // Các hàm này Khách vẫn gọi được bình thường để xem thông tin chung
 
-  // 1. Lấy chỉ số AQI mới nhất từ collection 'aqi_data'
   getRealtimeAQI: async () => {
     try {
       const q = query(collection(db, "aqi_data"), orderBy("timestamp", "desc"), limit(1));
       const querySnapshot = await getDocs(q);
-
       if (!querySnapshot.empty) {
-        const data = querySnapshot.docs[0].data();
-        console.log("Dữ liệu AQI lấy được:", data.aqi);
-        return data.aqi || 0;
+        return querySnapshot.docs[0].data().aqi || 0;
       }
       return 0;
-    } catch (e) {
-      console.log("Lỗi lấy AQI từ Firestore:", e);
-      return 0;
-    }
+    } catch (e) { return 0; }
   },
 
-  // 2. Lấy lịch thu rác
   getTrashSchedule: async () => {
     try {
       const q = query(collection(db, "schedules"), limit(1));
       const querySnapshot = await getDocs(q);
-      if (!querySnapshot.empty) {
-        return querySnapshot.docs[0].data();
-      }
-      return null;
-    } catch (e) {
-      console.log("Chưa có collection schedules");
-      return null;
-    }
-  },
-
-  // 3. Lấy chiến dịch mới nhất
-  getLatestCampaign: async () => {
-    try {
-      const q = query(collection(db, "campaigns"), where("isActive", "==", true), orderBy("createdAt", "desc"), limit(1));
-      const querySnapshot = await getDocs(q);
-      if (!querySnapshot.empty) {
-        return querySnapshot.docs[0].data();
-      }
+      if (!querySnapshot.empty) return querySnapshot.docs[0].data();
       return null;
     } catch (e) { return null; }
   },
 
-  // 4. Đếm sự kiện cộng đồng sắp tới
+  getLatestCampaign: async () => {
+    try {
+      const q = query(collection(db, "campaigns"), where("isActive", "==", true), orderBy("createdAt", "desc"), limit(1));
+      const querySnapshot = await getDocs(q);
+      if (!querySnapshot.empty) return querySnapshot.docs[0].data();
+      return null;
+    } catch (e) { return null; }
+  },
+
   countActiveEvents: async () => {
     try {
       const today = new Date();
@@ -336,19 +379,15 @@ export const useUserStore = create((set, get) => ({
     } catch (e) { return 0; }
   },
 
-  // --- TRIGGER NOTIFICATION ---
   triggerDynamicNotification: async (type) => {
     const { userProfile, getRealtimeAQI, getLatestCampaign, countActiveEvents, getTrashSchedule } = get();
-
     const aqiSettings = userProfile?.aqiSettings || { threshold: "150" };
     const userThreshold = parseInt(aqiSettings.threshold);
-
     let content = null;
 
     switch (type) {
       case 'weather':
         const currentAQI = await getRealtimeAQI();
-
         if (currentAQI > userThreshold) {
           content = {
             title: `⚠️ Cảnh báo AQI: ${currentAQI}`,
@@ -363,23 +402,17 @@ export const useUserStore = create((set, get) => ({
           };
         }
         break;
-
+      // ... Các case khác giữ nguyên
       case 'trash':
         const schedule = await getTrashSchedule();
         if (schedule) {
           content = {
             title: `🚛 Lịch thu gom: ${schedule.type || 'Rác sinh hoạt'}`,
-            body: `Xe rác dự kiến đến vào lúc ${schedule.time || 'tối nay'}. Hãy chuẩn bị rác nhé!`,
+            body: `Xe rác dự kiến đến vào lúc ${schedule.time || 'tối nay'}.`,
             data: { screen: 'Community' }
-          };
-        } else {
-          content = {
-            title: "🚛 Nhắc nhở rác",
-            body: "Hãy kiểm tra lịch thu gom rác tại địa phương hôm nay."
           };
         }
         break;
-
       case 'campaign':
         const campaign = await getLatestCampaign();
         if (campaign) {
@@ -388,21 +421,16 @@ export const useUserStore = create((set, get) => ({
             body: `Tham gia ngay để nhận thưởng ${campaign.reward || 0} điểm xanh!`,
             data: { screen: 'Post' }
           };
-        } else {
-          content = { title: "🌱 EcoMate", body: "Chưa có chiến dịch mới nào đang diễn ra." };
         }
         break;
-
       case 'community':
         const eventCount = await countActiveEvents();
         if (eventCount > 0) {
           content = {
             title: `🔥 Cộng đồng sôi nổi`,
-            body: `Đang có ${eventCount} sự kiện xanh sắp diễn ra. Tham gia ngay để kết nối!`,
+            body: `Đang có ${eventCount} sự kiện xanh sắp diễn ra.`,
             data: { screen: 'Community' }
           };
-        } else {
-          content = { title: "🔥 Cộng đồng", body: "Hãy là người đầu tiên tạo sự kiện mới!" };
         }
         break;
     }
@@ -419,5 +447,134 @@ export const useUserStore = create((set, get) => ({
         trigger: null,
       });
     }
+  },
+
+  loginWithGoogle: async (idToken) => {
+    try {
+      const credential = GoogleAuthProvider.credential(idToken);
+      const result = await signInWithCredential(auth, credential);
+      // Lưu user vào Zustand store
+      return { success: true, user: result.user };
+    } catch (error) {
+      return { success: false, error };
+    }
+  },
+
+  addReportToHistory: async (reportData) => {
+    const user = auth.currentUser;
+    const currentProfile = get().userProfile;
+    if (!currentProfile) return;
+
+    const newReport = {
+      id: Date.now().toString(),
+      time: new Date().toLocaleDateString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' }),
+      status: 'pending',
+      title: reportData.title,
+      type: reportData.type,
+      description: reportData.description,
+      location: reportData.location,
+      severity: reportData.severity,
+      images: reportData.images || []
+    };
+
+    const newHistory = [newReport, ...(currentProfile.reportHistory || [])];
+    const newStats = {
+      ...currentProfile.stats,
+      sentReports: (currentProfile.stats?.sentReports || 0) + 1
+    };
+    const newProfile = { ...currentProfile, reportHistory: newHistory, stats: newStats };
+    set({ userProfile: newProfile });
+
+    if (user && user.isAnonymous) {
+      try {
+        await AsyncStorage.setItem(GUEST_DATA_KEY, JSON.stringify(newProfile));
+        return { success: true };
+      } catch (e) { return { success: false, error: e }; }
+    } else if (user) {
+      try {
+        const docRef = doc(db, "users", user.uid);
+        await updateDoc(docRef, {
+          reportHistory: arrayUnion(newReport),
+          "stats.sentReports": increment(1)
+        });
+        return { success: true };
+      } catch (e) { return { success: false, error: e }; }
+    }
+  },
+
+  addChatToHistory: async (messages) => {
+    const user = auth.currentUser;
+    const currentProfile = get().userProfile;
+    if (!currentProfile || !messages || messages.length === 0) return;
+
+    const firstUserMsg = messages.find(m => m.sender === 'user');
+    const title = firstUserMsg ? firstUserMsg.text : "Đoạn chat mới";
+
+    const newChatSession = {
+      id: Date.now().toString(),
+      time: new Date().toLocaleDateString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' }),
+      name: title,
+      messages: messages // Lưu toàn bộ để xem lại
+    };
+
+    const newHistory = [newChatSession, ...(currentProfile.chatHistory || [])];
+    const newProfile = { ...currentProfile, chatHistory: newHistory };
+    set({ userProfile: newProfile });
+
+    if (user && user.isAnonymous) {
+      try {
+        await AsyncStorage.setItem(GUEST_DATA_KEY, JSON.stringify(newProfile));
+        return { success: true };
+      } catch (e) { return { success: false, error: e }; }
+    } else if (user) {
+      try {
+        const docRef = doc(db, "users", user.uid);
+        await updateDoc(docRef, {
+          chatHistory: arrayUnion(newChatSession)
+        });
+        return { success: true };
+      } catch (e) { return { success: false, error: e }; }
+    }
+  },
+
+  // Xóa báo cáo
+  deleteReport: async (reportId) => {
+    const { user, userProfile } = get();
+    if (!userProfile) return { success: false, error: "No profile" };
+
+    // Lọc bỏ item
+    const newHistory = userProfile.reportHistory.filter(item => item.id !== reportId);
+    const newProfile = { ...userProfile, reportHistory: newHistory };
+    set({ userProfile: newProfile });
+
+    try {
+      if (user && user.isAnonymous) {
+        await AsyncStorage.setItem(GUEST_DATA_KEY, JSON.stringify(newProfile));
+      } else if (user) {
+        const docRef = doc(db, "users", user.uid);
+        await updateDoc(docRef, { reportHistory: newHistory });
+      }
+      return { success: true };
+    } catch (error) { return { success: false, error }; }
+  },
+
+  // Xóa lịch sử chat
+  deleteChatSession: async (sessionId) => {
+    const { user, userProfile } = get();
+    if (!userProfile) return { success: false, error: "No profile" };
+
+    const newHistory = userProfile.chatHistory.filter(item => item.id !== sessionId);
+    const newProfile = { ...userProfile, chatHistory: newHistory };
+    set({ userProfile: newProfile });
+
+    try {
+      if (user && user.isAnonymous) {
+        await AsyncStorage.setItem(GUEST_DATA_KEY, JSON.stringify(newProfile));
+      } else if (user) {
+        const docRef = doc(db, "users", user.uid);
+        await updateDoc(docRef, { chatHistory: newHistory });
+      }
+      return { success: true };
+    } catch (error) { return { success: false, error }; }
   },
 }));
