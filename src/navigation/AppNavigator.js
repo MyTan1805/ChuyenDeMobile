@@ -183,12 +183,14 @@ function MainTabNavigator() {
   return (
     <MainTab.Navigator 
       tabBar={(props) => <CustomTabBar {...props} />}
-      screenOptions={{ headerShown: false }}
+      // Quan trọng: Tắt Header mặc định cho tất cả màn hình Tab
+      screenOptions={{ headerShown: false }} 
     >
       <MainTab.Screen name="Trang chủ" component={HomeStackNavigator} />
       <MainTab.Screen name="Cộng đồng" component={CommunityStackNavigator} />
-      <MainTab.Screen name="Đăng tin" component={PostScreen} options={{ headerShown: true, headerTitle: "Đăng bài viết" }} />
-      <MainTab.Screen name="Cửa hàng" component={StoreScreen} options={{ headerShown: true, headerTitle: "Cửa hàng xanh" }} />
+      <MainTab.Screen name="Đăng tin" component={PostScreen} />
+      {/* KHÔNG CÓ OPTIONS GHI ĐÈ nào có headerShown: true */}
+      <MainTab.Screen name="Cửa hàng" component={StoreScreen} /> 
       <MainTab.Screen name="Hồ sơ" component={ProfileScreen} />
     </MainTab.Navigator>
   );

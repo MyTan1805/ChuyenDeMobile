@@ -1,8 +1,9 @@
 // src/features/aqi/components/DailyActions.jsx
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Alert } from 'react-native'; // <-- THÊM Alert
 import { Ionicons } from '@expo/vector-icons';
-import { generateDailyActions } from '../api/aiActionsApi'; // 👈 API mới
+import { generateDailyActions } from '../api/aiActionsApi'; 
+import { useUserStore } from '../../../store/userStore'; // <-- IMPORT USER STORE
 
 // Fallback actions nếu AI lỗi
 const FALLBACK_ACTIONS = {
@@ -81,6 +82,9 @@ const DailyActions = () => {
   const [progress, setProgress] = useState(0);
   const [loading, setLoading] = useState(true);
   const [isAiGenerated, setIsAiGenerated] = useState(false);
+  
+  // Lấy hàm cộng điểm từ Store
+  const addPointsToUser = useUserStore((state) => state.addPointsToUser);
 
   useEffect(() => {
     loadAiActions();
@@ -98,7 +102,7 @@ const DailyActions = () => {
       if (aiActions && aiActions.length > 0) {
         setActions(aiActions);
         setIsAiGenerated(true);
-        calculateProgress(aiActions); // 👈 Tính progress với data mới
+        calculateProgress(aiActions); 
         console.log('✅ AI actions loaded:', aiActions);
       } else {
         throw new Error('AI returned empty actions');
@@ -113,7 +117,7 @@ const DailyActions = () => {
       const fallbackActions = FALLBACK_ACTIONS[season];
       setActions(fallbackActions);
       setIsAiGenerated(false);
-      calculateProgress(fallbackActions); // 👈 Tính progress với fallback data
+      calculateProgress(fallbackActions); 
     } finally {
       setLoading(false);
     }
@@ -125,12 +129,39 @@ const DailyActions = () => {
     setProgress(Math.round((checked / total) * 100));
   };
 
-  const toggleAction = (id) => {
+  // HÀM ĐÃ SỬA: Tích hợp logic cộng/trừ điểm
+  const toggleAction = async (actionId) => {
+    const currentAction = actions.find(a => a.id === actionId);
+    if (!currentAction) return;
+
+    const isChecking = !currentAction.checked;
+    const points = currentAction.points;
+
+    // 1. Cập nhật trạng thái local
     const updatedActions = actions.map(action => 
-      action.id === id ? { ...action, checked: !action.checked } : action
+      action.id === actionId ? { ...action, checked: isChecking } : action
     );
     setActions(updatedActions);
     calculateProgress(updatedActions);
+    
+    // 2. Cập nhật điểm vào Firestore
+    if (isChecking) {
+        // TÍCH -> Cộng điểm
+        const result = await addPointsToUser(points);
+        if (result.success) {
+            Alert.alert("Hoàn thành!", `Bạn vừa hoàn thành hành động và nhận được ${points} điểm!`);
+        } else {
+             Alert.alert("Lỗi", "Không thể cộng điểm. Vui lòng kiểm tra đăng nhập.");
+        }
+    } else {
+        // BỎ TÍCH -> Trừ điểm
+        const result = await addPointsToUser(-points);
+        if (result.success) {
+            Alert.alert("Hoàn tác", `Hành động bị bỏ tích. Đã trừ lại ${points} điểm.`);
+        } else {
+             Alert.alert("Lỗi", "Không thể trừ điểm.");
+        }
+    }
   };
 
   // Xác định mùa hiện tại
@@ -179,7 +210,8 @@ const DailyActions = () => {
         <TouchableOpacity
           key={action.id}
           style={styles.actionItem}
-          onPress={() => toggleAction(action.id)}
+          // Truyền action.id vào, logic điểm được xử lý bên trong
+          onPress={() => toggleAction(action.id)} 
           activeOpacity={0.7}
         >
           <View style={[

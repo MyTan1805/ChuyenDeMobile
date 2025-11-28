@@ -12,11 +12,10 @@ import {
   sendEmailVerification
 } from 'firebase/auth';
 
-// ✅ ĐÃ SỬA: Import đầy đủ các hàm cần thiết từ firestore
 import {
   doc, getDoc, setDoc, updateDoc, deleteDoc,
   collection, query, where, orderBy, limit, getDocs,
-  increment
+  increment, runTransaction // <-- ĐÃ THÊM runTransaction
 } from 'firebase/firestore';
 
 import * as Notifications from 'expo-notifications';
@@ -105,7 +104,9 @@ export const useUserStore = create((set, get) => ({
           },
           createdAt: new Date().toISOString(),
           stats: {
-            points: 0, sentReports: 0, trashSorted: 0, community: 0, levelProgress: 0,
+            points: 0, 
+            highScore: 0, // <-- THÊM TRƯỜNG highscore
+            sentReports: 0, trashSorted: 0, community: 0, levelProgress: 0,
             communityStats: [
               { label: 'T1', report: 0, recycle: 0 },
               { label: 'T2', report: 0, recycle: 0 },
@@ -126,34 +127,104 @@ export const useUserStore = create((set, get) => ({
     }
   },
 
-  // HÀM MỚI: Cập nhật điểm cho người dùng
+  // HÀM: CẬP NHẬT ĐIỂM (Cộng điểm và kiểm tra highScore)
   addPointsToUser: async (pointsToAdd) => {
     const uid = auth.currentUser?.uid;
     if (!uid) return { success: false, error: "User not authenticated" };
 
-    try {
-      const docRef = doc(db, "users", uid);
-      
-      // Sử dụng increment để cập nhật số điểm một cách an toàn
-      await updateDoc(docRef, {
-        "stats.points": increment(pointsToAdd)
-      });
+    const docRef = doc(db, "users", uid);
 
-      // Cập nhật state local ngay lập tức
-      set((state) => ({
-        userProfile: {
-          ...state.userProfile,
-          stats: {
-            ...state.userProfile.stats,
-            points: (state.userProfile.stats.points || 0) + pointsToAdd
-          }
+    try {
+        let newPoints = 0;
+        let newHighScore = 0;
+
+        await runTransaction(db, async (transaction) => {
+            const userSnap = await transaction.get(docRef);
+            const data = userSnap.data();
+            const currentPoints = data?.stats?.points || 0;
+            const currentHighScore = data?.stats?.highScore || 0;
+
+            newPoints = currentPoints + pointsToAdd;
+            newHighScore = currentHighScore;
+
+            // 1. Kiểm tra và cập nhật điểm cao nhất
+            if (newPoints > currentHighScore) {
+                newHighScore = newPoints;
+            }
+
+            // 2. Đảm bảo điểm hiện tại không bị âm khi trừ điểm (ví dụ: hủy hành động)
+            if (newPoints < 0) {
+                 newPoints = 0;
+            }
+
+            const updateData = {
+                "stats.points": newPoints, 
+                "stats.highScore": newHighScore
+            };
+            
+            transaction.update(docRef, updateData);
+        });
+
+        // Cập nhật state local sau transaction thành công
+        set((state) => ({
+            userProfile: {
+                ...state.userProfile,
+                stats: {
+                    ...state.userProfile.stats,
+                    points: newPoints,
+                    highScore: newHighScore 
+                }
+            }
+        }));
+
+        return { success: true, newPoints, newHighScore };
+    } catch (error) {
+        console.error("Lỗi giao dịch cộng điểm/highscore:", error);
+        return { success: false, error: error.message };
+    }
+  },
+
+  // HÀM: Xử lý giao dịch đổi điểm (Trừ điểm an toàn)
+  exchangePointsForReward: async (rewardCost) => {
+    const uid = auth.currentUser?.uid;
+    if (!uid) return { success: false, error: "USER_NOT_AUTHENTICATED" };
+
+    const userRef = doc(db, "users", uid);
+
+    try {
+      await runTransaction(db, async (transaction) => {
+        const userSnap = await transaction.get(userRef);
+        const currentPoints = userSnap.data()?.stats?.points || 0;
+        
+        if (currentPoints < rewardCost) {
+            // Ném lỗi để rollback transaction
+            throw "INSUFFICIENT_POINTS"; 
         }
-      }));
+
+        const newPoints = currentPoints - rewardCost;
+        transaction.update(userRef, {
+            "stats.points": newPoints
+        });
+
+        // Cập nhật state local
+        set((state) => ({
+            userProfile: {
+                ...state.userProfile,
+                stats: {
+                    ...state.userProfile.stats,
+                    points: newPoints
+                }
+            }
+        }));
+      });
 
       return { success: true };
     } catch (error) {
-      console.error("Lỗi cộng điểm:", error);
-      return { success: false, error: error.message };
+        if (error === "INSUFFICIENT_POINTS") {
+            return { success: false, error: "INSUFFICIENT_POINTS" };
+        }
+        console.error("Lỗi giao dịch:", error);
+        return { success: false, error: error.message || "TRANSACTION_FAILED" };
     }
   },
 
@@ -169,7 +240,7 @@ export const useUserStore = create((set, get) => ({
       return { success: false, error };
     }
   },
-
+  
   uploadAvatar: async (uri) => {
     const uid = auth.currentUser?.uid;
     if (!uid || !uri) return { success: false, error: "No user or URI" };
@@ -245,7 +316,9 @@ export const useUserStore = create((set, get) => ({
         isLocationShared: false,
         updatedAt: new Date().toISOString(),
         stats: {
-          points: 0, sentReports: 0, trashSorted: 0, community: 0, levelProgress: 0,
+          points: 0, 
+          highScore: 0, // Reset highscore
+          sentReports: 0, trashSorted: 0, community: 0, levelProgress: 0,
           communityStats: [
             { label: 'T1', report: 0, recycle: 0 },
             { label: 'T2', report: 0, recycle: 0 },
@@ -280,7 +353,7 @@ export const useUserStore = create((set, get) => ({
     }
   },
 
-  // --- PHẦN LẤY DỮ LIỆU THỰC TỪ FIRESTORE ---
+  // --- PHẦN LẤY DỮ LIỆU THỰC TỪ FIRESTORE (GIỮ NGUYÊN) ---
 
   // 1. Lấy chỉ số AQI mới nhất từ collection 'aqi_data'
   getRealtimeAQI: async () => {
