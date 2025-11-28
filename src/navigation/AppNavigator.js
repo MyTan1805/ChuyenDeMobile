@@ -55,6 +55,7 @@ import EditProfileScreen from '@/features/profile/screens/EditProfileScreen';
 import NotificationListScreen from '@/features/notifications/screens/NotificationListScreen';
 import WasteSearchScreen from '@/features/waste-guide/screens/WasteSearchScreen';
 
+import BadgeCollectionScreen from '@/features/gamification/screens/BadgeCollectionScreen';
 // ----- COMPONENT -----
 import CustomTabBar from '@/components/CustomTabBar'; 
 
@@ -204,7 +205,9 @@ function MainNavigator() {
     <MainStack.Navigator screenOptions={{ headerShown: false }}>
       <MainStack.Screen name="MainTabs" component={MainTabNavigator} />
       <MainStack.Screen name="Chatbot" component={ChatbotScreen} />
+      
       <MainStack.Screen name="EditProfile" component={EditProfileScreen} />
+      <MainStack.Screen name="BadgeCollection" component={BadgeCollectionScreen} /> 
 
       <MainStack.Screen name="AqiDetail" component={AqiDetailScreen} />
       <MainStack.Screen name="Notifications" component={NotificationListScreen} /> 

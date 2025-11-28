@@ -1,3 +1,5 @@
+// src/features/aqi/components/AppShortcuts.jsx
+
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons'; 
@@ -5,10 +7,11 @@ import { useNavigation } from '@react-navigation/native';
 
 const shortcuts = [
     { label: 'Báo cáo vi phạm', screen: 'Report', icon: 'alert-circle-outline' },
-    { label: 'Phân loại rác', screen: 'Recycle', icon: 'trash-can-outline' },
+    { label: 'Phân loại rác', screen: 'WasteSearch', icon: 'trash-can-outline' }, // Đổi từ Recycle sang WasteSearch
     { label: 'AI Chatbot', screen: 'Chatbot', icon: 'robot-happy-outline' },
     { label: 'Bản đồ MT', screen: 'Map', icon: 'map-outline' }, 
-    { label: 'Huy hiệu', screen: 'Profile', icon: 'medal-outline' },
+    // SỬA: Thay Profile bằng BadgeCollection (là màn hình chi tiết mới)
+    { label: 'Huy hiệu', screen: 'BadgeCollection', icon: 'medal-outline' }, 
     { label: 'Hướng dẫn', screen: 'Guide', icon: 'book-open-variant' },
 ];
 
@@ -23,9 +26,17 @@ const AppShortcuts = () => {
                     key={index} 
                     style={styles.item}
                     onPress={() => {
-                        // Thêm log để kiểm tra
                         console.log("Navigating to:", item.screen);
-                        navigation.navigate(item.screen);
+                        
+                        // Xử lý điều hướng
+                        if (item.screen === 'BadgeCollection') {
+                            // Cần chuyển sang Profile Stack trước, sau đó chuyển màn hình
+                            // Cách tốt nhất là navigate trực tiếp nếu nó nằm trong MainStack
+                            navigation.navigate('BadgeCollection');
+                        } else {
+                            // Các màn hình khác
+                            navigation.navigate(item.screen);
+                        }
                     }}
                 >
                     <View style={styles.iconBox}>
