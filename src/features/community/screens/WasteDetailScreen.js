@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, Image, TouchableOpacity, ImageBackground } from 'react-native';
-<<<<<<< HEAD
 import CustomHeader from '@/components/CustomHeader';
 import CategorySelector from '@/components/CategorySelector';
 import { Ionicons } from '@expo/vector-icons';
@@ -22,27 +21,12 @@ const WasteDetailScreen = ({ route, navigation }) => {
     const [currentItem, setCurrentItem] = useState(selectedCategory);
 
     const categoryNames = allCategories.length > 0 ? allCategories.map(cat => cat.name) : [];
-=======
-// --- SỬA CÁC DÒNG IMPORT DƯỚI ĐÂY ---
-import CustomHeader from '@/components/CustomHeader';       // Dùng @/components
-import CategorySelector from '@/components/CategorySelector'; // Dùng @/components
-// -------------------------------------
-import { Ionicons } from '@expo/vector-icons';
-
-// ... (Phần code còn lại của WasteDetailScreen giữ nguyên)
-const WasteDetailScreen = ({ route, navigation }) => {
-    const { selectedCategory, allCategories } = route.params;
-    const [currentItem, setCurrentItem] = useState(selectedCategory);
-
-    const categoryNames = allCategories.map(cat => cat.name);
->>>>>>> dev/Bao
 
     const handleSelectCategory = (name) => {
         const found = allCategories.find(cat => cat.name === name);
         if (found) setCurrentItem(found);
     };
 
-<<<<<<< HEAD
     // ✅ 2. HÀM CHỌN ẢNH THÔNG MINH
     const getDisplayImage = () => {
         // Ưu tiên ảnh chụp thật
@@ -84,33 +68,11 @@ const WasteDetailScreen = ({ route, navigation }) => {
             <Text style={styles.stepContent}>{content.trim()}</Text>
         </View>
     );
-=======
-    const locationCount = currentItem.locations ? currentItem.locations.length : 0;
-
-    const InstructionStep = ({ number, stepData }) => {
-        if (!stepData) return null;
-        return (
-            <View style={styles.stepCard}>
-                <View style={styles.stepHeader}>
-                    <View style={styles.stepNumberBadge}>
-                        <Text style={styles.stepNumberText}>{number}</Text>
-                    </View>
-                    <Text style={styles.stepTitle}>{stepData.title}</Text>
-                </View>
-                <Text style={styles.stepContent}>{stepData.content}</Text>
-            </View>
-        );
-    };
->>>>>>> dev/Bao
 
     const LocationItem = ({ item }) => (
         <TouchableOpacity style={styles.locationCard} activeOpacity={0.7}>
             <View style={styles.locationLeft}>
-<<<<<<< HEAD
                 <Ionicons name="location" size={24} color="#D32F2F" style={{ marginRight: 12 }} />
-=======
-                <Ionicons name="location" size={24} color="black" style={{ marginRight: 12 }} />
->>>>>>> dev/Bao
                 <View>
                     <Text style={styles.locationName}>{item.name}</Text>
                     <Text style={styles.locationDistance}>{item.distance}</Text>
@@ -120,7 +82,6 @@ const WasteDetailScreen = ({ route, navigation }) => {
         </TouchableOpacity>
     );
 
-<<<<<<< HEAD
     const aiSteps = displayData.rawInstructions ? parseAiInstructions(displayData.rawInstructions) : [];
 
     return (
@@ -164,36 +125,6 @@ const WasteDetailScreen = ({ route, navigation }) => {
                         ))
                     ) : (
                         <Text style={styles.emptyText}>Chưa có hướng dẫn cụ thể.</Text>
-=======
-    return (
-        <View style={styles.container}>
-            <CustomHeader title={currentItem.title} showBackButton={true} />
-
-            <View style={styles.selectorContainer}>
-                <CategorySelector 
-                    categories={categoryNames}
-                    selectedCategory={currentItem.name}
-                    onSelectCategory={handleSelectCategory}
-                />
-            </View>
-
-            <ScrollView contentContainerStyle={styles.scrollContent}>
-                
-                <Image 
-                    source={{ uri: currentItem.image }} 
-                    style={styles.heroImage}
-                    resizeMode="cover" 
-                />
-
-                <View style={styles.contentContainer}>
-                    
-                    {currentItem.steps && (
-                        <>
-                            <InstructionStep number="1" stepData={currentItem.steps.step1} />
-                            <InstructionStep number="2" stepData={currentItem.steps.step2} />
-                            <InstructionStep number="3" stepData={currentItem.steps.step3} />
-                        </>
->>>>>>> dev/Bao
                     )}
 
                     <View style={styles.mapSection}>
@@ -205,16 +136,9 @@ const WasteDetailScreen = ({ route, navigation }) => {
                         >
                             <View style={styles.mapOverlay}>
                                 <View style={styles.mapTextContainer}>
-<<<<<<< HEAD
                                     <Text style={styles.mapTitle}>Điểm thu gom</Text>
                                     <Text style={styles.mapSubtitle}>{displayData.locations.length} điểm gần nhất</Text>
                                 </View>
-=======
-                                    <Text style={styles.mapTitle}>Xem bản đồ</Text>
-                                    <Text style={styles.mapSubtitle}>{locationCount} điểm gần nhất</Text>
-                                </View>
-
->>>>>>> dev/Bao
                                 <TouchableOpacity style={styles.mapButton} activeOpacity={0.8}>
                                     <Text style={styles.mapButtonText}>Mở bản đồ</Text>
                                 </TouchableOpacity>
@@ -222,17 +146,10 @@ const WasteDetailScreen = ({ route, navigation }) => {
                         </ImageBackground>
                     </View>
 
-<<<<<<< HEAD
                     <Text style={styles.sectionHeader}>Danh sách địa điểm</Text>
                     
                     {displayData.locations.length > 0 ? (
                         displayData.locations.map((loc, index) => (
-=======
-                    <Text style={styles.sectionHeader}>Điểm thu gom gần nhất</Text>
-                    
-                    {currentItem.locations && currentItem.locations.length > 0 ? (
-                        currentItem.locations.map((loc, index) => (
->>>>>>> dev/Bao
                             <LocationItem key={index} item={loc} />
                         ))
                     ) : (
@@ -248,11 +165,7 @@ const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: '#F5F5F5' },
     selectorContainer: { backgroundColor: '#fff', paddingBottom: 10 },
     scrollContent: { paddingBottom: 40 },
-<<<<<<< HEAD
     heroImage: { width: '100%', height: 250, marginBottom: 20, backgroundColor: '#fff' },
-=======
-    heroImage: { width: '100%', height: 220, marginBottom: 20 },
->>>>>>> dev/Bao
     contentContainer: { paddingHorizontal: 16 },
     stepCard: {
         backgroundColor: '#fff', borderRadius: 16, padding: 16, marginBottom: 16,
@@ -261,7 +174,6 @@ const styles = StyleSheet.create({
     },
     stepHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
     stepNumberBadge: {
-<<<<<<< HEAD
         width: 28, height: 28, borderRadius: 14, backgroundColor: '#2F847C',
         justifyContent: 'center', alignItems: 'center', marginRight: 10
     },
@@ -288,33 +200,6 @@ const styles = StyleSheet.create({
     locationName: { fontSize: 16, fontFamily: 'Nunito-Bold', color: '#333', marginBottom: 4 },
     locationDistance: { fontSize: 13, fontFamily: 'Nunito-Regular', color: '#666' },
     emptyText: { fontStyle: 'italic', color: '#888', textAlign: 'center', marginTop: 10, marginBottom: 20 }
-=======
-        width: 24, height: 24, borderRadius: 12, backgroundColor: '#2F847C',
-        justifyContent: 'center', alignItems: 'center', marginRight: 10
-    },
-    stepNumberText: { color: '#fff', fontFamily: 'Nunito-Bold', fontSize: 12 },
-    stepTitle: { fontSize: 16, fontFamily: 'Nunito-Bold', color: '#2F847C' },
-    stepContent: { fontSize: 15, fontFamily: 'Nunito-Regular', color: '#444', lineHeight: 22, paddingLeft: 34 },
-
-    mapSection: {
-        marginTop: 10, marginBottom: 20, borderRadius: 16, overflow: 'hidden',
-        height: 180, backgroundColor: '#ccc',
-    },
-    mapBackground: { width: '100%', height: '100%', flex: 1, justifyContent: 'flex-end' },
-    mapOverlay: { padding: 16, backgroundColor: 'rgba(0,0,0,0.3)', height: '100%', justifyContent: 'flex-end' },
-    mapTextContainer: { marginBottom: 10 },
-    mapTitle: { color: 'white', fontSize: 16, fontFamily: 'Nunito-Bold', textShadowColor: 'rgba(0, 0, 0, 0.75)', textShadowOffset: {width: -1, height: 1}, textShadowRadius: 10 },
-    mapSubtitle: { color: '#fff', fontSize: 12, fontFamily: 'Nunito-Regular', textShadowColor: 'rgba(0, 0, 0, 0.75)', textShadowOffset: {width: -1, height: 1}, textShadowRadius: 10 },
-    mapButton: { backgroundColor: 'white', borderRadius: 30, paddingVertical: 12, alignItems: 'center', width: '100%' },
-    mapButtonText: { color: 'black', fontSize: 16, fontFamily: 'Nunito-Bold' },
-
-    sectionHeader: { fontSize: 18, fontFamily: 'Nunito-Bold', color: '#000', marginBottom: 15 },
-    locationCard: { backgroundColor: '#E0E0E0', borderRadius: 12, padding: 16, marginBottom: 12, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-    locationLeft: { flexDirection: 'row', alignItems: 'center', flex: 1 },
-    locationName: { fontSize: 16, fontFamily: 'Nunito-Bold', color: '#000', marginBottom: 4 },
-    locationDistance: { fontSize: 14, fontFamily: 'Nunito-Regular', color: '#555' },
-    emptyText: { fontStyle: 'italic', color: '#888', textAlign: 'center', marginTop: 10 }
->>>>>>> dev/Bao
 });
 
 export default WasteDetailScreen;

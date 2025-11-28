@@ -8,7 +8,7 @@ const GEMINI_ENDPOINT = 'https://generativelanguage.googleapis.com/v1beta/models
 // const GEMINI_ENDPOINT = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent';
 
 // 🔧 MOCK MODE - Đổi thành false khi có API key
-const USE_MOCK = true; // Bật tạm thời khi hết quota
+const USE_MOCK = false; // Bật tạm thời khi hết quota
 
 /**
  * Cấu trúc actions cố định (icon, title, points)

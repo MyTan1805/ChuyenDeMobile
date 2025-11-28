@@ -213,6 +213,8 @@ function MainNavigator() {
       <MainStack.Screen name="WasteSearch" component={WasteSearchScreen} />
       <MainStack.Screen name="WasteDetail" component={WasteDetailScreen} />
 
+      <MainStack.Screen name="CreateReport" component={CreateReportScreen} />
+
       {/* Nhóm Setting */}
       <MainStack.Screen name="Settings" component={SettingsScreen} />
       <MainStack.Screen name="AccountManagement" component={AccountManagementScreen} />
@@ -248,7 +250,6 @@ export default function AppNavigator() {
 
   return (
     <NavigationContainer linking={linking} fallback={<ActivityIndicator size="large" />}>
-<<<<<<< HEAD
       {
         !user ? (
           // Case 1: Chưa đăng nhập -> Hiện Auth
@@ -262,9 +263,6 @@ export default function AppNavigator() {
           <VerifyNavigator />
         )
       }
-=======
-      {user ? <MainNavigator /> : <AuthNavigator />}
->>>>>>> dev/Bao
     </NavigationContainer>
   );
 }

@@ -13,11 +13,6 @@ const ProfileScreen = () => {
         if (user?.uid) fetchUserProfile(user.uid);
     }, [user]);
 
-<<<<<<< HEAD
-=======
-    // --- Dữ liệu phòng thủ (Fallback) ---
-    // Nếu chưa load xong hoặc lỗi, hiển thị tất cả là 0
->>>>>>> dev/Bao
     const defaultStats = {
         points: 0, sentReports: 0, trashSorted: 0, community: 0, levelProgress: 0,
         communityStats: [
@@ -87,11 +82,7 @@ const ProfileScreen = () => {
                 title="Trang Cá Nhân"
                 showNotificationButton={true}
                 showSettingsButton={true}
-<<<<<<< HEAD
                 onSettingsPress={() => navigation.navigate('Settings')}
-=======
-                onSettingsPress={() => alert("Chuyển đến màn hình Cài đặt")}
->>>>>>> dev/Bao
                 onNotificationPress={() => alert("Thông báo")}
             />
 
@@ -112,7 +103,6 @@ const ProfileScreen = () => {
                         </View>
 
                         <View style={styles.userInfoText}>
-<<<<<<< HEAD
                             {/* Nếu chưa có tên, hiển thị 'Người dùng' */}
                             <Text style={styles.userName}>{displayData.displayName || "Người dùng"}</Text>
 
@@ -132,16 +122,6 @@ const ProfileScreen = () => {
                                     ? `Thành viên từ ${new Date(displayData.createdAt).toLocaleDateString('vi-VN')}`
                                     : "Thành viên mới"}
                             </Text>
-=======
-                            <Text style={styles.userName}>{displayData.displayName || "User Name"}</Text>
-                            <View style={styles.badgeContainer}>
-                                <Text style={styles.badgeText}>Eco warrior</Text>
-                            </View>
-                            <Text style={styles.subText} numberOfLines={1}>
-                                <Ionicons name="location-outline" size={12} /> {displayData.location || "Chưa cập nhật"}
-                            </Text>
-                            <Text style={styles.joinDate}>Thành viên từ tháng 1/2024</Text>
->>>>>>> dev/Bao
                         </View>
                     </View>
                 </View>

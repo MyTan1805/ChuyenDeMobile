@@ -1,5 +1,4 @@
 import React, { useEffect, useState } from 'react';
-<<<<<<< HEAD
 import { 
     View, Text, StyleSheet, TouchableOpacity, ScrollView, 
     Image, Dimensions, ActivityIndicator 
@@ -8,23 +7,10 @@ import CustomHeader from '@/components/CustomHeader';
 import { Ionicons } from '@expo/vector-icons';
 import { database } from '@/config/firebaseConfig';
 import { ref, onValue } from 'firebase/database';
-=======
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Image, Dimensions, ActivityIndicator } from 'react-native';
-// --- SỬA CÁC DÒNG IMPORT DƯỚI ĐÂY ---
-import CustomHeader from '@/components/CustomHeader'; // Dùng @/components
-import { Ionicons } from '@expo/vector-icons';
-import { database } from '@/config/firebaseConfig'; // Dùng @/config
-import { ref, onValue } from 'firebase/database';
-// -------------------------------------
->>>>>>> dev/Bao
 
 const { width } = Dimensions.get('window');
 
 const WasteClassificationScreen = ({ navigation }) => {
-<<<<<<< HEAD
-=======
-    // ... (Phần code logic bên dưới giữ nguyên)
->>>>>>> dev/Bao
     const [wasteCategories, setWasteCategories] = useState([]);
     const [loading, setLoading] = useState(true);
 
@@ -49,15 +35,9 @@ const WasteClassificationScreen = ({ navigation }) => {
     }, []);
 
     const handleCategoryPress = (category) => {
-<<<<<<< HEAD
         navigation.navigate('WasteDetail', {
             selectedCategory: category,
             allCategories: wasteCategories
-=======
-        navigation.navigate('WasteDetail', { 
-            selectedCategory: category,
-            allCategories: wasteCategories 
->>>>>>> dev/Bao
         });
     };
 
@@ -73,19 +53,13 @@ const WasteClassificationScreen = ({ navigation }) => {
             ) : (
                 <ScrollView contentContainerStyle={styles.scrollContent}>
                     <View style={styles.bannerContainer}>
-<<<<<<< HEAD
                         <Image
                             source={{ uri: 'https://img.freepik.com/premium-vector/young-volunteer-children-collecting-garbage-environmentalism-plastic-awareness-concept_204997-67.jpg' }}
-=======
-                        <Image 
-                            source={{ uri: 'https://img.freepik.com/premium-vector/young-volunteer-children-collecting-garbage-environmentalism-plastic-awareness-concept_204997-67.jpg' }} 
->>>>>>> dev/Bao
                             style={styles.bannerImage}
                             resizeMode="cover"
                         />
                     </View>
 
-<<<<<<< HEAD
                     <TouchableOpacity 
                         style={styles.searchBarBtn}
                         activeOpacity={0.8}
@@ -114,19 +88,6 @@ const WasteClassificationScreen = ({ navigation }) => {
                                 activeOpacity={0.8}
                             >
                                 <Ionicons name={item.icon || 'leaf'} size={36} color="#333" />
-=======
-                    <Text style={styles.instructionText}>Bạn muốn tìm hiểu về loại rác nào?</Text>
-
-                    <View style={styles.gridContainer}>
-                        {wasteCategories.map((item, index) => (
-                            <TouchableOpacity 
-                                key={index} 
-                                style={[styles.card, { backgroundColor: item.color }]}
-                                onPress={() => handleCategoryPress(item)}
-                                activeOpacity={0.8}
-                            >
-                                <Ionicons name={item.icon} size={36} color="#333" />
->>>>>>> dev/Bao
                                 <Text style={styles.cardText}>{item.name}</Text>
                             </TouchableOpacity>
                         ))}
@@ -141,7 +102,6 @@ const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: '#fff' },
     center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
     scrollContent: { paddingBottom: 20 },
-<<<<<<< HEAD
     
     bannerContainer: { width: '100%', height: 180, marginBottom: 15, padding: 16 },
     bannerImage: { width: '100%', height: '100%', borderRadius: 16 },
@@ -176,12 +136,6 @@ const styles = StyleSheet.create({
 
     instructionText: {
         marginLeft: 16, fontSize: 16, fontFamily: 'Nunito-Bold', color: '#333', marginBottom: 10
-=======
-    bannerContainer: { width: '100%', height: 180, marginBottom: 10, padding: 16 },
-    bannerImage: { width: '100%', height: '100%', borderRadius: 16 },
-    instructionText: { 
-        textAlign: 'center', fontSize: 16, fontFamily: 'Nunito-Bold', color: '#555', marginBottom: 10 
->>>>>>> dev/Bao
     },
     gridContainer: {
         flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between',
