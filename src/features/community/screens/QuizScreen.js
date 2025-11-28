@@ -9,18 +9,19 @@ import CustomHeader from '@/components/CustomHeader';
 import AppButton from '@/components/AppButton';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
-import { useUserStore } from '@/store/userStore'; // Import Store
+import { useUserStore } from '@/store/userStore'; 
 
 // TRUYỀN route VÀO COMPONENT
 const QuizScreen = ({ route }) => { 
     const navigation = useNavigation();
 
-    // Lấy hàm cộng điểm từ Store
-    const addPointsToUser = useUserStore((state) => state.addPointsToUser);
+    // Lấy hàm xử lý kết quả Quiz
+    const { recordQuizResult } = useUserStore(); 
 
     const initialQuestions = route.params?.questions || [];
     const quizTitle = route.params?.quizTitle || "Trắc nghiệm";
     const pointsPerQuestion = route.params?.pointsPerQuestion || 10; 
+    const quizId = route.params?.quizId; // <-- LẤY ID BỘ QUIZ
 
     // States quản lý game
     const [quizData, setQuizData] = useState(initialQuestions); 
@@ -28,10 +29,10 @@ const QuizScreen = ({ route }) => {
     const [currentOptionSelected, setCurrentOptionSelected] = useState(null);
     const [correctOption, setCorrectOption] = useState(null);
     const [isOptionsDisabled, setIsOptionsDisabled] = useState(false);
-    const [score, setScore] = useState(0);
+    const [score, setScore] = useState(0); // Số câu đúng trong lần chơi này
     const [showNextButton, setShowNextButton] = useState(false);
     const [showScoreModal, setShowScoreModal] = useState(false);
-    const [totalPointsEarned, setTotalPointsEarned] = useState(0); 
+    const [totalPointsEarned, setTotalPointsEarned] = useState(0); // Điểm MỚI nhận được
 
     // Biến trạng thái để lưu trữ dữ liệu của câu hỏi ĐÃ TRẢ LỜI
     const [answeredQuestion, setAnsweredQuestion] = useState(null); 
@@ -40,6 +41,9 @@ const QuizScreen = ({ route }) => {
         if (initialQuestions.length === 0) {
             Alert.alert("Lỗi", "Không tìm thấy bộ câu hỏi.");
             navigation.goBack();
+        } else if (!quizId) {
+             Alert.alert("Lỗi", "Thiếu ID bộ câu hỏi.");
+             navigation.goBack();
         } else {
             // Đảm bảo trạng thái được reset khi load bộ câu hỏi mới
             const shuffledQuestions = [...initialQuestions].sort(() => 0.5 - Math.random());
@@ -51,7 +55,7 @@ const QuizScreen = ({ route }) => {
             setCorrectOption(null);
             setIsOptionsDisabled(false);
             setShowNextButton(false);
-            setAnsweredQuestion(null); // Reset
+            setAnsweredQuestion(null); 
         }
     }, [initialQuestions]);
 
@@ -65,19 +69,14 @@ const QuizScreen = ({ route }) => {
         );
     }
     
-    // Lấy câu hỏi hiện tại
     const currentQuestion = quizData[currentQuestionIndex];
     const progress = (currentQuestionIndex + 1) / quizData.length;
-
-    // SỬ DỤNG BIẾN NÀY ĐỂ RENDER PHẦN GIẢI THÍCH VÀ ĐÁP ÁN ĐÚNG
     const questionToDisplay = answeredQuestion || currentQuestion;
 
 
     const validateAnswer = (selectedOption) => {
-        // Nếu đã bị disable, không làm gì
         if (isOptionsDisabled) return;
 
-        // B1: Lưu câu hỏi hiện tại vào answeredQuestion
         setAnsweredQuestion(currentQuestion);
 
         let correct_option = currentQuestion.correctAnswer;
@@ -86,9 +85,8 @@ const QuizScreen = ({ route }) => {
         setIsOptionsDisabled(true);
 
         if (selectedOption === correct_option) {
-            // Cộng điểm tạm thời (chưa lưu vào DB)
             setScore(score + 1);
-            setTotalPointsEarned(prev => prev + pointsPerQuestion); 
+            // KHÔNG CỘNG ĐIỂM Ở ĐÂY NỮA, CHỈ TĂNG SCORE
         }
         
         setShowNextButton(true);
@@ -97,30 +95,43 @@ const QuizScreen = ({ route }) => {
     const handleNext = async () => {
         if (currentQuestionIndex === quizData.length - 1) {
             
-            // LOGIC LƯU ĐIỂM KHI HOÀN THÀNH
-            if (totalPointsEarned > 0) {
-                 await addPointsToUser(totalPointsEarned);
-                 console.log(`Đã cộng ${totalPointsEarned} điểm cho người dùng.`);
+            // --- LOGIC GỌI HÀM MỚI (recordQuizResult) KHI HOÀN THÀNH ---
+            let awardedPoints = 0;
+            
+            const result = await recordQuizResult(
+                quizId,                  // ID của bộ Quiz
+                score,                   // Số câu đúng lần chơi này
+                pointsPerQuestion        // Điểm trên mỗi câu hỏi
+            );
+
+            if (result.success) {
+                awardedPoints = result.pointsAwarded;
+                setTotalPointsEarned(awardedPoints); 
+                
+                if (awardedPoints > 0) {
+                     console.log(`Đã cộng thêm ${awardedPoints} điểm mới cho người dùng.`);
+                }
+            } else {
+                 Alert.alert("Lỗi", "Không thể ghi nhận kết quả cuối cùng.");
             }
-            // ---------------------------------------------
+            // -----------------------------------------------------------
             
             setShowScoreModal(true);
         } else {
             // Chuyển sang câu hỏi tiếp theo
-            setCurrentQuestionIndex(currentQuestionIndex + 1);
+            setCurrentQuestionIndex(prevIndex => prevIndex + 1);
             
             // RESET CÁC TRẠNG THÁI
             setCurrentOptionSelected(null);
             setCorrectOption(null);
             setIsOptionsDisabled(false);
             setShowNextButton(false);
-            setAnsweredQuestion(null); // ĐẶT LẠI answeredQuestion để hiển thị câu hỏi mới
+            setAnsweredQuestion(null); 
         }
     };
 
     const restartQuiz = () => {
         setShowScoreModal(false);
-        // Quay lại màn hình chọn bộ câu hỏi
         navigation.goBack();
     };
 
@@ -181,7 +192,6 @@ const QuizScreen = ({ route }) => {
     return (
         <View style={styles.container}>
             <CustomHeader title={quizTitle} showBackButton={true} /> 
-            {/* Thay title cứng bằng title bộ quiz */}
 
             <ScrollView contentContainerStyle={styles.scrollContent}>
                 {/* Progress Bar */}
@@ -194,7 +204,6 @@ const QuizScreen = ({ route }) => {
 
                 {/* Question Section */}
                 <View style={styles.questionContainer}>
-                    {/* Luôn hiển thị câu hỏi hiện tại */}
                     <Text style={styles.questionText}>{currentQuestion.question}</Text>
                 </View>
 
@@ -202,7 +211,6 @@ const QuizScreen = ({ route }) => {
                 {renderOptions()}
 
                 {/* Explanation Section (hiện sau khi trả lời) */}
-                {/* Đảm bảo chỉ hiện giải thích khi đã chọn đáp án và có dữ liệu câu trả lời */}
                 {isOptionsDisabled && answeredQuestion && ( 
                     <View style={styles.explanationContainer}>
                         <View style={styles.explanationHeader}>
@@ -246,11 +254,11 @@ const QuizScreen = ({ route }) => {
                             <Text style={styles.scoreLabel}>Câu đúng</Text>
                         </View>
                         
-                        {/* HIỂN THỊ ĐIỂM THƯỞNG */}
+                        {/* HIỂN THỊ ĐIỂM THƯỞNG MỚI NHẬN */}
                         {totalPointsEarned > 0 && (
                             <View style={styles.rewardBox}>
                                 <Ionicons name="sparkles" size={24} color="#FF9800" />
-                                <Text style={styles.rewardText}>+ {totalPointsEarned} điểm thưởng</Text>
+                                <Text style={styles.rewardText}>+ {totalPointsEarned} điểm mới</Text>
                             </View>
                         )}
                         {/* END HIỂN THỊ ĐIỂM THƯỞNG */}
@@ -264,7 +272,7 @@ const QuizScreen = ({ route }) => {
 
                         <AppButton 
                             title="Chọn bộ khác" 
-                            onPress={restartQuiz} // Quay lại màn hình Collection
+                            onPress={restartQuiz} 
                             type="secondary"
                             style={{ width: '100%', marginBottom: 10 }}
                         />
@@ -272,7 +280,7 @@ const QuizScreen = ({ route }) => {
                             title="Về trang Cộng đồng" 
                             onPress={() => {
                                 setShowScoreModal(false);
-                                navigation.pop(2); // Quay lại CommunityMain
+                                navigation.pop(2); 
                             }}
                             style={{ width: '100%' }}
                         />
