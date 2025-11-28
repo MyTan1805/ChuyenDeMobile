@@ -12,11 +12,11 @@ const HomeStackNavigator = () => {
     <Stack.Navigator screenOptions={{ headerShown: false }}>
       {/* Màn hình Dashboard là màn hình đầu tiên */}
       <Stack.Screen name="AqiDashboard" component={AqiDashboardScreen} />
-      
+
       {/* Màn hình Chi tiết */}
       <Stack.Screen name="AqiDetail" component={AqiDetailScreen} />
 
-      
+
     </Stack.Navigator>
   );
 };
