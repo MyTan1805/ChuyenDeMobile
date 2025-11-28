@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Alert } from 'react-native'; // <-- THÊM Alert
 import { Ionicons } from '@expo/vector-icons';
 import { generateDailyActions } from '../api/aiActionsApi';
 import AsyncStorage from '@react-native-async-storage/async-storage'; // ✅ Import cái này để lưu
