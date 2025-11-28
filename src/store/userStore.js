@@ -292,6 +292,130 @@ export const useUserStore = create((set, get) => ({
         return { success: false, error: error.message || "TRANSACTION_FAILED" };
     }
   },
+  updateUserProfile: async (data) => {
+    const uid = auth.currentUser?.uid;
+    if (!uid) return;
+    try {
+      const docRef = doc(db, "users", uid);
+      await updateDoc(docRef, data);
+      set((state) => ({ userProfile: { ...state.userProfile, ...data } }));
+      return { success: true };
+    } catch (error) {
+      return { success: false, error };
+    }
+  },
+  
+  uploadAvatar: async (uri) => {
+    const uid = auth.currentUser?.uid;
+    if (!uid || !uri) return { success: false, error: "No user or URI" };
+    try {
+      const formData = new FormData();
+      formData.append('file', { uri: uri, type: 'image/jpeg', name: `avatar_${uid}.jpg` });
+      formData.append('upload_preset', UPLOAD_PRESET);
+      formData.append('cloud_name', CLOUD_NAME);
+      const response = await fetch(`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`, {
+        method: 'POST',
+        body: formData,
+        headers: { 'Accept': 'application/json', 'Content-Type': 'multipart/form-data' },
+      });
+      const data = await response.json();
+      if (data.secure_url) {
+        await get().updateUserProfile({ photoURL: data.secure_url });
+        return { success: true, url: data.secure_url };
+      } else {
+        return { success: false, error: "Upload failed" };
+      }
+    } catch (error) {
+      return { success: false, error };
+    }
+  },
+
+  login: async (email, password) => {
+    try {
+      await signInWithEmailAndPassword(auth, email, password);
+      return { success: true };
+    } catch (error) {
+      return { success: false, error };
+    }
+  },
+
+  loginGuest: async () => {
+    try {
+      await signInAnonymously(auth);
+      return { success: true };
+    } catch (error) {
+      return { success: false, error };
+    }
+  },
+
+  logout: async () => {
+    await signOut(auth);
+    set({ user: null, userProfile: null });
+  },
+
+  updateUserSettings: async (settingsData) => {
+    return await get().updateUserProfile(settingsData);
+  },
+
+  changeUserPassword: async (newPassword) => {
+    const user = auth.currentUser;
+    if (!user) return { success: false, error: "No user" };
+    try {
+      await updatePassword(user, newPassword);
+      return { success: true };
+    } catch (error) {
+      return { success: false, error };
+    }
+  },
+
+  resetUserData: async () => {
+    const uid = auth.currentUser?.uid;
+    if (!uid) return { success: false, error: "No user" };
+    try {
+      const resetData = {
+        displayName: auth.currentUser?.email?.split('@')[0] || "Người dùng",
+        location: "",
+        phoneNumber: "",
+        photoURL: "",
+        isLocationShared: false,
+        updatedAt: new Date().toISOString(),
+        stats: {
+          points: 0, 
+          highScore: 0, // Reset highscore
+          sentReports: 0, trashSorted: 0, community: 0, levelProgress: 0,
+          communityStats: [
+            { label: 'T1', report: 0, recycle: 0 },
+            { label: 'T2', report: 0, recycle: 0 },
+            { label: 'T3', report: 0, recycle: 0 },
+            { label: 'T4', report: 0, recycle: 0 },
+            { label: 'T5', report: 0, recycle: 0 },
+          ]
+        },
+        reportHistory: [],
+        chatHistory: []
+      };
+      await setDoc(doc(db, "users", uid), resetData);
+      set({ userProfile: resetData });
+      return { success: true };
+    } catch (error) {
+      console.log("Lỗi reset data:", error);
+      return { success: false, error };
+    }
+  },
+
+  deleteUserAccount: async () => {
+    const user = auth.currentUser;
+    if (!user) return { success: false, error: "No user" };
+    try {
+      const uid = user.uid;
+      await deleteDoc(doc(db, "users", uid));
+      await deleteUser(user);
+      set({ user: null, userProfile: null });
+      return { success: true };
+    } catch (error) {
+      return { success: false, error };
+    }
+  },
 
   // --- PHẦN LẤY DỮ LIỆU THỰC TỪ FIRESTORE (GIỮ NGUYÊN) ---
 
