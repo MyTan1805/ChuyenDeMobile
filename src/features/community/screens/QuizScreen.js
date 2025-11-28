@@ -1,6 +1,6 @@
 // src/features/community/screens/QuizScreen.js
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react'; // THÊM useCallback
 import { 
     View, Text, StyleSheet, TouchableOpacity, ScrollView, 
     Modal, Image, ActivityIndicator, Alert
@@ -9,19 +9,20 @@ import CustomHeader from '@/components/CustomHeader';
 import AppButton from '@/components/AppButton';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
-import { useUserStore } from '@/store/userStore'; 
+import { useUserStore } from '@/store/userStore'; // Import Store
 
 // TRUYỀN route VÀO COMPONENT
 const QuizScreen = ({ route }) => { 
     const navigation = useNavigation();
 
-    // Lấy hàm xử lý kết quả Quiz
-    const { recordQuizResult } = useUserStore(); 
+    // Lấy hàm cộng điểm từ Store
+    const addPointsToUser = useUserStore((state) => state.addPointsToUser);
 
+    // Lấy câu hỏi và metadata từ route params
     const initialQuestions = route.params?.questions || [];
     const quizTitle = route.params?.quizTitle || "Trắc nghiệm";
+    // Đảm bảo lấy điểm thưởng từ route, nếu không có thì mặc định là 10
     const pointsPerQuestion = route.params?.pointsPerQuestion || 10; 
-    const quizId = route.params?.quizId; // <-- LẤY ID BỘ QUIZ
 
     // States quản lý game
     const [quizData, setQuizData] = useState(initialQuestions); 
@@ -29,38 +30,32 @@ const QuizScreen = ({ route }) => {
     const [currentOptionSelected, setCurrentOptionSelected] = useState(null);
     const [correctOption, setCorrectOption] = useState(null);
     const [isOptionsDisabled, setIsOptionsDisabled] = useState(false);
-    const [score, setScore] = useState(0); // Số câu đúng trong lần chơi này
+    const [score, setScore] = useState(0);
     const [showNextButton, setShowNextButton] = useState(false);
     const [showScoreModal, setShowScoreModal] = useState(false);
-    const [totalPointsEarned, setTotalPointsEarned] = useState(0); // Điểm MỚI nhận được
+    const [totalPointsEarned, setTotalPointsEarned] = useState(0); // <-- State mới
 
-    // Biến trạng thái để lưu trữ dữ liệu của câu hỏi ĐÃ TRẢ LỜI
-    const [answeredQuestion, setAnsweredQuestion] = useState(null); 
-
+    // Kích hoạt khi màn hình được mount hoặc khi questions thay đổi
     useEffect(() => {
         if (initialQuestions.length === 0) {
             Alert.alert("Lỗi", "Không tìm thấy bộ câu hỏi.");
             navigation.goBack();
-        } else if (!quizId) {
-             Alert.alert("Lỗi", "Thiếu ID bộ câu hỏi.");
-             navigation.goBack();
         } else {
             // Đảm bảo trạng thái được reset khi load bộ câu hỏi mới
-            const shuffledQuestions = [...initialQuestions].sort(() => 0.5 - Math.random());
-            setQuizData(shuffledQuestions); 
+            setQuizData(initialQuestions.sort(() => 0.5 - Math.random())); // Đảo ngẫu nhiên
             setCurrentQuestionIndex(0);
             setScore(0);
-            setTotalPointsEarned(0); 
+            setTotalPointsEarned(0); // Reset điểm thưởng
             setCurrentOptionSelected(null);
             setCorrectOption(null);
             setIsOptionsDisabled(false);
             setShowNextButton(false);
-            setAnsweredQuestion(null); 
         }
     }, [initialQuestions]);
 
 
     if (quizData.length === 0) {
+        // Chỉ hiển thị loading nếu không có dữ liệu sau khi fetch
         return (
             <View style={styles.centerContainer}>
                 <CustomHeader title={quizTitle} showBackButton={true} />
@@ -69,24 +64,21 @@ const QuizScreen = ({ route }) => {
         );
     }
     
+    // Lấy câu hỏi hiện tại
     const currentQuestion = quizData[currentQuestionIndex];
     const progress = (currentQuestionIndex + 1) / quizData.length;
-    const questionToDisplay = answeredQuestion || currentQuestion;
 
 
     const validateAnswer = (selectedOption) => {
-        if (isOptionsDisabled) return;
-
-        setAnsweredQuestion(currentQuestion);
-
         let correct_option = currentQuestion.correctAnswer;
         setCurrentOptionSelected(selectedOption);
         setCorrectOption(correct_option);
         setIsOptionsDisabled(true);
 
         if (selectedOption === correct_option) {
+            // Cộng điểm tạm thời (chưa lưu vào DB)
             setScore(score + 1);
-            // KHÔNG CỘNG ĐIỂM Ở ĐÂY NỮA, CHỈ TĂNG SCORE
+            setTotalPointsEarned(prev => prev + pointsPerQuestion); // <-- TÍNH ĐIỂM
         }
         
         setShowNextButton(true);
@@ -95,52 +87,36 @@ const QuizScreen = ({ route }) => {
     const handleNext = async () => {
         if (currentQuestionIndex === quizData.length - 1) {
             
-            // --- LOGIC GỌI HÀM MỚI (recordQuizResult) KHI HOÀN THÀNH ---
-            let awardedPoints = 0;
-            
-            const result = await recordQuizResult(
-                quizId,                  // ID của bộ Quiz
-                score,                   // Số câu đúng lần chơi này
-                pointsPerQuestion        // Điểm trên mỗi câu hỏi
-            );
-
-            if (result.success) {
-                awardedPoints = result.pointsAwarded;
-                setTotalPointsEarned(awardedPoints); 
-                
-                if (awardedPoints > 0) {
-                     console.log(`Đã cộng thêm ${awardedPoints} điểm mới cho người dùng.`);
-                }
-            } else {
-                 Alert.alert("Lỗi", "Không thể ghi nhận kết quả cuối cùng.");
+            // --- LOGIC GỌI API LƯU ĐIỂM KHI HOÀN THÀNH ---
+            if (totalPointsEarned > 0) {
+                 await addPointsToUser(totalPointsEarned);
+                 console.log(`Đã cộng ${totalPointsEarned} điểm cho người dùng.`);
             }
-            // -----------------------------------------------------------
+            // ---------------------------------------------
             
             setShowScoreModal(true);
         } else {
-            // Chuyển sang câu hỏi tiếp theo
-            setCurrentQuestionIndex(prevIndex => prevIndex + 1);
-            
-            // RESET CÁC TRẠNG THÁI
+            setCurrentQuestionIndex(currentQuestionIndex + 1);
             setCurrentOptionSelected(null);
             setCorrectOption(null);
             setIsOptionsDisabled(false);
             setShowNextButton(false);
-            setAnsweredQuestion(null); 
         }
     };
 
     const restartQuiz = () => {
         setShowScoreModal(false);
+        // Quay lại màn hình chọn bộ câu hỏi
         navigation.goBack();
     };
 
 
-    // Component hiển thị tùy chọn đáp án
+    // Component hiển thị tùy chọn đáp án (Giữ nguyên)
     const renderOptions = () => {
+        // ... (Logic giữ nguyên)
         return (
             <View>
-                {questionToDisplay.options.map((option, index) => {
+                {currentQuestion.options.map((option, index) => {
                     const isSelected = option === currentOptionSelected;
                     const isCorrect = option === correctOption;
                     
@@ -192,6 +168,7 @@ const QuizScreen = ({ route }) => {
     return (
         <View style={styles.container}>
             <CustomHeader title={quizTitle} showBackButton={true} /> 
+            {/* Thay title cứng bằng title bộ quiz */}
 
             <ScrollView contentContainerStyle={styles.scrollContent}>
                 {/* Progress Bar */}
@@ -211,13 +188,13 @@ const QuizScreen = ({ route }) => {
                 {renderOptions()}
 
                 {/* Explanation Section (hiện sau khi trả lời) */}
-                {isOptionsDisabled && answeredQuestion && ( 
+                {isOptionsDisabled && (
                     <View style={styles.explanationContainer}>
                         <View style={styles.explanationHeader}>
                             <Ionicons name="bulb" size={20} color="#FFA000" />
                             <Text style={styles.explanationTitle}>Giải thích:</Text>
                         </View>
-                        <Text style={styles.explanationText}>{answeredQuestion.explanation}</Text>
+                        <Text style={styles.explanationText}>{currentQuestion.explanation}</Text>
                     </View>
                 )}
             </ScrollView>
@@ -254,11 +231,11 @@ const QuizScreen = ({ route }) => {
                             <Text style={styles.scoreLabel}>Câu đúng</Text>
                         </View>
                         
-                        {/* HIỂN THỊ ĐIỂM THƯỞNG MỚI NHẬN */}
+                        {/* HIỂN THỊ ĐIỂM THƯỞNG */}
                         {totalPointsEarned > 0 && (
                             <View style={styles.rewardBox}>
                                 <Ionicons name="sparkles" size={24} color="#FF9800" />
-                                <Text style={styles.rewardText}>+ {totalPointsEarned} điểm mới</Text>
+                                <Text style={styles.rewardText}>+ {totalPointsEarned} điểm thưởng</Text>
                             </View>
                         )}
                         {/* END HIỂN THỊ ĐIỂM THƯỞNG */}
@@ -272,7 +249,7 @@ const QuizScreen = ({ route }) => {
 
                         <AppButton 
                             title="Chọn bộ khác" 
-                            onPress={restartQuiz} 
+                            onPress={restartQuiz} // Quay lại màn hình Collection
                             type="secondary"
                             style={{ width: '100%', marginBottom: 10 }}
                         />
@@ -280,7 +257,7 @@ const QuizScreen = ({ route }) => {
                             title="Về trang Cộng đồng" 
                             onPress={() => {
                                 setShowScoreModal(false);
-                                navigation.pop(2); 
+                                navigation.pop(2); // Quay lại CommunityMain
                             }}
                             style={{ width: '100%' }}
                         />
@@ -291,7 +268,7 @@ const QuizScreen = ({ route }) => {
     );
 };
 
-// ... (Styles được giữ nguyên)
+// ... (Styles được hợp nhất và chuẩn hóa)
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: '#FAFAFA' },
     centerContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#FAFAFA' },
@@ -398,7 +375,7 @@ const styles = StyleSheet.create({
         textAlign: 'center',
         marginBottom: 30
     },
-    // Reward Box Style
+    // Reward Box Style (Đã thêm)
     rewardBox: {
         flexDirection: 'row',
         alignItems: 'center',

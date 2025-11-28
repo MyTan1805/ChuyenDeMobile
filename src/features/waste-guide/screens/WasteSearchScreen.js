@@ -1,4 +1,3 @@
-// src/features/waste-guide/screens/WasteSearchScreen.jsx
 import React, { useState } from 'react';
 import { 
   View, Text, StyleSheet, TextInput, TouchableOpacity, 
@@ -8,7 +7,6 @@ import CustomHeader from '@/components/CustomHeader';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { identifyWasteWithAI } from '../api/wasteIdApi';
-import { useUserStore } from '@/store/userStore'; // <-- IMPORT USER STORE
 
 // Dữ liệu fallback
 const FALLBACK_LOCATIONS = [
@@ -19,9 +17,6 @@ const FALLBACK_LOCATIONS = [
 // Từ khóa gợi ý nhanh
 const QUICK_TAGS = ["Pin cũ", "Chai nhựa", "Vỏ hộp sữa", "Túi nilon", "Thức ăn thừa"];
 
-// ĐIỂM THƯỞNG CỐ ĐỊNH CHO MỖI LẦN PHÂN LOẠI THÀNH CÔNG
-const POINTS_FOR_CLASSIFICATION = 5; 
-
 const WasteSearchScreen = ({ navigation, route }) => {
   const { existingData = [] } = route.params || {};
 
@@ -29,9 +24,6 @@ const WasteSearchScreen = ({ navigation, route }) => {
   const [analyzing, setAnalyzing] = useState(false);
   const [aiResult, setAiResult] = useState(null);
   const [imageUri, setImageUri] = useState(null);
-  
-  // LẤY HÀM CỘNG ĐIỂM
-  const addPointsToUser = useUserStore(state => state.addPointsToUser);
 
   // --- LOGIC (GIỮ NGUYÊN) ---
   const findLocationsForCategory = (categoryIdFromAI) => {
@@ -101,39 +93,8 @@ const WasteSearchScreen = ({ navigation, route }) => {
       Alert.alert("Lỗi", error.message);
     }
   };
-  
-  // HÀM XỬ LÝ KHI NHẤN XEM CHI TIẾT VÀ CỘNG ĐIỂM
-  const handleViewDetail = async () => {
-      if (!aiResult) return;
 
-      const matchedLocations = findLocationsForCategory(aiResult.category);
-      
-      // 1. CỘNG ĐIỂM
-      const pointsResult = await addPointsToUser(POINTS_FOR_CLASSIFICATION);
-      if (pointsResult.success) {
-          // HIỂN THỊ THÔNG BÁO NHỎ
-          Alert.alert(
-              "Phân loại thành công!",
-              `Bạn vừa nhận được +${POINTS_FOR_CLASSIFICATION} điểm thưởng.`
-          );
-      } else {
-           Alert.alert("Lỗi", "Không thể cộng điểm. Vui lòng kiểm tra đăng nhập.");
-      }
-      
-      // 2. CHUYỂN MÀN HÌNH
-      navigation.navigate('WasteDetail', { 
-          selectedCategory: { 
-              name: aiResult.category, 
-              title: aiResult.itemName, 
-              image: imageUri,
-              instructions: aiResult.instructions,
-              locations: matchedLocations
-          },
-          allCategories: existingData 
-      });
-  };
-
-  // --- RENDER GIAO DIỆN ---
+  // --- RENDER GIAO DIỆN MỚI ---
   return (
     <View style={styles.container}>
       <CustomHeader title="Trợ lý Phân loại AI" showBackButton={true} />
@@ -265,8 +226,19 @@ const WasteSearchScreen = ({ navigation, route }) => {
 
                 <TouchableOpacity 
                     style={styles.detailButton}
-                    // GỌI HÀM XỬ LÝ CỘNG ĐIỂM VÀ CHUYỂN MÀN HÌNH
-                    onPress={handleViewDetail}
+                    onPress={() => {
+                        const matchedLocations = findLocationsForCategory(aiResult.category);
+                        navigation.navigate('WasteDetail', { 
+                            selectedCategory: { 
+                                name: aiResult.category, 
+                                title: aiResult.category, 
+                                image: imageUri,
+                                instructions: aiResult.instructions,
+                                locations: matchedLocations
+                            },
+                            allCategories: existingData 
+                        });
+                    }}
                 >
                     <Text style={styles.detailBtnText}>Xem chi tiết & Điểm thu gom</Text>
                     <Ionicons name="arrow-forward" size={18} color="#fff" />
@@ -280,7 +252,7 @@ const WasteSearchScreen = ({ navigation, route }) => {
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F7F9FC' }, 
+  container: { flex: 1, backgroundColor: '#F7F9FC' }, // Màu nền xám xanh nhạt sang trọng hơn
   content: { padding: 20 },
 
   // Hero Section
@@ -320,8 +292,8 @@ const styles = StyleSheet.create({
       justifyContent: 'center', alignItems: 'center',
       shadowColor: '#000', shadowOffset: {width: 0, height: 4}, shadowOpacity: 0.1, shadowRadius: 8, elevation: 4
   },
-  cardCamera: { backgroundColor: '#2F847C' }, 
-  cardGallery: { backgroundColor: '#4DB6AC' }, 
+  cardCamera: { backgroundColor: '#2F847C' }, // Xanh đậm
+  cardGallery: { backgroundColor: '#4DB6AC' }, // Xanh nhạt hơn
   iconCircleCamera: { 
       width: 60, height: 60, borderRadius: 30, backgroundColor: 'rgba(255,255,255,0.2)',
       justifyContent: 'center', alignItems: 'center', marginBottom: 15
