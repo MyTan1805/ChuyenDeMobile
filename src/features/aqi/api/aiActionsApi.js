@@ -20,28 +20,28 @@ const ACTION_TEMPLATES = {
       id: 1,
       icon: 'water',
       title: 'Phòng ngập do rác',
-      points: 15,
+      points: 2,
       descriptionKey: 'prevent_flooding'
     },
     {
       id: 2,
       icon: 'leaf',
       title: 'Trồng cây chịu mưa',
-      points: 30,
+      points: 2,
       descriptionKey: 'plant_trees'
     },
     {
       id: 3,
       icon: 'trash',
       title: 'Phân loại rác ướt',
-      points: 20,
+      points: 2,
       descriptionKey: 'sort_wet_waste'
     },
     {
       id: 4,
       icon: 'hand-left',
       title: 'Dọn rác sau mưa',
-      points: 25,
+      points: 2,
       descriptionKey: 'clean_after_rain'
     }
   ],
@@ -50,28 +50,28 @@ const ACTION_TEMPLATES = {
       id: 1,
       icon: 'water-outline',
       title: 'Tiết kiệm nước',
-      points: 15,
+      points: 2,
       descriptionKey: 'save_water'
     },
     {
       id: 2,
       icon: 'flame-outline',
       title: 'Phòng cháy rừng',
-      points: 20,
+      points: 2,
       descriptionKey: 'prevent_fire'
     },
     {
       id: 3,
       icon: 'fitness',
       title: 'Bảo vệ sức khỏe',
-      points: 10,
+      points: 2,
       descriptionKey: 'protect_health'
     },
     {
       id: 4,
       icon: 'sunny',
       title: 'Tưới cây buổi sáng',
-      points: 15,
+      points: 2,
       descriptionKey: 'water_plants'
     }
   ]
