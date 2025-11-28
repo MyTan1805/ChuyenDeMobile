@@ -9,8 +9,12 @@ import {
     TextInput,
     TouchableOpacity,
     ActivityIndicator,
+<<<<<<< HEAD
     Alert,
     KeyboardAvoidingView, Platform // <-- Đã thêm import
+=======
+    Alert
+>>>>>>> dev/Bao
 } from 'react-native';
 import { Svg, Path } from 'react-native-svg';
 import { useNavigation } from '@react-navigation/native';
@@ -67,11 +71,19 @@ export default function ForgetPasswordScreen() {
             
             Alert.alert(
                 "Thành công",
+<<<<<<< HEAD
                 "Một liên kết đặt lại mật khẩu đã được gửi đến email của bạn. Vui lòng kiểm tra hộp thư.",
                 [
                     {
                         text: "Đến màn hình xác nhận",
                         onPress: () => navigation.navigate("VerifyEmail", { email: email.trim(), type: 'resetPassword' })
+=======
+                "Link đổi mật khẩu đã gửi tới email. Vui lòng kiểm tra hòm thư.",
+                [
+                    {
+                        text: "OK",
+                        onPress: () => navigation.navigate("Login")
+>>>>>>> dev/Bao
                     }
                 ]
             );
@@ -90,6 +102,7 @@ export default function ForgetPasswordScreen() {
 
     return (
         <SafeAreaView style={styles.safeArea}>
+<<<<<<< HEAD
             {/* Thêm KeyboardAvoidingView bao bọc ScrollView */}
             <KeyboardAvoidingView
                 style={{ flex: 1 }}
@@ -119,6 +132,31 @@ export default function ForgetPasswordScreen() {
                     </View>
                 </ScrollView>
             </KeyboardAvoidingView>
+=======
+            <ScrollView contentContainerStyle={styles.scrollView}>
+                <AuthHeader />
+                <View style={styles.formContainer}>
+                    <Text style={styles.title}>Quên mật khẩu</Text>
+
+                    <CustomTextInput
+                        placeholder="Nhập email"
+                        value={email}
+                        onChangeText={setEmail}
+                        icon={<Svg width="20" height="16" viewBox="0 0 20 16" fill="none"><Path d="M20 2C20 0.9 19.1 0 18 0H2C0.9 0 0 0.9 0 2V14C0 15.1 0.9 16 2 16H18C19.1 16 20 15.1 20 14V2ZM18 2L10 7L2 2H18ZM18 14H2V4L10 9L18 4V14Z" fill="black" /></Svg>}
+                    />
+
+                    <TouchableOpacity style={styles.button} onPress={handleResetPassword} disabled={loading}>
+                        {loading ? (
+                            <ActivityIndicator color="#FFFFFF" />
+                        ) : (
+                            <Text style={styles.buttonText}>Gửi email</Text>
+                        )}
+                    </TouchableOpacity>
+
+                    <BackButton onPress={() => navigation.goBack()} />
+                </View>
+            </ScrollView>
+>>>>>>> dev/Bao
         </SafeAreaView>
     );
 }

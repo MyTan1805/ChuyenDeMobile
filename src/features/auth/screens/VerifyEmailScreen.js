@@ -1,9 +1,15 @@
+<<<<<<< HEAD
 import React, { useEffect, useState } from 'react';
 import {
     View, ImageBackground, Text, StyleSheet, SafeAreaView, ScrollView,
     TouchableOpacity, Alert, AppState, ActivityIndicator
 } from 'react-native';
 import { useUserStore } from '@/store/userStore';
+=======
+import React, { useContext } from 'react';
+import { View, ImageBackground, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity, Alert } from 'react-native';
+import { AuthContext } from '@/context/AuthContext';
+>>>>>>> dev/Bao
 import { useNavigation, useRoute } from '@react-navigation/native';
 
 const AuthHeader = () => (
@@ -19,6 +25,7 @@ const AuthHeader = () => (
 export default function VerifyEmailScreen() {
     const navigation = useNavigation();
     const route = useRoute();
+<<<<<<< HEAD
 
     const { checkVerificationStatus, sendVerification, resetPassword, logout } = useUserStore();
     const [checking, setChecking] = useState(false);
@@ -51,10 +58,18 @@ export default function VerifyEmailScreen() {
         return () => subscription.remove();
     }, []);
 
+=======
+    const { resetPassword, sendVerification, user } = useContext(AuthContext);
+
+    // Nhận params từ màn hình trước
+    const { email, type } = route.params || {};
+
+>>>>>>> dev/Bao
     const handleResend = async () => {
         try {
             if (type === 'resetPassword') {
                 await resetPassword(email);
+<<<<<<< HEAD
                 Alert.alert("Đã gửi lại", "Link đặt lại mật khẩu đã được gửi.");
             } else {
                 await sendVerification();
@@ -79,6 +94,25 @@ export default function VerifyEmailScreen() {
 
     const isVerifyFlow = type === 'emailVerification';
 
+=======
+                Alert.alert("Thành công", "Email đã được gửi lại!");
+            } else if (type === 'emailVerification') {
+                await sendVerification(user);
+                Alert.alert("Thành công", "Email xác nhận đã được gửi lại!");
+            }
+        } catch (error) {
+            Alert.alert("Lỗi", "Không thể gửi lại email. Vui lòng thử lại sau.");
+        }
+    };
+
+    const getMessage = () => {
+        if (type === 'resetPassword') {
+            return `Chúng tôi đã gửi một liên kết đặt lại mật khẩu đến ${email}. Vui lòng kiểm tra hộp thư, nhấn vào link để đổi mật khẩu, sau đó quay lại đây để đăng nhập.`;
+        }
+        return `Chúng tôi đã gửi email xác nhận đến ${email}. Vui lòng kiểm tra hộp thư và xác nhận tài khoản của bạn.`;
+    };
+
+>>>>>>> dev/Bao
     return (
         <SafeAreaView style={styles.safeArea}>
             <ScrollView contentContainerStyle={styles.scrollView}>
@@ -92,6 +126,7 @@ export default function VerifyEmailScreen() {
                         <Text style={styles.messageText}>{getMessage()}</Text>
                     </View>
 
+<<<<<<< HEAD
                     {/* Nút xác nhận thủ công (cho trường hợp AppState chưa kịp bắt) */}
                     {isVerifyFlow && (
                         <TouchableOpacity
@@ -120,6 +155,17 @@ export default function VerifyEmailScreen() {
                             <Text style={styles.buttonText}>Quay lại Đăng nhập</Text>
                         </TouchableOpacity>
                     )}
+=======
+                    {/* --- SỬA LOGIC NÚT BẤM --- */}
+                    <TouchableOpacity
+                        style={styles.button}
+                        onPress={() => navigation.navigate('Login')} // Luôn quay về Login
+                    >
+                        <Text style={styles.buttonText}>
+                            Quay lại Đăng nhập
+                        </Text>
+                    </TouchableOpacity>
+>>>>>>> dev/Bao
 
                     <View style={styles.linkContainer}>
                         <Text style={styles.bottomText}>{"Chưa nhận được email? "}</Text>
@@ -144,7 +190,14 @@ const styles = StyleSheet.create({
     messageText: { fontFamily: 'Inter-Regular', fontSize: 17, color: '#000', textAlign: 'center', lineHeight: 24 },
     button: { backgroundColor: "#2F847C", borderRadius: 20, paddingVertical: 13, width: '100%', alignItems: 'center', elevation: 5, marginBottom: 30 },
     buttonText: { color: "#FFFFFF", fontSize: 20, fontFamily: 'Inter-Bold' },
+<<<<<<< HEAD
     linkContainer: { flexDirection: 'row', marginTop: 10 },
     bottomText: { fontFamily: 'Inter-Regular', fontSize: 15, color: '#000' },
     link: { fontFamily: 'Inter-Bold', textDecorationLine: 'underline', color: '#555' }
 });
+=======
+    linkContainer: { flexDirection: 'row' },
+    bottomText: { fontFamily: 'Inter-Regular', fontSize: 15, color: '#000' },
+    link: { fontFamily: 'Inter-Bold', textDecorationLine: 'underline' }
+});
+>>>>>>> dev/Bao

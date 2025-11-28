@@ -54,6 +54,9 @@ import EditProfileScreen from '@/features/profile/screens/EditProfileScreen';
 
 import NotificationListScreen from '@/features/notifications/screens/NotificationListScreen';
 import WasteSearchScreen from '@/features/waste-guide/screens/WasteSearchScreen';
+// 5. REPORT
+import CreateReportScreen from '@/features/reports/screens/CreateReportScreen';
+
 
 // ----- COMPONENT -----
 import CustomTabBar from '@/components/CustomTabBar'; 
@@ -245,6 +248,7 @@ export default function AppNavigator() {
 
   return (
     <NavigationContainer linking={linking} fallback={<ActivityIndicator size="large" />}>
+<<<<<<< HEAD
       {
         !user ? (
           // Case 1: Chưa đăng nhập -> Hiện Auth
@@ -258,6 +262,9 @@ export default function AppNavigator() {
           <VerifyNavigator />
         )
       }
+=======
+      {user ? <MainNavigator /> : <AuthNavigator />}
+>>>>>>> dev/Bao
     </NavigationContainer>
   );
 }
