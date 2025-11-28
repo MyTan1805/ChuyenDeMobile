@@ -136,7 +136,6 @@ function CommunityStackNavigator() {
       <CommunityStack.Screen name="CommunityMain" component={CommunityScreen} />
       <CommunityStack.Screen name="WasteClassification" component={WasteClassificationScreen} />
       <CommunityStack.Screen name="EcoLibrary" component={EcoLibraryScreen} /> 
-      <CommunityStack.Screen name="EcoLibrary" component={EcoLibraryScreen} />
       <CommunityStack.Screen name="ArticleDetail" component={ArticleDetailScreen} />
       <CommunityStack.Screen name="QuizCollection" component={QuizCollectionScreen} />
       <CommunityStack.Screen name="Quiz" component={QuizScreen} />
