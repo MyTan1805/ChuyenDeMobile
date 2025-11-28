@@ -1,9 +1,12 @@
 import React, { useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, Dimensions, ActivityIndicator } from 'react-native';
 import { useUserStore } from '@/store/userStore';
 import CustomHeader from '@/components/CustomHeader';
 import { Ionicons, FontAwesome5 } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
+
+// Import Badges
+import { BADGE_TIERS, getCurrentBadgeStatus } from '@/constants/badges'; 
 
 const ProfileScreen = () => {
     const navigation = useNavigation();
@@ -13,8 +16,11 @@ const ProfileScreen = () => {
         if (user?.uid) fetchUserProfile(user.uid);
     }, [user]);
 
+    // Thêm highScore vào defaultStats
     const defaultStats = {
-        points: 0, sentReports: 0, trashSorted: 0, community: 0, levelProgress: 0,
+        points: 0, 
+        highScore: 0, // <-- Có trường này
+        sentReports: 0, trashSorted: 0, community: 0, levelProgress: 0,
         communityStats: [
             { label: 'T1', report: 0, recycle: 0 },
             { label: 'T2', report: 0, recycle: 0 },
@@ -24,30 +30,57 @@ const ProfileScreen = () => {
         ]
     };
 
-    const displayData = userProfile || { displayName: "Đang tải...", location: "...", photoURL: null };
-    const stats = displayData.stats || defaultStats;
-    // Nếu trong DB có stats nhưng chưa có mảng communityStats (user cũ), dùng mảng mặc định 0
-    const chartData = stats.communityStats || defaultStats.communityStats;
-
-    const renderStatItem = (icon, label, color) => (
-        <View style={styles.statIconItem}>
-            <View style={[styles.iconCircle, { backgroundColor: color + '20' }]}>
-                <FontAwesome5 name={icon} size={20} color={color} />
+    if (!userProfile) {
+         return (
+            <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+                <ActivityIndicator size="large" color="#2F847C" />
+                <Text style={{ marginTop: 10, color: '#666' }}>Đang tải hồ sơ...</Text>
             </View>
-            <Text style={styles.statLabel}>{label}</Text>
-        </View>
-    );
+        );
+    }
 
-    // Biểu đồ cột
+    const displayData = userProfile;
+    const stats = displayData.stats || defaultStats;
+    const chartData = stats.communityStats || defaultStats.communityStats;
+    
+    // SỬ DỤNG ĐIỂM CAO NHẤT (highScore) ĐỂ XÁC ĐỊNH HUY HIỆU
+    const badgeStatus = getCurrentBadgeStatus(stats.highScore); 
+
+    const renderStatItem = (item) => {
+        const isUnlocked = item.unlocked;
+
+        return (
+            <View style={styles.statIconItem}>
+                <View style={[
+                    styles.iconCircle, 
+                    { backgroundColor: isUnlocked ? item.color + '20' : '#F0F0F0' } 
+                ]}>
+                    <FontAwesome5 
+                        name={item.icon} 
+                        size={20} 
+                        color={isUnlocked ? item.color : '#C0C0C0'} 
+                    />
+                </View>
+                
+                <View style={styles.badgeTextWrapper}>
+                    <Text style={[styles.statLabel, !isUnlocked && {color: '#999'}]}>{item.name}</Text>
+                    {!isUnlocked ? (
+                        <Text style={styles.thresholdText}>Đạt {item.threshold}đ</Text>
+                    ) : (
+                         <Text style={styles.thresholdTextSuccess}>Đã đạt</Text>
+                    )}
+                </View>
+            </View>
+        );
+    };
+
     const renderCommunityChart = () => {
         return (
             <View style={styles.chartContainer}>
                 <View style={styles.chartRow}>
                     {chartData.map((item, index) => {
-                        // Logic tính chiều cao: Nếu giá trị là 0, để chiều cao tối thiểu 4px để hiển thị "đáy" cột
                         const reportHeight = item.report === 0 ? 4 : item.report;
                         const recycleHeight = item.recycle === 0 ? 4 : item.recycle;
-                        // Màu sắc: Nếu là 0 thì màu nhạt hơn (như disable)
                         const reportColor = item.report === 0 ? '#E1F5FE' : '#4FC3F7';
                         const recycleColor = item.recycle === 0 ? '#E0F2F1' : '#2F847C';
 
@@ -83,7 +116,7 @@ const ProfileScreen = () => {
                 showNotificationButton={true}
                 showSettingsButton={true}
                 onSettingsPress={() => navigation.navigate('Settings')}
-                onNotificationPress={() => alert("Thông báo")}
+                onNotificationPress={() => navigation.navigate('NotificationList')}
             />
 
             <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
@@ -103,10 +136,8 @@ const ProfileScreen = () => {
                         </View>
 
                         <View style={styles.userInfoText}>
-                            {/* Nếu chưa có tên, hiển thị 'Người dùng' */}
                             <Text style={styles.userName}>{displayData.displayName || "Người dùng"}</Text>
 
-                            {/* Chỉ hiển thị Badge nếu có dữ liệu points > 0 (ví dụ logic cộng thêm) */}
                             {stats.points > 0 && (
                                 <View style={styles.badgeContainer}>
                                     <Text style={styles.badgeText}>Thành viên tích cực</Text>
@@ -116,7 +147,6 @@ const ProfileScreen = () => {
                             <Text style={styles.subText} numberOfLines={1}>
                                 <Ionicons name="location-outline" size={12} /> {displayData.location || "Chưa cập nhật"}
                             </Text>
-                            {/* Xử lý ngày tham gia */}
                             <Text style={styles.joinDate}>
                                 {displayData.createdAt
                                     ? `Thành viên từ ${new Date(displayData.createdAt).toLocaleDateString('vi-VN')}`
@@ -134,14 +164,22 @@ const ProfileScreen = () => {
                     </View>
 
                     <View style={styles.pointsWrapper}>
+                        {/* HIỂN THỊ ĐIỂM HIỆN TẠI (Dùng để đổi quà) */}
+                        <Text style={styles.pointsLabel}>Điểm hiện tại:</Text>
                         <Text style={styles.pointsValue}>{stats.points}</Text>
-                        <Text style={styles.pointsLabel}>Điểm tích lũy</Text>
+
+                        {/* HIỂN THỊ ĐIỂM CAO NHẤT (Dùng cho danh hiệu) */}
+                        <Text style={styles.highScoreText}>
+                             Điểm cao nhất: {stats.highScore}
+                        </Text>
                     </View>
 
                     <View style={styles.statsRow}>
-                        {renderStatItem("leaf", "Người xanh", "#4CAF50")}
-                        {renderStatItem("seedling", "Chiến binh MT", "#2F847C")}
-                        {renderStatItem("city", "Thành phố sạch", "#607D8B")}
+                        {badgeStatus.map((badge, index) => (
+                            <View key={index} style={{ flex: 1 }}>
+                                {renderStatItem(badge)}
+                            </View>
+                        ))}
                     </View>
                 </View>
 
@@ -169,7 +207,7 @@ const ProfileScreen = () => {
                     <View style={styles.progressContainer}>
                         <View style={styles.progressHeader}>
                             <Text style={styles.progressLabel}>Tiến độ cấp độ</Text>
-                            <Text style={styles.progressValue}>{stats.levelProgress * 100}%</Text>
+                            <Text style={styles.progressValue}>{Math.floor(stats.levelProgress * 100)}%</Text>
                         </View>
                         <View style={styles.progressBarTrack}>
                             <View style={[styles.progressBarFill, { width: `${stats.levelProgress * 100}%` }]} />
@@ -246,13 +284,43 @@ const styles = StyleSheet.create({
     // Achievements
     cardHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 10 },
     cardTitle: { fontFamily: 'Nunito-Bold', fontSize: 18, marginLeft: 8, color: '#333' },
+    
+    // Points Wrapper được chỉnh lại để chứa 2 dòng điểm
     pointsWrapper: { alignItems: 'center', marginVertical: 10 },
     pointsValue: { fontFamily: 'Nunito-Bold', fontSize: 36, color: '#333' },
     pointsLabel: { fontFamily: 'Nunito-Regular', color: '#757575', fontSize: 14 },
+    highScoreText: { fontFamily: 'Nunito-Regular', color: '#FF9800', fontSize: 14, marginTop: 5 }, // Màu cam nổi bật cho High Score
+    
     statsRow: { flexDirection: 'row', justifyContent: 'space-around', marginTop: 10 },
-    statIconItem: { alignItems: 'center' },
+    statIconItem: { alignItems: 'center', flex: 1 }, 
+    
     iconCircle: { width: 48, height: 48, borderRadius: 24, justifyContent: 'center', alignItems: 'center', marginBottom: 8 },
-    statLabel: { fontSize: 12, fontFamily: 'Nunito-Bold', color: '#555', textAlign: 'center', width: 80 },
+    
+    badgeTextWrapper: {
+        height: 40, 
+        alignItems: 'center',
+        justifyContent: 'flex-start',
+        width: '100%',
+    },
+
+    statLabel: { 
+        fontSize: 13, 
+        fontFamily: 'Nunito-Bold', 
+        color: '#555', 
+        textAlign: 'center',
+    },
+    thresholdText: {
+        fontSize: 11,
+        fontFamily: 'Nunito-Regular',
+        color: '#FF9800',
+        marginTop: 2,
+    },
+    thresholdTextSuccess: {
+        fontSize: 11,
+        fontFamily: 'Nunito-Regular',
+        color: '#4CAF50',
+        marginTop: 2,
+    },
 
     // Personal Stats
     cardTitleBold: { fontFamily: 'Nunito-Bold', fontSize: 18, marginBottom: 16, color: '#333' },
