@@ -1,3 +1,5 @@
+// src/features/aqi/components/AppShortcuts.jsx
+
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
 import { MaterialCommunityIcons, Ionicons, FontAwesome5 } from '@expo/vector-icons';
@@ -35,7 +37,7 @@ const shortcuts = [
     { 
         id: 5, 
         label: 'Huy hiệu', 
-        screen: 'ProfileMain', // Trỏ về Tab Hồ sơ
+        screen: 'BadgeCollection', // Trỏ về Tab Hồ sơ
         icon: 'medal-outline', 
         lib: MaterialCommunityIcons 
     },
@@ -67,21 +69,30 @@ const AppShortcuts = () => {
 
     return (
         <View style={styles.grid}>
-            {shortcuts.map((item, index) => {
-                const IconTag = item.lib;
-                return (
-                    <TouchableOpacity
-                        key={index}
-                        style={styles.item}
-                        onPress={() => handlePress(item)}
-                    >
-                        <View style={styles.iconBox}>
-                            <IconTag name={item.icon} size={28} color="#555" />
-                        </View>
-                        <Text style={styles.label}>{item.label}</Text>
-                    </TouchableOpacity>
-                );
-            })}
+            {shortcuts.map((item, index) => (
+                <TouchableOpacity 
+                    key={index} 
+                    style={styles.item}
+                    onPress={() => {
+                        console.log("Navigating to:", item.screen);
+                        
+                        // Xử lý điều hướng
+                        if (item.screen === 'BadgeCollection') {
+                            // Cần chuyển sang Profile Stack trước, sau đó chuyển màn hình
+                            // Cách tốt nhất là navigate trực tiếp nếu nó nằm trong MainStack
+                            navigation.navigate('BadgeCollection');
+                        } else {
+                            // Các màn hình khác
+                            navigation.navigate(item.screen);
+                        }
+                    }}
+                >
+                    <View style={styles.iconBox}>
+                        <MaterialCommunityIcons name={item.icon} size={28} color="#555" />
+                    </View>
+                    <Text style={styles.label}>{item.label}</Text>
+                </TouchableOpacity>
+            ))}
         </View>
     );
 };

@@ -6,7 +6,21 @@ import { Ionicons, FontAwesome5 } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 
 // Import Badges
-import { BADGE_TIERS, getCurrentBadgeStatus } from '@/constants/badges'; 
+import { getDetailedBadgeStatus, getCurrentTierBadge, ALL_BADGES } from '@/constants/badges'; 
+
+// =======================================================
+// HÀM RENDER HUY HIỆU CẤP ĐỘ HIỆN TẠI (Dạng nhỏ gọn)
+// =======================================================
+const renderAchievedBadgeSmall = (item) => (
+    <View style={styles.achievedBadgeItem} key={item.id}>
+        <View style={[styles.iconCircleAchieved, { backgroundColor: item.color + '20' }]}>
+            <FontAwesome5 name={item.icon} size={20} color={item.color} />
+        </View>
+        <Text style={styles.achievedBadgeLabel}>{item.name}</Text>
+    </View>
+);
+// =======================================================
+
 
 const ProfileScreen = () => {
     const navigation = useNavigation();
@@ -16,17 +30,15 @@ const ProfileScreen = () => {
         if (user?.uid) fetchUserProfile(user.uid);
     }, [user]);
 
-    // Thêm highScore vào defaultStats
+    // Định nghĩa dữ liệu mặc định
     const defaultStats = {
-        points: 0, 
-        highScore: 0, // <-- Có trường này
-        sentReports: 0, trashSorted: 0, community: 0, levelProgress: 0,
+        points: 0, highScore: 0, sentReports: 0, trashSorted: 0, community: 0, levelProgress: 0,
         communityStats: [
             { label: 'T1', report: 0, recycle: 0 },
             { label: 'T2', report: 0, recycle: 0 },
             { label: 'T3', report: 0, recycle: 0 },
             { label: 'T4', report: 0, recycle: 0 },
-            { label: 'T5', report: 0, recycle: 0 },
+            { label: 'T5', report: '0', recycle: 0 },
         ]
     };
 
@@ -41,41 +53,37 @@ const ProfileScreen = () => {
 
     const displayData = userProfile;
     const stats = displayData.stats || defaultStats;
+    const quizResults = displayData.quizResults || {};
     const chartData = stats.communityStats || defaultStats.communityStats;
     
-    // SỬ DỤNG ĐIỂM CAO NHẤT (highScore) ĐỂ XÁC ĐỊNH HUY HIỆU
-    const badgeStatus = getCurrentBadgeStatus(stats.highScore); 
+    const detailedBadges = getDetailedBadgeStatus(stats, quizResults);
+    
+    // TẤT CẢ huy hiệu đã đạt được
+    const allAchievedBadges = detailedBadges.filter(b => b.unlocked);
+    
+    // TÍNH TOÁN THANH TIẾN ĐỘ CẤP ĐỘ TIẾP THEO (Giữ nguyên logic)
+    const nextMilestone = detailedBadges.find(b => stats.highScore < b.threshold) || null;
+    
+    let progressValue = 0;
+    let progressTarget = nextMilestone?.threshold || stats.highScore; 
+    let progressName = nextMilestone?.name || "Đã đạt cấp cao nhất"; 
 
-    const renderStatItem = (item) => {
-        const isUnlocked = item.unlocked;
+    if (nextMilestone) {
+        const allThresholds = ALL_BADGES.map(b => b.threshold).filter(t => t < progressTarget).sort((a, b) => a - b);
+        const previousThreshold = allThresholds.pop() || 0; 
+        
+        const range = progressTarget - previousThreshold;
+        const progressInRange = stats.highScore - previousThreshold;
+        
+        progressValue = (progressInRange / range) * 100;
+        progressValue = Math.max(0, Math.min(100, progressValue)); 
+    } else {
+        progressValue = 100; 
+    }
 
-        return (
-            <View style={styles.statIconItem}>
-                <View style={[
-                    styles.iconCircle, 
-                    { backgroundColor: isUnlocked ? item.color + '20' : '#F0F0F0' } 
-                ]}>
-                    <FontAwesome5 
-                        name={item.icon} 
-                        size={20} 
-                        color={isUnlocked ? item.color : '#C0C0C0'} 
-                    />
-                </View>
-                
-                <View style={styles.badgeTextWrapper}>
-                    <Text style={[styles.statLabel, !isUnlocked && {color: '#999'}]}>{item.name}</Text>
-                    {!isUnlocked ? (
-                        <Text style={styles.thresholdText}>Đạt {item.threshold}đ</Text>
-                    ) : (
-                         <Text style={styles.thresholdTextSuccess}>Đã đạt</Text>
-                    )}
-                </View>
-            </View>
-        );
-    };
 
     const renderCommunityChart = () => {
-        return (
+         return (
             <View style={styles.chartContainer}>
                 <View style={styles.chartRow}>
                     {chartData.map((item, index) => {
@@ -121,7 +129,7 @@ const ProfileScreen = () => {
 
             <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
 
-                {/* 1. Header Info Card */}
+                {/* 1. Thông tin cá nhân */}
                 <View style={styles.card}>
                     <View style={styles.userInfoHeader}>
                         <View style={styles.avatarWrapper}>
@@ -145,45 +153,58 @@ const ProfileScreen = () => {
                             )}
 
                             <Text style={styles.subText} numberOfLines={1}>
-                                <Ionicons name="location-outline" size={12} /> {displayData.location || "Chưa cập nhật"}
+                                <Ionicons name="location-outline" size={12} /> <Text>{displayData.location || "Chưa cập nhật"}</Text>
                             </Text>
                             <Text style={styles.joinDate}>
-                                {displayData.createdAt
-                                    ? `Thành viên từ ${new Date(displayData.createdAt).toLocaleDateString('vi-VN')}`
-                                    : "Thành viên mới"}
+                                <Text>Thành viên từ {displayData.createdAt
+                                    ? new Date(displayData.createdAt).toLocaleDateString('vi-VN')
+                                    : "mới"}</Text>
                             </Text>
                         </View>
                     </View>
                 </View>
 
-                {/* 2. Thành tích */}
+                {/* 2. Thành tích (CỘT ĐIỂM VÀ TẤT CẢ HUY HIỆU ĐÃ ĐẠT) */}
                 <View style={styles.card}>
                     <View style={styles.cardHeader}>
                         <Ionicons name="trophy" size={20} color="#FFD700" />
                         <Text style={styles.cardTitle}>Thành tích</Text>
                     </View>
-
-                    <View style={styles.pointsWrapper}>
-                        {/* HIỂN THỊ ĐIỂM HIỆN TẠI (Dùng để đổi quà) */}
-                        <Text style={styles.pointsLabel}>Điểm hiện tại:</Text>
-                        <Text style={styles.pointsValue}>{stats.points}</Text>
-
-                        {/* HIỂN THỊ ĐIỂM CAO NHẤT (Dùng cho danh hiệu) */}
-                        <Text style={styles.highScoreText}>
-                             Điểm cao nhất: {stats.highScore}
-                        </Text>
+                    
+                    {/* KHU VỰC HIỂN THỊ ĐIỂM */}
+                    <View style={styles.pointDisplayArea}>
+                        <View style={styles.pointAreaItem}>
+                            <Text style={styles.pointsLabel}>ĐIỂM HIỆN TẠI</Text>
+                            <Text style={styles.pointsValue}>{stats.points}</Text>
+                        </View>
+                        <View style={styles.pointAreaSeparator} />
+                        <View style={styles.pointAreaItem}>
+                            <Text style={styles.pointsLabel}>ĐIỂM CAO NHẤT</Text>
+                            <Text style={[styles.pointsValue, { color: '#FF9800' }]}>{stats.highScore}</Text>
+                        </View>
                     </View>
 
-                    <View style={styles.statsRow}>
-                        {badgeStatus.map((badge, index) => (
-                            <View key={index} style={{ flex: 1 }}>
-                                {renderStatItem(badge)}
-                            </View>
-                        ))}
+                    {/* HIỂN THỊ TẤT CẢ CÁC HUY HIỆU ĐÃ ĐẠT ĐƯỢC (Nhỏ gọn) */}
+                    <View style={styles.achievedBadgesRow}>
+                        {allAchievedBadges.length > 0 ? (
+                            allAchievedBadges.map(renderAchievedBadgeSmall)
+                        ) : (
+                            <Text style={styles.noBadgeText}>Chưa đạt huy hiệu nào. Tích cực tham gia hoạt động để kiếm điểm!</Text>
+                        )}
                     </View>
+                    
+                    {/* NÚT XEM TẤT CẢ HUY HIỆU */}
+                    <TouchableOpacity 
+                        style={styles.viewAllBadgesButton}
+                        onPress={() => navigation.navigate('BadgeCollection', { detailedBadges: detailedBadges })}
+                    >
+                        <Text style={styles.viewAllBadgesText}>Xem toàn bộ Bộ sưu tập</Text>
+                        <Ionicons name="chevron-forward" size={18} color="#2F847C" />
+                    </TouchableOpacity>
+
                 </View>
 
-                {/* 3. Thống kê cá nhân */}
+                {/* 3. Thống kê cá nhân (TIẾN ĐỘ CẤP ĐỘ NẰM Ở ĐÂY) */}
                 <View style={styles.card}>
                     <Text style={styles.cardTitleBold}>Thống kê cá nhân</Text>
 
@@ -204,14 +225,18 @@ const ProfileScreen = () => {
                         <Text style={styles.statRowValue}>{stats.community}</Text>
                     </View>
 
+                    {/* THANH TIẾN ĐỘ CẤP ĐỘ */}
                     <View style={styles.progressContainer}>
                         <View style={styles.progressHeader}>
-                            <Text style={styles.progressLabel}>Tiến độ cấp độ</Text>
-                            <Text style={styles.progressValue}>{Math.floor(stats.levelProgress * 100)}%</Text>
+                            <Text style={styles.progressLabel}>Tiến độ lên cấp: <Text style={styles.progressLabelName}>{progressName}</Text></Text>
+                            <Text style={styles.progressValue}>{Math.floor(progressValue)}%</Text>
                         </View>
                         <View style={styles.progressBarTrack}>
-                            <View style={[styles.progressBarFill, { width: `${stats.levelProgress * 100}%` }]} />
+                            <View style={[styles.progressBarFill, { width: `${progressValue}%` }]} />
                         </View>
+                        <Text style={styles.progressDetailInfoText}>
+                            Điểm cao nhất: {stats.highScore}/{progressTarget} điểm
+                        </Text>
                     </View>
                 </View>
 
@@ -281,60 +306,109 @@ const styles = StyleSheet.create({
     subText: { fontFamily: 'Nunito-Regular', color: '#757575', fontSize: 14 },
     joinDate: { fontFamily: 'Nunito-Regular', color: '#9E9E9E', fontSize: 12, marginTop: 4 },
 
-    // Achievements
+    // Achievements Section
     cardHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 10 },
     cardTitle: { fontFamily: 'Nunito-Bold', fontSize: 18, marginLeft: 8, color: '#333' },
     
-    // Points Wrapper được chỉnh lại để chứa 2 dòng điểm
-    pointsWrapper: { alignItems: 'center', marginVertical: 10 },
-    pointsValue: { fontFamily: 'Nunito-Bold', fontSize: 36, color: '#333' },
-    pointsLabel: { fontFamily: 'Nunito-Regular', color: '#757575', fontSize: 14 },
-    highScoreText: { fontFamily: 'Nunito-Regular', color: '#FF9800', fontSize: 14, marginTop: 5 }, // Màu cam nổi bật cho High Score
-    
-    statsRow: { flexDirection: 'row', justifyContent: 'space-around', marginTop: 10 },
-    statIconItem: { alignItems: 'center', flex: 1 }, 
-    
-    iconCircle: { width: 48, height: 48, borderRadius: 24, justifyContent: 'center', alignItems: 'center', marginBottom: 8 },
-    
-    badgeTextWrapper: {
-        height: 40, 
+    // KHU VỰC HIỂN THỊ ĐIỂM MỚI
+    pointDisplayArea: {
+        flexDirection: 'row',
+        justifyContent: 'space-between', // Phân bố đều 2 cột
         alignItems: 'center',
-        justifyContent: 'flex-start',
-        width: '100%',
+        paddingVertical: 10,
+        marginBottom: 15,
     },
-
-    statLabel: { 
-        fontSize: 13, 
+    pointAreaItem: {
+        alignItems: 'center',
+        flex: 1, // Đảm bảo mỗi cột chiếm 50%
+    },
+    pointAreaSeparator: {
+        width: 1,
+        height: 60, // Chiều cao cố định cho thanh ngăn cách
+        backgroundColor: '#E0E0E0',
+        marginHorizontal: 10,
+    },
+    pointsLabel: { 
+        fontFamily: 'Nunito-Regular', 
+        color: '#757575', 
+        fontSize: 14,
+        textAlign: 'center' // Căn giữa tiêu đề
+    },
+    pointsValue: { 
         fontFamily: 'Nunito-Bold', 
-        color: '#555', 
+        fontSize: 28, 
+        color: '#333', 
+        marginTop: 5,
+        textAlign: 'center' // Căn giữa giá trị
+    },
+    
+    // HUY HIỆU ĐÃ ĐẠT ĐƯỢC (TẤT CẢ)
+    achievedBadgesRow: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        justifyContent: 'center',
+        paddingVertical: 15,
+        minHeight: 40,
+        borderTopWidth: 1,
+        borderTopColor: '#F0F0F0',
+    },
+    achievedBadgeItem: {
+        alignItems: 'center',
+        width: 80,
+        marginHorizontal: 5,
+        marginBottom: 10,
+    },
+    achievedBadgeLabel: {
+        fontSize: 12, 
+        fontFamily: 'Nunito-Bold', 
+        color: '#333', 
         textAlign: 'center',
+        marginTop: 5,
     },
-    thresholdText: {
-        fontSize: 11,
+    noBadgeText: {
         fontFamily: 'Nunito-Regular',
-        color: '#FF9800',
-        marginTop: 2,
+        color: '#999',
+        textAlign: 'center',
+        marginVertical: 10
     },
-    thresholdTextSuccess: {
-        fontSize: 11,
-        fontFamily: 'Nunito-Regular',
-        color: '#4CAF50',
-        marginTop: 2,
+    iconCircleAchieved: { 
+        width: 48, 
+        height: 48, 
+        borderRadius: 24, 
+        justifyContent: 'center', 
+        alignItems: 'center' 
     },
-
-    // Personal Stats
+    
+    // Nút Xem tất cả
+    viewAllBadgesButton: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        paddingVertical: 10,
+        marginTop: 10,
+    },
+    viewAllBadgesText: {
+        fontFamily: 'Nunito-Bold',
+        color: '#2F847C',
+        fontSize: 16
+    },
+    
+    // Personal Stats (Thống kê cá nhân)
     cardTitleBold: { fontFamily: 'Nunito-Bold', fontSize: 18, marginBottom: 16, color: '#333' },
     statRowItem: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 8 },
     statRowLabel: { fontFamily: 'Nunito-Regular', fontSize: 16, color: '#555' },
     statRowValue: { fontFamily: 'Nunito-Bold', fontSize: 16, color: '#333' },
     separator: { height: 1, backgroundColor: '#F0F0F0' },
 
-    progressContainer: { marginTop: 15 },
-    progressHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 },
+    // PROGRESS BAR CÁ NHÂN (Tiến độ cấp độ)
+    progressContainer: { marginTop: 15, paddingVertical: 10, backgroundColor: '#F9F9F9', borderRadius: 12 },
+    progressHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6, paddingHorizontal: 10 },
     progressLabel: { fontFamily: 'Nunito-Regular', fontSize: 14, color: '#757575' },
+    progressLabelName: { fontFamily: 'Nunito-Bold', color: '#2F847C' }, 
     progressValue: { fontFamily: 'Nunito-Bold', fontSize: 14, color: '#2F847C' },
-    progressBarTrack: { height: 8, backgroundColor: '#E0E0E0', borderRadius: 4, overflow: 'hidden' },
+    progressBarTrack: { height: 8, backgroundColor: '#E0E0E0', borderRadius: 4, overflow: 'hidden', marginHorizontal: 10 },
     progressBarFill: { height: '100%', backgroundColor: '#2F847C', borderRadius: 4 },
+    progressDetailInfoText: { fontFamily: 'Nunito-Regular', fontSize: 12, color: '#757575', marginTop: 5, textAlign: 'center' },
 
     // Chart
     chartSubtitle: { fontFamily: 'Nunito-Regular', color: '#757575', fontSize: 13, marginBottom: 20 },
@@ -342,7 +416,7 @@ const styles = StyleSheet.create({
     chartRow: { flexDirection: 'row', justifyContent: 'space-between', width: '100%', height: 120, alignItems: 'flex-end', paddingHorizontal: 10 },
     chartCol: { alignItems: 'center', width: 40 },
     barsGroup: { flexDirection: 'row', alignItems: 'flex-end', gap: 4 },
-    bar: { width: 8, borderRadius: 4 }, // Chiều rộng cột
+    bar: { width: 8, borderRadius: 4 }, 
     chartLabel: { marginTop: 8, fontSize: 12, color: '#757575', fontFamily: 'Nunito-Bold' },
     chartLegend: { flexDirection: 'row', marginTop: 20, gap: 20 },
     legendItem: { flexDirection: 'row', alignItems: 'center' },
