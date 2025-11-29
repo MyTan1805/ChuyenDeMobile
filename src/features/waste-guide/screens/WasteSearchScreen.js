@@ -1,4 +1,3 @@
-// src/features/waste-guide/screens/WasteSearchScreen.jsx
 import React, { useState } from 'react';
 import { 
   View, Text, StyleSheet, TextInput, TouchableOpacity, 
@@ -8,7 +7,7 @@ import CustomHeader from '@/components/CustomHeader';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { identifyWasteWithAI } from '../api/wasteIdApi';
-import { useUserStore } from '@/store/userStore'; // <-- IMPORT USER STORE
+import { useUserStore } from '@/store/userStore'; 
 
 // Dữ liệu fallback
 const FALLBACK_LOCATIONS = [
@@ -19,9 +18,6 @@ const FALLBACK_LOCATIONS = [
 // Từ khóa gợi ý nhanh
 const QUICK_TAGS = ["Pin cũ", "Chai nhựa", "Vỏ hộp sữa", "Túi nilon", "Thức ăn thừa"];
 
-// ĐIỂM THƯỞNG CỐ ĐỊNH CHO MỖI LẦN PHÂN LOẠI THÀNH CÔNG
-const POINTS_FOR_CLASSIFICATION = 5; 
-
 const WasteSearchScreen = ({ navigation, route }) => {
   const { existingData = [] } = route.params || {};
 
@@ -29,11 +25,12 @@ const WasteSearchScreen = ({ navigation, route }) => {
   const [analyzing, setAnalyzing] = useState(false);
   const [aiResult, setAiResult] = useState(null);
   const [imageUri, setImageUri] = useState(null);
+  const [isClaimed, setIsClaimed] = useState(false);
   
-  // LẤY HÀM CỘNG ĐIỂM
-  const addPointsToUser = useUserStore(state => state.addPointsToUser);
+  // LẤY HÀM TỪ STORE
+  const confirmTrashSorted = useUserStore(state => state.confirmTrashSorted);
 
-  // --- LOGIC (GIỮ NGUYÊN) ---
+  // --- LOGIC ---
   const findLocationsForCategory = (categoryIdFromAI) => {
       if (!categoryIdFromAI || existingData.length === 0) return FALLBACK_LOCATIONS;
       const foundItem = existingData.find(item => 
@@ -42,10 +39,45 @@ const WasteSearchScreen = ({ navigation, route }) => {
       return foundItem && foundItem.locations ? foundItem.locations : FALLBACK_LOCATIONS;
   };
 
+  // 1. HÀM XỬ LÝ "PROOF OF WORK" (Cộng điểm)
+  const handleConfirmRecycle = async () => {
+      if (isClaimed) return; 
+
+      const result = await confirmTrashSorted(10); // Cộng 10 điểm
+
+      if (result.success) {
+          setIsClaimed(true); 
+          Alert.alert(
+              "Tuyệt vời! 🎉", 
+              `Bạn đã phân loại đúng cách và nhận được +${result.points} điểm!\n\nChỉ số "Lần phân loại rác" trong hồ sơ đã tăng lên.`
+          );
+      } else {
+          Alert.alert("Lỗi", "Không thể ghi nhận kết quả. Vui lòng thử lại.");
+      }
+  };
+
+  // 2. HÀM CHUYỂN TRANG (Chỉ chuyển trang, không cộng điểm nữa)
+  const handleViewDetail = () => {
+      if (!aiResult) return;
+      const matchedLocations = findLocationsForCategory(aiResult.category);
+      
+      navigation.navigate('WasteDetail', { 
+          selectedCategory: { 
+              name: aiResult.category, 
+              title: aiResult.itemName, 
+              image: imageUri,
+              instructions: aiResult.instructions,
+              locations: matchedLocations
+          },
+          allCategories: existingData 
+      });
+  };
+
   const callAI = async (textInput, imgInput) => {
     Keyboard.dismiss();
     setAnalyzing(true);
     setAiResult(null);
+    setIsClaimed(false); // Reset trạng thái nhận thưởng khi tìm cái mới
 
     try {
       const result = await identifyWasteWithAI(imgInput, textInput); 
@@ -101,37 +133,6 @@ const WasteSearchScreen = ({ navigation, route }) => {
       Alert.alert("Lỗi", error.message);
     }
   };
-  
-  // HÀM XỬ LÝ KHI NHẤN XEM CHI TIẾT VÀ CỘNG ĐIỂM
-  const handleViewDetail = async () => {
-      if (!aiResult) return;
-
-      const matchedLocations = findLocationsForCategory(aiResult.category);
-      
-      // 1. CỘNG ĐIỂM
-      const pointsResult = await addPointsToUser(POINTS_FOR_CLASSIFICATION);
-      if (pointsResult.success) {
-          // HIỂN THỊ THÔNG BÁO NHỎ
-          Alert.alert(
-              "Phân loại thành công!",
-              `Bạn vừa nhận được +${POINTS_FOR_CLASSIFICATION} điểm thưởng.`
-          );
-      } else {
-           Alert.alert("Lỗi", "Không thể cộng điểm. Vui lòng kiểm tra đăng nhập.");
-      }
-      
-      // 2. CHUYỂN MÀN HÌNH
-      navigation.navigate('WasteDetail', { 
-          selectedCategory: { 
-              name: aiResult.category, 
-              title: aiResult.itemName, 
-              image: imageUri,
-              instructions: aiResult.instructions,
-              locations: matchedLocations
-          },
-          allCategories: existingData 
-      });
-  };
 
   // --- RENDER GIAO DIỆN ---
   return (
@@ -167,7 +168,7 @@ const WasteSearchScreen = ({ navigation, route }) => {
           </TouchableOpacity>
         </View>
 
-        {/* 3. SUGGESTED TAGS (Gợi ý nhanh) */}
+        {/* 3. SUGGESTED TAGS */}
         {!aiResult && !analyzing && !imageUri && (
             <View style={styles.tagsWrapper}>
                 <Text style={styles.tagHeader}>Tìm kiếm nhanh:</Text>
@@ -181,7 +182,7 @@ const WasteSearchScreen = ({ navigation, route }) => {
             </View>
         )}
 
-        {/* 4. SCAN ACTION CARDS (Nút bấm to đẹp) */}
+        {/* 4. SCAN ACTION CARDS */}
         {!aiResult && !analyzing && !imageUri && (
             <View style={styles.actionGrid}>
                 <TouchableOpacity style={[styles.actionCard, styles.cardCamera]} onPress={() => pickImage(true)}>
@@ -204,7 +205,6 @@ const WasteSearchScreen = ({ navigation, route }) => {
 
         {/* 5. HIỂN THỊ KẾT QUẢ */}
         
-        {/* Loading */}
         {analyzing && (
             <View style={styles.loadingBox}>
                 <ActivityIndicator size="large" color="#2F847C" />
@@ -213,11 +213,9 @@ const WasteSearchScreen = ({ navigation, route }) => {
             </View>
         )}
 
-        {/* Ảnh Preview */}
         {imageUri && (
             <View style={styles.previewContainer}>
               <Image source={{ uri: imageUri }} style={styles.previewImage} resizeMode="contain" />
-              {/* Nút chụp lại */}
               {!analyzing && (
                   <TouchableOpacity style={styles.retakeBtn} onPress={() => setImageUri(null)}>
                       <Ionicons name="refresh" size={20} color="#fff" />
@@ -263,13 +261,28 @@ const WasteSearchScreen = ({ navigation, route }) => {
                     </View>
                 </View>
 
+                {/* NÚT 1: XÁC NHẬN ĐÃ LÀM (Cộng điểm) */}
+                {!isClaimed ? (
+                    <TouchableOpacity 
+                        style={styles.confirmButton}
+                        onPress={handleConfirmRecycle}
+                    >
+                        <Ionicons name="checkmark-circle" size={24} color="#fff" />
+                        <Text style={styles.confirmButtonText}>Xác nhận đã xử lý (+10đ)</Text>
+                    </TouchableOpacity>
+                ) : (
+                    <View style={styles.claimedBadge}>
+                        <Text style={styles.claimedText}>Đã ghi nhận thành tích ✓</Text>
+                    </View>
+                )}
+
+                {/* NÚT 2: XEM CHI TIẾT (Chuyển trang, KHÔNG cộng điểm) */}
                 <TouchableOpacity 
                     style={styles.detailButton}
-                    // GỌI HÀM XỬ LÝ CỘNG ĐIỂM VÀ CHUYỂN MÀN HÌNH
                     onPress={handleViewDetail}
                 >
                     <Text style={styles.detailBtnText}>Xem chi tiết & Điểm thu gom</Text>
-                    <Ionicons name="arrow-forward" size={18} color="#fff" />
+                    <Ionicons name="arrow-forward" size={18} color="#2F847C" />
                 </TouchableOpacity>
             </View>
         )}
@@ -283,12 +296,10 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F7F9FC' }, 
   content: { padding: 20 },
 
-  // Hero Section
   heroSection: { marginBottom: 25, marginTop: 10 },
   heroTitle: { fontFamily: 'Nunito-Bold', fontSize: 28, color: '#333', lineHeight: 36 },
   heroSub: { fontFamily: 'Nunito-Regular', fontSize: 16, color: '#666', marginTop: 5 },
 
-  // Search Bar
   searchContainer: {
     flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff',
     borderRadius: 16, height: 60, marginBottom: 15,
@@ -302,7 +313,6 @@ const styles = StyleSheet.create({
       justifyContent: 'center', alignItems: 'center', marginRight: 5
   },
 
-  // Tags
   tagsWrapper: { marginBottom: 30 },
   tagHeader: { fontFamily: 'Nunito-Bold', fontSize: 14, color: '#888', marginBottom: 10 },
   tagsScroll: { flexDirection: 'row' },
@@ -313,7 +323,6 @@ const styles = StyleSheet.create({
   },
   quickTagText: { fontFamily: 'Nunito-Regular', color: '#555', fontSize: 14 },
 
-  // Action Cards
   actionGrid: { flexDirection: 'row', justifyContent: 'space-between' },
   actionCard: {
       width: '48%', padding: 20, borderRadius: 20,
@@ -333,12 +342,10 @@ const styles = StyleSheet.create({
   cardTitle: { fontFamily: 'Nunito-Bold', fontSize: 18, color: '#fff', marginBottom: 4 },
   cardSub: { fontFamily: 'Nunito-Regular', fontSize: 13, color: 'rgba(255,255,255,0.9)' },
 
-  // Loading
   loadingBox: { alignItems: 'center', marginVertical: 40 },
   loadingText: { marginTop: 15, fontSize: 18, fontFamily: 'Nunito-Bold', color: '#2F847C' },
   loadingSub: { marginTop: 5, fontSize: 14, fontFamily: 'Nunito-Regular', color: '#888' },
 
-  // Preview Image
   previewContainer: { 
       width: '100%', height: 250, borderRadius: 20, backgroundColor: '#000',
       overflow: 'hidden', marginBottom: 20, position: 'relative'
@@ -352,7 +359,6 @@ const styles = StyleSheet.create({
   },
   retakeText: { color: '#fff', fontFamily: 'Nunito-Bold', marginLeft: 5, fontSize: 12 },
 
-  // Result Card (New Style)
   resultContainer: {
       backgroundColor: '#fff', borderRadius: 20, padding: 20,
       shadowColor: '#000', shadowOffset: {width: 0, height: 5}, shadowOpacity: 0.1, shadowRadius: 15, elevation: 5,
@@ -378,13 +384,34 @@ const styles = StyleSheet.create({
   infoValue: { fontFamily: 'Nunito-Bold', fontSize: 16, color: '#2F847C' },
   infoDesc: { fontFamily: 'Nunito-Regular', fontSize: 15, color: '#444', lineHeight: 22 },
 
-  detailButton: {
-      backgroundColor: '#2F847C', flexDirection: 'row',
+  // --- SỬA STYLE NÚT BẤM ---
+  confirmButton: {
+      backgroundColor: '#4CAF50', // Màu xanh lá thành công
+      flexDirection: 'row',
       justifyContent: 'center', alignItems: 'center',
-      paddingVertical: 15, borderRadius: 16, marginTop: 10,
-      shadowColor: '#2F847C', shadowOffset: {width: 0, height: 4}, shadowOpacity: 0.3, shadowRadius: 8, elevation: 4
+      paddingVertical: 15, borderRadius: 16, marginTop: 10, marginBottom: 10,
+      shadowColor: '#4CAF50', shadowOffset: {width: 0, height: 4}, shadowOpacity: 0.3, shadowRadius: 8, elevation: 4
   },
-  detailBtnText: { fontFamily: 'Nunito-Bold', fontSize: 16, color: '#fff', marginRight: 10 }
+  confirmButtonText: {
+      fontFamily: 'Nunito-Bold', fontSize: 16, color: '#fff', marginLeft: 8
+  },
+  claimedBadge: {
+      backgroundColor: '#E8F5E9',
+      paddingVertical: 15, borderRadius: 16, marginTop: 10, marginBottom: 10,
+      alignItems: 'center', borderWidth: 1, borderColor: '#C8E6C9'
+  },
+  claimedText: {
+      fontFamily: 'Nunito-Bold', fontSize: 16, color: '#2E7D32'
+  },
+  
+  // Nút Detail là nút phụ (Outlined)
+  detailButton: {
+      backgroundColor: '#fff', flexDirection: 'row',
+      justifyContent: 'center', alignItems: 'center',
+      paddingVertical: 15, borderRadius: 16,
+      borderWidth: 1, borderColor: '#2F847C', // Đổi thành nút viền
+  },
+  detailBtnText: { fontFamily: 'Nunito-Bold', fontSize: 16, color: '#2F847C', marginRight: 10 }
 });
 
 export default WasteSearchScreen;

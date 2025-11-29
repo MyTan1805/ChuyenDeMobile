@@ -73,3 +73,43 @@ export const identifyWasteWithAI = async (imageUri, textDescription) => {
     };
   }
 };
+
+export const getDIYIdeas = async (itemText) => {
+  try {
+    const prompt = `
+      Tôi có rác thải là: "${itemText}".
+      Hãy gợi ý 3 ý tưởng tái chế sáng tạo (DIY) từ vật liệu này.
+      Trả về JSON raw (không markdown) theo cấu trúc:
+      {
+        "ideas": [
+          {
+            "title": "Tên ý tưởng (ngắn gọn)",
+            "difficulty": "Dễ/Trung bình/Khó",
+            "steps": "Hướng dẫn tóm tắt 1 câu",
+            "icon": "icon_name (chọn 1 trong: flower, cut, home, gift)"
+          }
+        ]
+      }
+    `;
+
+    const response = await fetch(`${GEMINI_ENDPOINT}?key=${GEMINI_API_KEY}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: { temperature: 0.7, maxOutputTokens: 1000 }
+      })
+    });
+
+    if (!response.ok) throw new Error("API Error");
+    const data = await response.json();
+    const aiText = data.candidates?.[0]?.content?.parts?.[0]?.text;
+    
+    const cleanJson = aiText.replace(/```json/g, '').replace(/```/g, '').trim();
+    return JSON.parse(cleanJson);
+
+  } catch (error) {
+    console.error("DIY AI Error:", error);
+    return { ideas: [] };
+  }
+};

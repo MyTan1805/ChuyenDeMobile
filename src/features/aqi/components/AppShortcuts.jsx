@@ -1,5 +1,3 @@
-// src/features/aqi/components/AppShortcuts.jsx
-
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
 import { MaterialCommunityIcons, Ionicons, FontAwesome5 } from '@expo/vector-icons';
@@ -9,44 +7,45 @@ const shortcuts = [
     { 
         id: 1, 
         label: 'Báo cáo vi phạm', 
-        screen: 'CreateReport', // ✅ SỬA: Trỏ đúng tên màn hình của bạn Bảo
+        screen: 'CreateReport', 
         icon: 'alert-circle-outline', 
         lib: MaterialCommunityIcons 
     },
     { 
         id: 2, 
         label: 'Phân loại rác', 
-        screen: 'WasteClassification', // Đã làm
+        screen: 'WasteClassification', // ✅ Tên màn hình CHUẨN trong AppNavigator
         icon: 'trash-can-outline', 
         lib: MaterialCommunityIcons 
     },
     { 
         id: 3, 
         label: 'AI Chatbot', 
-        screen: 'Chatbot', // Đã làm
+        screen: 'Chatbot', 
         icon: 'robot-happy-outline', 
         lib: MaterialCommunityIcons 
     },
     { 
         id: 4, 
-        label: 'Bản đồ MT', 
-        screen: 'Map', // Của Bảo (Chưa có code thì để tạm)
-        icon: 'map-outline', 
-        lib: Ionicons 
+        label: 'Tra cứu rác (AI)', 
+        screen: 'WasteSearch', // ✅ Màn hình 3.2 của Tân
+        icon: 'book-open-variant', 
+        lib: MaterialCommunityIcons 
     },
     { 
         id: 5, 
         label: 'Huy hiệu', 
-        screen: 'BadgeCollection', // Trỏ về Tab Hồ sơ
+        screen: 'BadgeCollection', 
         icon: 'medal-outline', 
         lib: MaterialCommunityIcons 
     },
     { 
         id: 6, 
-        label: 'Tra cứu rác', 
-        screen: 'WasteSearch', // Màn hình 3.2 của Tân
-        icon: 'book-open-variant', 
-        lib: MaterialCommunityIcons 
+        label: 'Cửa hàng', 
+        screen: 'MainTabs', // Nhảy sang tab Cửa hàng
+        params: { screen: 'Cửa hàng' },
+        icon: 'gift-outline', 
+        lib: Ionicons 
     },
 ];
 
@@ -55,9 +54,13 @@ const AppShortcuts = () => {
 
     const handlePress = (item) => {
         if (item.screen) {
-            // Kiểm tra xem màn hình đó có trong Navigator chưa (để tránh crash)
             try {
-                navigation.navigate(item.screen);
+                // Nếu có params (như nhảy sang Tab con)
+                if (item.params) {
+                    navigation.navigate(item.screen, item.params);
+                } else {
+                    navigation.navigate(item.screen);
+                }
             } catch (error) {
                 console.error(error);
                 Alert.alert("Thông báo", `Chức năng "${item.label}" đang được hoàn thiện.`);
@@ -69,30 +72,21 @@ const AppShortcuts = () => {
 
     return (
         <View style={styles.grid}>
-            {shortcuts.map((item, index) => (
-                <TouchableOpacity 
-                    key={index} 
-                    style={styles.item}
-                    onPress={() => {
-                        console.log("Navigating to:", item.screen);
-                        
-                        // Xử lý điều hướng
-                        if (item.screen === 'BadgeCollection') {
-                            // Cần chuyển sang Profile Stack trước, sau đó chuyển màn hình
-                            // Cách tốt nhất là navigate trực tiếp nếu nó nằm trong MainStack
-                            navigation.navigate('BadgeCollection');
-                        } else {
-                            // Các màn hình khác
-                            navigation.navigate(item.screen);
-                        }
-                    }}
-                >
-                    <View style={styles.iconBox}>
-                        <MaterialCommunityIcons name={item.icon} size={28} color="#555" />
-                    </View>
-                    <Text style={styles.label}>{item.label}</Text>
-                </TouchableOpacity>
-            ))}
+            {shortcuts.map((item, index) => {
+                const IconTag = item.lib;
+                return (
+                    <TouchableOpacity
+                        key={index}
+                        style={styles.item}
+                        onPress={() => handlePress(item)}
+                    >
+                        <View style={styles.iconBox}>
+                            <IconTag name={item.icon} size={28} color="#555" />
+                        </View>
+                        <Text style={styles.label}>{item.label}</Text>
+                    </TouchableOpacity>
+                );
+            })}
         </View>
     );
 };

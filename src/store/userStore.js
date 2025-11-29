@@ -513,4 +513,53 @@ export const useUserStore = create((set, get) => ({
       });
     }
   },
+  confirmTrashSorted: async (pointsReward = 5) => {
+    const uid = auth.currentUser?.uid;
+    if (!uid) return { success: false, error: "User not authenticated" };
+
+    const docRef = doc(db, "users", uid);
+
+    try {
+      await runTransaction(db, async (transaction) => {
+        const userSnap = await transaction.get(docRef);
+        if (!userSnap.exists()) throw "User does not exist!";
+
+        const data = userSnap.data();
+        const currentStats = data.stats || {};
+
+        // 1. Cộng điểm
+        const newPoints = (currentStats.points || 0) + pointsReward;
+        const newHighScore = Math.max((currentStats.highScore || 0), newPoints);
+        
+        // 2. Tăng số lần phân loại rác (trashSorted)
+        const newTrashSorted = (currentStats.trashSorted || 0) + 1;
+
+        transaction.update(docRef, {
+          "stats.points": newPoints,
+          "stats.highScore": newHighScore,
+          "stats.trashSorted": newTrashSorted // <-- Quan trọng: Update cái này
+        });
+
+        // Cập nhật State Local để UI Profile nhảy số ngay lập tức
+        const currentProfile = get().userProfile;
+        set({
+           userProfile: {
+             ...currentProfile,
+             stats: {
+               ...currentProfile.stats,
+               points: newPoints,
+               highScore: newHighScore,
+               trashSorted: newTrashSorted
+             }
+           }
+        });
+      });
+
+      return { success: true, points: pointsReward };
+    } catch (error) {
+      console.error("Lỗi confirm trash:", error);
+      return { success: false, error: error.message };
+    }
+  },
 }));
+

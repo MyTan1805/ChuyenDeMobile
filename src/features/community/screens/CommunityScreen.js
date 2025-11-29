@@ -17,7 +17,7 @@ import { useGroupStore } from '@/store/groupStore';
 
 const CATEGORIES = [
     { id: 'waste', title: 'Phân loại\nrác', icon: 'recycle', iconLib: 'MaterialCommunityIcons', screen: 'WasteClassification' },
-    { id: 'diy', title: 'Tái chế &\nDIY', icon: 'tools', iconLib: 'Ionicons', screen: null },
+    { id: 'diy', title: 'Tái chế &\nDIY', icon: 'tools', iconLib: 'Ionicons', screen: 'RecycleDIY' },
     { id: 'green', title: 'Sống xanh', icon: 'leaf', iconLib: 'Ionicons', screen: null },
     { id: 'quiz', title: 'Thử thách', icon: 'game-controller', iconLib: 'Ionicons', screen: 'QuizCollection' },
     { id: 'library', title: 'Thư viện', icon: 'book-outline', iconLib: 'Ionicons', screen: 'EcoLibrary' },
@@ -73,7 +73,7 @@ const CommunityScreen = () => {
             title: 'Tái chế &\nDIY', 
              icon: 'construct-outline',
             iconLib: 'Ionicons', 
-            screen: null 
+            screen: 'RecycleDIY' 
         },
         { 
             id: 'green', 
@@ -118,7 +118,16 @@ const CommunityScreen = () => {
                     <TouchableOpacity
                         key={index}
                         style={styles.catCard}
-                        onPress={() => item.screen ? navigation.navigate(item.screen) : alert('Tính năng đang phát triển')}
+                        // ✅ LOGIC ĐIỀU HƯỚNG
+                        onPress={() => {
+                            if (item.screen) {
+                                // Thêm log để debug xem nó có chạy vào đây không
+                                console.log("Navigating to:", item.screen); 
+                                navigation.navigate(item.screen);
+                            } else {
+                                alert(`Tính năng ${item.title} đang phát triển`);
+                            }
+                        }}
                     >
                         <View style={styles.catIconCircle}>
                             {item.iconLib === 'MaterialCommunityIcons' ?

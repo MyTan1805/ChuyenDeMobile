@@ -1,5 +1,3 @@
-// src/navigation/AppNavigator.js
-
 import React, { useEffect } from 'react';
 import { View, ActivityIndicator } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
@@ -22,7 +20,6 @@ import PrivacyScreen from '@/features/settings/screens/PrivacyScreen';
 
 // ----- QUẢN LÝ TRẠNG THÁI -----
 import { useUserStore } from '@/store/userStore';
-
 import { useNotifications } from '@/hooks/useNotifications';
 
 // ==================== IMPORT MÀN HÌNH ====================
@@ -50,8 +47,9 @@ import QuizScreen from '@/features/community/screens/QuizScreen';
 import QuizCollectionScreen from '@/features/community/screens/QuizCollectionScreen';
 import PostDetailScreen from '@/features/community/screens/PostDetailScreen';
 import CreateGroupScreen from '@/features/community/screens/CreateGroupScreen';
+import RecycleDIYScreen from '@/features/community/screens/RecycleDIYScreen';
 
-// 🆕 THÊM IMPORT MÀN HÌNH NHÓM MỚI (Đảm bảo file tồn tại)
+// 🆕 THÊM IMPORT MÀN HÌNH NHÓM
 import GroupDetailScreen from '@/features/community/screens/GroupDetailScreen';
 import EditGroupScreen from '@/features/community/screens/EditGroupScreen';
 
@@ -59,14 +57,17 @@ import EditGroupScreen from '@/features/community/screens/EditGroupScreen';
 import StoreScreen from '@/features/gamification/screens/StoreScreen';
 import ProfileScreen from '@/features/profile/screens/ProfileScreen';
 import EditProfileScreen from '@/features/profile/screens/EditProfileScreen';
+import BadgeCollectionScreen from '@/features/gamification/screens/BadgeCollectionScreen';
 
+// 5. NOTIFICATION & SEARCH
 import NotificationListScreen from '@/features/notifications/screens/NotificationListScreen';
+// ✅ ĐÃ SỬA ĐƯỜNG DẪN ĐÚNG
 import WasteSearchScreen from '@/features/waste-guide/screens/WasteSearchScreen';
-// 5. REPORT
+
+// 6. REPORT
 import CreateReportScreen from '@/features/reports/screens/CreateReportScreen';
 import ReportDetailScreen from '@/features/reports/screens/ReportDetailScreen';
 
-import BadgeCollectionScreen from '@/features/gamification/screens/BadgeCollectionScreen';
 // ----- COMPONENT -----
 import CustomTabBar from '@/components/CustomTabBar';
 
@@ -85,10 +86,10 @@ const linking = {
     screens: {
       AuthFlow: {
         screens: {
-          VerifyEmail: { path: 'verify-email', parse: { oobCode: (oobCode) => oobCode, mode: (mode) => mode } },
+          VerifyEmail: { path: 'verify-email', parse: { oobCode: (c) => c, mode: (m) => m } },
         },
       },
-      VerifyEmailCheck: { path: 'verify-email-check', parse: { oobCode: (oobCode) => oobCode, mode: (mode) => mode } }
+      VerifyEmailCheck: { path: 'verify-email-check', parse: { oobCode: (c) => c, mode: (m) => m } }
     },
   },
   getStateFromPath: (path, options) => {
@@ -135,10 +136,10 @@ function CommunityStackNavigator() {
   return (
     <CommunityStack.Navigator screenOptions={{ headerShown: false }}>
       <CommunityStack.Screen name="CommunityMain" component={CommunityScreen} />
-      <CommunityStack.Screen name="WasteClassification" component={WasteClassificationScreen} />
       <CommunityStack.Screen name="EcoLibrary" component={EcoLibraryScreen} /> 
       <CommunityStack.Screen name="ArticleDetail" component={ArticleDetailScreen} />
       <CommunityStack.Screen name="QuizCollection" component={QuizCollectionScreen} />
+      <CommunityStack.Screen name="RecycleDIY" component={RecycleDIYScreen} />
       <CommunityStack.Screen name="Quiz" component={QuizScreen} />
     </CommunityStack.Navigator>
   );
@@ -168,8 +169,8 @@ function MainTabNavigator() {
 
 // 6. MAIN NAVIGATOR (ROOT STACK)
 function MainNavigator() {
+  useNotifications(); // Kích hoạt nhận thông báo
 
-  useNotifications();
   return (
     <MainStack.Navigator screenOptions={{ headerShown: false }}>
       <MainStack.Screen name="MainTabs" component={MainTabNavigator} />
@@ -180,13 +181,14 @@ function MainNavigator() {
 
       <MainStack.Screen name="AqiDetail" component={AqiDetailScreen} />
       <MainStack.Screen name="Notifications" component={NotificationListScreen} /> 
+
+      <MainStack.Screen name="WasteClassification" component={WasteClassificationScreen} />
       
       <MainStack.Screen name="WasteSearch" component={WasteSearchScreen} />
       <MainStack.Screen name="WasteDetail" component={WasteDetailScreen} />
 
       <MainStack.Screen name="CreateReport" component={CreateReportScreen} />
-      <MainStack.Screen name="Report" component={CreateReportScreen} options={{ headerShown: false }} />
-      <MainStack.Screen name="ReportDetail" component={ReportDetailScreen} options={{ headerShown: false }} />
+      <MainStack.Screen name="ReportDetail" component={ReportDetailScreen} />
 
       {/* Nhóm Setting */}
       <MainStack.Screen name="Settings" component={SettingsScreen} />
@@ -203,8 +205,6 @@ function MainNavigator() {
       <MainStack.Screen name="PrivacyPolicy" component={PrivacyScreen} />
 
       <MainStack.Screen name="CreateGroup" component={CreateGroupScreen} />
-
-      {/* 🆕 THÊM ROUTES CHO NHÓM */}
       <MainStack.Screen name="GroupDetail" component={GroupDetailScreen} />
       <MainStack.Screen name="EditGroup" component={EditGroupScreen} />
 
@@ -223,12 +223,17 @@ function MainNavigator() {
 }
 
 export default function AppNavigator() {
-  const { user, isLoading, checkAuthState } = useUserStore((state) => state);
+  // ✅ SỬA LỖI LOOP: Tách biến state ra, KHÔNG lấy toàn bộ
+  const user = useUserStore((state) => state.user);
+  const isLoading = useUserStore((state) => state.isLoading);
+  const checkAuthState = useUserStore((state) => state.checkAuthState);
 
   useEffect(() => {
     const unsubscribe = checkAuthState();
-    return () => unsubscribe();
-  }, [checkAuthState]);
+    return () => {
+        if (unsubscribe) unsubscribe();
+    };
+  }, []); // ✅ QUAN TRỌNG: Mảng rỗng để chỉ chạy 1 lần
 
   if (isLoading) {
     return (
