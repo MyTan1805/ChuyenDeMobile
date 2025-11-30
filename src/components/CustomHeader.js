@@ -7,14 +7,17 @@ const CustomHeader = ({
     title,
     useLogo = false,
     showBackButton = false,
+    showCloseButton = false,
     showMenuButton = false,
     showNotificationButton = false,
     showSettingsButton = false,
-    rightIconName = "settings-outline", // <--- THÊM MỚI: Mặc định là bánh răng, nhưng có thể đổi
+    rightIconName = "settings-outline",
     onBackPress,
+    onClosePress,
     onMenuPress,
     onNotificationPress,
     onSettingsPress,
+    style
 }) => {
     const navigation = useNavigation();
 
@@ -26,11 +29,26 @@ const CustomHeader = ({
         }
     };
 
+    const handleClosePress = () => {
+        if (onClosePress) {
+            onClosePress();
+        } else {
+            navigation.goBack();
+        }
+    };
+
     const renderLeft = () => {
         if (showBackButton) {
             return (
                 <TouchableOpacity onPress={handleBackPress} style={styles.iconButton}>
                     <Ionicons name="arrow-back" size={28} color="#333" />
+                </TouchableOpacity>
+            );
+        }
+        if (showCloseButton) {
+            return (
+                <TouchableOpacity onPress={handleClosePress} style={styles.iconButton}>
+                    <Ionicons name="close" size={30} color="#333" />
                 </TouchableOpacity>
             );
         }
@@ -61,7 +79,6 @@ const CustomHeader = ({
                 )}
                 {showSettingsButton && (
                     <TouchableOpacity onPress={onSettingsPress} style={[styles.iconButton, { marginLeft: 10 }]}>
-                        {/* SỬ DỤNG PROP rightIconName THAY VÌ HARDCODE */}
                         <Ionicons name={rightIconName} size={26} color="#333" />
                     </TouchableOpacity>
                 )}
@@ -71,7 +88,7 @@ const CustomHeader = ({
     };
 
     return (
-        <View style={styles.safeAreaWrapper}>
+        <View style={[styles.safeAreaWrapper, style]}>
             <SafeAreaView style={styles.safeArea}>
                 <View style={styles.container}>
                     <View style={styles.leftWrapper}>{renderLeft()}</View>

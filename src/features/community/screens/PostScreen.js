@@ -1,58 +1,88 @@
-// src/features/community/screens/PostScreen.js
-
-import React, { useState, useEffect } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
     View, Text, StyleSheet, TextInput, TouchableOpacity, Image,
-    ScrollView, KeyboardAvoidingView, Platform, StatusBar
+    ScrollView, KeyboardAvoidingView, Platform, StatusBar, Alert, ActivityIndicator
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import EmojiPicker from 'rn-emoji-keyboard';
 import { useUserStore } from '@/store/userStore';
 import { useCommunityStore } from '@/store/communityStore';
-// 1. THÊM IMPORT useGroupStore
 import { useGroupStore } from '@/store/groupStore';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Video, ResizeMode } from 'expo-av';
+import { auth } from '@/config/firebaseConfig';
+import CustomHeader from '@/components/CustomHeader';
+import { serverTimestamp } from 'firebase/firestore';
+import { useFocusEffect } from '@react-navigation/native'; // ✅ Import quan trọng
 
 const PostScreen = ({ navigation, route }) => {
-    const { userProfile } = useUserStore();
-    const { addNewPost } = useCommunityStore();
-
-    // 2. LẤY HÀM addPostToGroup TỪ STORE
+    const { userProfile, uploadMedia } = useUserStore();
+    const { addNewPost, updatePost } = useCommunityStore();
     const { addPostToGroup } = useGroupStore();
-
-    // Lấy tên nhóm và ID nhóm từ params (nếu đăng từ trong nhóm)
-    const { groupName, groupId } = route.params || {};
+    const insets = useSafeAreaInsets();
 
     const [content, setContent] = useState('');
-    const [images, setImages] = useState([]);
+    const [mediaItems, setMediaItems] = useState([]);
     const [isEmojiOpen, setIsEmojiOpen] = useState(false);
     const [privacy, setPrivacy] = useState('public');
+    const [loading, setLoading] = useState(false);
+    const [location, setLocation] = useState(null);
 
-    useEffect(() => {
-        const unsubscribe = navigation.addListener('focus', () => {
-            resetForm();
-        });
-        return unsubscribe;
-    }, [navigation]);
+    // Biến tạm để lưu thông tin edit (nếu có)
+    const [editingPostId, setEditingPostId] = useState(null);
+    const [groupData, setGroupData] = useState({ id: null, name: null });
 
-    const resetForm = () => {
-        setContent('');
-        setImages([]);
-        setPrivacy('public');
-    };
+    // ✅ LOGIC RESET FORM QUAN TRỌNG
+    useFocusEffect(
+        useCallback(() => {
+            const params = route.params || {};
+            const { isEdit, existingPost, groupId, groupName } = params;
 
-    const pickImage = async () => {
+            if (isEdit && existingPost) {
+                // Chế độ Sửa: Load dữ liệu cũ
+                setEditingPostId(existingPost.id);
+                setContent(existingPost.content || '');
+                setMediaItems(existingPost.images || []);
+                setPrivacy(existingPost.privacy || 'public');
+                setLocation(existingPost.location || null);
+                setGroupData({ id: existingPost.groupId, name: existingPost.groupName });
+            } else {
+                // Chế độ Tạo mới: Reset sạch sẽ
+                setEditingPostId(null);
+                setContent('');
+                setMediaItems([]);
+                setLocation(null);
+
+                // Nếu đăng từ trong nhóm ra thì set sẵn nhóm
+                if (groupId) {
+                    setGroupData({ id: groupId, name: groupName });
+                    setPrivacy('groups');
+                } else {
+                    setGroupData({ id: null, name: null });
+                    setPrivacy('public');
+                }
+            }
+
+            // Cleanup function (Optional)
+            return () => { };
+        }, [route.params])
+    );
+
+    const pickMedia = async () => {
         let result = await ImagePicker.launchImageLibraryAsync({
-            mediaTypes: ImagePicker.MediaTypeOptions.Images,
+            mediaTypes: ImagePicker.MediaTypeOptions.All,
             allowsMultipleSelection: true,
             selectionLimit: 4,
-            aspect: [4, 3],
-            quality: 0.8,
+            quality: 0.7, // Giảm chất lượng chút để upload nhanh hơn
         });
+
         if (!result.canceled) {
-            const newImages = result.assets.map(asset => asset.uri);
-            setImages([...images, ...newImages].slice(0, 4));
+            const newItems = result.assets.map(asset => ({
+                uri: asset.uri,
+                type: asset.type // 'image' hoặc 'video'
+            }));
+            setMediaItems([...mediaItems, ...newItems].slice(0, 4));
         }
     };
 
@@ -60,124 +90,151 @@ const PostScreen = ({ navigation, route }) => {
         const permission = await ImagePicker.requestCameraPermissionsAsync();
         if (permission.granted) {
             let result = await ImagePicker.launchCameraAsync({
-                allowsEditing: true, aspect: [4, 3], quality: 0.8,
+                allowsEditing: false,
+                quality: 0.7,
             });
             if (!result.canceled) {
-                setImages([...images, result.assets[0].uri].slice(0, 4));
+                setMediaItems([...mediaItems, { uri: result.assets[0].uri, type: 'image' }].slice(0, 4));
             }
         }
     };
 
-    const removeImage = (index) => {
-        setImages(images.filter((_, i) => i !== index));
+    const handleAddLocation = () => {
+        Alert.alert("Vị trí", "Đã thêm vị trí: TP. Hồ Chí Minh");
+        setLocation("TP. Hồ Chí Minh");
     };
 
-    const handlePost = () => {
-        if (!content.trim() && images.length === 0) return;
+    const removeMedia = (index) => {
+        setMediaItems(mediaItems.filter((_, i) => i !== index));
+    };
 
-        const newPost = {
-            id: Date.now().toString(),
-            userId: userProfile?.uid || 'uid_temp',
-            userName: userProfile?.displayName || 'Người dùng',
-            userAvatar: userProfile?.photoURL || 'https://i.pravatar.cc/150?img=3',
-            time: 'Vừa xong',
-            content: content,
-            images: images,
-            likes: 0,
-            isLiked: false,
-            comments: [],
-            privacy: privacy,
-            groupName: groupName || null,
-            groupId: groupId || null,
-        };
+    const handlePost = async () => {
+        const currentUser = auth.currentUser;
+        if (!currentUser) return Alert.alert("Lỗi", "Bạn cần đăng nhập.");
 
-        // 1. Luôn thêm vào Community Store (để hiện ở trang chủ/khám phá)
-        addNewPost(newPost);
-
-        // 3. NẾU CÓ GROUP ID, THÊM VÀO GROUP STORE (để hiện trong chi tiết nhóm)
-        if (groupId) {
-            addPostToGroup(groupId, newPost);
+        if (!content.trim() && mediaItems.length === 0) {
+            return Alert.alert("Lỗi", "Vui lòng nhập nội dung.");
         }
 
-        resetForm();
-        navigation.goBack();
+        setLoading(true);
+
+        try {
+            const finalMediaList = [];
+
+            // 1. Upload File
+            for (const item of mediaItems) {
+                // Nếu ảnh đã có link (ảnh cũ), giữ nguyên
+                if (item.uri.startsWith('http')) {
+                    finalMediaList.push(item);
+                } else {
+                    // Upload ảnh mới
+                    const uploadRes = await uploadMedia(item.uri, item.type);
+                    if (uploadRes.success) {
+                        finalMediaList.push({ uri: uploadRes.url, type: uploadRes.type });
+                    } else {
+                        throw new Error("Lỗi tải file: " + uploadRes.error);
+                    }
+                }
+            }
+
+            // 2. Submit
+            if (editingPostId) {
+                // UPDATE
+                const updateData = {
+                    content: content.trim(),
+                    images: finalMediaList,
+                    privacy: privacy,
+                    location: location
+                };
+                const result = await updatePost(editingPostId, updateData);
+                if (result.success) navigation.goBack();
+                else Alert.alert("Lỗi", result.error);
+
+            } else {
+                // CREATE NEW
+                const newPost = {
+                    userName: userProfile?.displayName || 'Người dùng',
+                    userAvatar: userProfile?.photoURL || null,
+                    content: content.trim(),
+                    images: finalMediaList,
+                    privacy: privacy,
+                    groupName: groupData.name || null,
+                    groupId: groupData.id || null,
+                    location: location,
+                    createdAt: serverTimestamp()
+                };
+
+                const result = await addNewPost(newPost);
+
+                if (result.success) {
+                    if (groupData.id && result.postId) {
+                        await addPostToGroup(groupData.id, { id: result.postId });
+                    }
+                    navigation.goBack();
+                } else {
+                    Alert.alert("Lỗi", result.error);
+                }
+            }
+
+        } catch (error) {
+            console.error(error);
+            Alert.alert("Lỗi", error.message || "Không thể đăng bài.");
+        } finally {
+            setLoading(false);
+        }
     };
 
     const handleEmojiSelect = (emojiObject) => {
         setContent((prev) => prev + emojiObject.emoji);
     };
 
-    const getPrivacyIcon = () => {
-        switch (privacy) {
-            case 'public': return 'earth';
-            case 'friends': return 'people';
-            case 'private': return 'lock-closed';
-            default: return 'earth';
-        }
-    };
-
     return (
-        <SafeAreaView style={styles.safeArea} edges={['top']}>
-            <StatusBar barStyle="dark-content" backgroundColor="#fff" />
+        <View style={styles.safeArea}>
+            <StatusBar barStyle="dark-content" backgroundColor="white" />
+            <CustomHeader
+                title={editingPostId ? "Chỉnh sửa bài viết" : (groupData.name ? `Đăng vào ${groupData.name}` : "Tạo bài viết")}
+                showBackButton={false}
+                onBackPress={() => navigation.goBack()}
+                style={{ zIndex: 1 }}
+            />
 
-            {/* Header */}
-            <View style={styles.header}>
-                <TouchableOpacity onPress={() => navigation.goBack()} style={styles.leftBtn}>
-                    <Ionicons name="arrow-back" size={28} color="#333" />
-                </TouchableOpacity>
-
-                <View style={styles.titleContainer}>
-                    <Text style={styles.headerTitle}>Tạo bài viết</Text>
-                    {/* Hiển thị đang đăng trong nhóm nào (nếu có) */}
-                    {groupName && (
-                        <Text style={styles.subTitle}>▶ {groupName}</Text>
-                    )}
-                </View>
-
+            <View style={[styles.headerPostButtonContainer, { top: insets.top + 10 }]}>
                 <TouchableOpacity
-                    style={[styles.postButton, (!content && images.length === 0) && styles.disabledBtn]}
-                    disabled={!content && images.length === 0}
+                    style={[styles.postButton, loading && { opacity: 0.5 }]}
+                    disabled={loading}
                     onPress={handlePost}
                 >
-                    <Text style={[styles.postButtonText, (!content && images.length === 0) && styles.disabledText]}>
-                        Đăng
-                    </Text>
+                    {loading ? <ActivityIndicator color="#fff" size="small" /> :
+                        <Text style={styles.postButtonText}>{editingPostId ? "Lưu" : "Đăng"}</Text>}
                 </TouchableOpacity>
             </View>
 
-            <KeyboardAvoidingView
-                behavior={Platform.OS === "ios" ? "padding" : "height"}
-                style={styles.container}
-            >
-                <ScrollView
-                    contentContainerStyle={styles.scrollContent}
-                    showsVerticalScrollIndicator={false}
-                    keyboardShouldPersistTaps="handled"
-                >
-                    {/* User Info */}
+            <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.container}>
+                <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
+
+                    {/* User Info Section */}
                     <View style={styles.userSection}>
-                        <Image
-                            source={{ uri: userProfile?.photoURL || 'https://i.pravatar.cc/150?img=3' }}
-                            style={styles.avatar}
-                        />
+                        <Image source={{ uri: userProfile?.photoURL || 'https://i.pravatar.cc/150?img=3' }} style={styles.avatar} />
                         <View style={styles.userInfo}>
-                            <Text style={styles.userName}>
-                                {userProfile?.displayName || 'Người dùng'}
-                            </Text>
-                            <TouchableOpacity style={styles.privacySelector}>
-                                <Ionicons name={getPrivacyIcon()} size={14} color="#666" />
-                                <Text style={styles.privacyText}>
-                                    {privacy === 'public' ? 'Công khai' : privacy === 'friends' ? 'Bạn bè' : 'Riêng tư'}
-                                </Text>
-                                <Ionicons name="chevron-down" size={14} color="#666" />
-                            </TouchableOpacity>
+                            <Text style={styles.userName}>{userProfile?.displayName || 'Người dùng'}</Text>
+                            <View style={styles.badgesRow}>
+                                <View style={styles.privacyBadge}>
+                                    <Ionicons name={groupData.id ? "people" : "earth"} size={12} color="#666" />
+                                    <Text style={styles.privacyText}> {groupData.id ? "Thành viên" : "Công khai"}</Text>
+                                </View>
+                                {location && (
+                                    <View style={styles.locationBadge}>
+                                        <Ionicons name="location" size={12} color="#E91E63" />
+                                        <Text style={styles.locationText}> {location}</Text>
+                                    </View>
+                                )}
+                            </View>
                         </View>
                     </View>
 
-                    {/* Input */}
                     <TextInput
                         style={styles.textInput}
-                        placeholder={`${userProfile?.displayName?.split(' ').pop() || 'Bạn'} ơi, bạn đang nghĩ gì thế?`}
+                        placeholder="Bạn đang nghĩ gì?"
                         placeholderTextColor="#999"
                         multiline
                         value={content}
@@ -185,16 +242,17 @@ const PostScreen = ({ navigation, route }) => {
                         textAlignVertical="top"
                     />
 
-                    {/* Images */}
-                    {images.length > 0 && (
+                    {/* Media Grid */}
+                    {mediaItems.length > 0 && (
                         <View style={styles.imagesGrid}>
-                            {images.map((uri, index) => (
+                            {mediaItems.map((item, index) => (
                                 <View key={index} style={styles.imageWrapper}>
-                                    <Image source={{ uri }} style={styles.previewImage} />
-                                    <TouchableOpacity
-                                        style={styles.removeBtn}
-                                        onPress={() => removeImage(index)}
-                                    >
+                                    {item.type === 'video' ? (
+                                        <Video source={{ uri: item.uri }} style={styles.previewImage} resizeMode={ResizeMode.COVER} isMuted={true} />
+                                    ) : (
+                                        <Image source={{ uri: item.uri }} style={styles.previewImage} />
+                                    )}
+                                    <TouchableOpacity style={styles.removeBtn} onPress={() => removeMedia(index)}>
                                         <Ionicons name="close-circle" size={24} color="#fff" />
                                     </TouchableOpacity>
                                 </View>
@@ -207,80 +265,56 @@ const PostScreen = ({ navigation, route }) => {
                 <View style={styles.toolbarContainer}>
                     <Text style={styles.toolbarTitle}>Thêm vào bài viết</Text>
                     <View style={styles.gridToolbar}>
-                        <TouchableOpacity style={styles.gridItem} onPress={pickImage}>
+                        <TouchableOpacity style={styles.gridItem} onPress={pickMedia}>
                             <Ionicons name="images" size={24} color="#4CAF50" />
                             <Text style={styles.gridLabel}>Ảnh/Video</Text>
                         </TouchableOpacity>
-
                         <TouchableOpacity style={styles.gridItem} onPress={takePhoto}>
                             <Ionicons name="camera" size={24} color="#2196F3" />
                             <Text style={styles.gridLabel}>Camera</Text>
                         </TouchableOpacity>
-
                         <TouchableOpacity style={styles.gridItem} onPress={() => setIsEmojiOpen(true)}>
                             <MaterialCommunityIcons name="emoticon-happy-outline" size={24} color="#FFC107" />
                             <Text style={styles.gridLabel}>Cảm xúc</Text>
                         </TouchableOpacity>
-
-                        <TouchableOpacity style={styles.gridItem}>
-                            <Ionicons name="location" size={24} color="#F44336" />
+                        <TouchableOpacity style={styles.gridItem} onPress={handleAddLocation}>
+                            <Ionicons name="location" size={24} color="#E91E63" />
                             <Text style={styles.gridLabel}>Check-in</Text>
                         </TouchableOpacity>
                     </View>
                 </View>
 
-                <EmojiPicker
-                    onEmojiSelected={handleEmojiSelect}
-                    open={isEmojiOpen}
-                    onClose={() => setIsEmojiOpen(false)}
-                />
+                <EmojiPicker onEmojiSelected={handleEmojiSelect} open={isEmojiOpen} onClose={() => setIsEmojiOpen(false)} />
             </KeyboardAvoidingView>
-        </SafeAreaView>
+        </View>
     );
 };
 
 const styles = StyleSheet.create({
     safeArea: { flex: 1, backgroundColor: '#fff' },
-    header: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        paddingHorizontal: 16,
-        paddingVertical: 12,
-        borderBottomWidth: 1,
-        borderBottomColor: '#f0f0f0',
-        backgroundColor: '#fff'
-    },
-    leftBtn: { padding: 5, width: 40 },
-    titleContainer: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-    headerTitle: { fontFamily: 'Nunito-Bold', fontSize: 18, color: '#333' },
-    subTitle: { fontFamily: 'Nunito-Regular', fontSize: 12, color: '#666' },
-    postButton: { backgroundColor: '#2F847C', paddingHorizontal: 16, paddingVertical: 6, borderRadius: 20 },
+    headerPostButtonContainer: { position: 'absolute', right: 16, zIndex: 20 },
+    postButton: { backgroundColor: '#2F847C', paddingHorizontal: 20, paddingVertical: 8, borderRadius: 20 },
     postButtonText: { color: '#fff', fontFamily: 'Nunito-Bold', fontSize: 15 },
-    disabledBtn: { backgroundColor: '#E0E0E0' },
-    disabledText: { color: '#999' },
-
     container: { flex: 1 },
-    scrollContent: { padding: 20, paddingBottom: 120 },
-
-    userSection: { flexDirection: 'row', alignItems: 'center', marginBottom: 20 },
+    scrollContent: { padding: 20, paddingBottom: 100 },
+    userSection: { flexDirection: 'row', alignItems: 'center', marginBottom: 15 },
     avatar: { width: 50, height: 50, borderRadius: 25, marginRight: 12, backgroundColor: '#eee' },
     userInfo: { flex: 1 },
-    userName: { fontFamily: 'Nunito-Bold', fontSize: 17, color: '#333', marginBottom: 4 },
-    privacySelector: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F0F2F5', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8, alignSelf: 'flex-start', gap: 4 },
-    privacyText: { fontSize: 13, fontFamily: 'Nunito-Regular', color: '#666' },
-
-    textInput: { fontSize: 18, fontFamily: 'Nunito-Regular', color: '#333', minHeight: 120, marginBottom: 20 },
-
-    imagesGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 20 },
-    imageWrapper: { width: '48%', aspectRatio: 1, position: 'relative', borderRadius: 12, overflow: 'hidden' },
+    userName: { fontFamily: 'Nunito-Bold', fontSize: 17, color: '#333' },
+    badgesRow: { flexDirection: 'row', marginTop: 4, gap: 8 },
+    privacyBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F0F2F5', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8 },
+    privacyText: { fontSize: 12, color: '#666', fontFamily: 'Nunito-Regular' },
+    locationBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FCE4EC', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8 },
+    locationText: { fontSize: 12, color: '#C2185B', fontFamily: 'Nunito-Bold' },
+    textInput: { fontSize: 18, fontFamily: 'Nunito-Regular', color: '#333', minHeight: 100, marginBottom: 20 },
+    imagesGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+    imageWrapper: { width: '48%', aspectRatio: 1, borderRadius: 12, overflow: 'hidden', backgroundColor: '#000', position: 'relative' },
     previewImage: { width: '100%', height: '100%' },
     removeBtn: { position: 'absolute', top: 5, right: 5, backgroundColor: 'rgba(0,0,0,0.5)', borderRadius: 15 },
-
     toolbarContainer: { borderTopWidth: 1, borderTopColor: '#f0f0f0', padding: 16, backgroundColor: '#fff' },
     toolbarTitle: { fontFamily: 'Nunito-Bold', fontSize: 15, color: '#333', marginBottom: 12 },
-    gridToolbar: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', gap: 10 },
-    gridItem: { width: '48%', flexDirection: 'row', alignItems: 'center', backgroundColor: '#F9F9F9', padding: 12, borderRadius: 12, gap: 10 },
+    gridToolbar: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', gap: 12 },
+    gridItem: { width: '48%', flexDirection: 'row', alignItems: 'center', backgroundColor: '#F9F9F9', paddingVertical: 12, borderRadius: 12, justifyContent: 'center', gap: 8 },
     gridLabel: { fontFamily: 'Nunito-Regular', fontSize: 14, color: '#333' }
 });
 

@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import {
     View, ImageBackground, Text, StyleSheet, SafeAreaView, ScrollView,
     TextInput, TouchableOpacity, Image, ActivityIndicator, Alert,
-    KeyboardAvoidingView, Platform // <-- Đã thêm import
+    KeyboardAvoidingView, Platform
 } from 'react-native';
 import { Svg, Path } from 'react-native-svg';
 import { useUserStore } from '@/store/userStore';
@@ -44,7 +44,8 @@ export default function RegisterScreen({ navigation }) {
 
         setLoading(true);
         try {
-            const result = await register(email, password);
+            // CẬP NHẬT: Truyền name vào hàm register
+            const result = await register(email, password, name);
 
             if (result.success) {
                 await sendVerification(result.user);
@@ -54,7 +55,7 @@ export default function RegisterScreen({ navigation }) {
                     "Vui lòng kiểm tra email để xác nhận tài khoản trước khi sử dụng."
                 );
 
-                // AppNavigator sẽ tự động điều hướng
+                // AppNavigator sẽ tự động điều hướng dựa trên user state
             } else {
                 let friendlyMessage = "Đã có lỗi xảy ra.";
                 if (result.error.code === 'auth/email-already-in-use') friendlyMessage = 'Email này đã được sử dụng.';
@@ -73,7 +74,6 @@ export default function RegisterScreen({ navigation }) {
 
     return (
         <SafeAreaView style={styles.safeArea}>
-            {/* Thêm KeyboardAvoidingView bao bọc ScrollView */}
             <KeyboardAvoidingView
                 style={{ flex: 1 }}
                 behavior={Platform.OS === "ios" ? "padding" : "height"}

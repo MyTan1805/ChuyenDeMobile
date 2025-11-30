@@ -1,6 +1,9 @@
+// src/store/userStore.js
+
 import { create } from 'zustand';
-import AsyncStorage from '@react-native-async-storage/async-storage'; // Giữ lại cho Guest Mode
-import { auth, db, storage } from '../config/firebaseConfig';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { auth, db } from '../config/firebaseConfig';
+import * as FileSystem from 'expo-file-system/legacy';
 import {
   onAuthStateChanged,
   signInWithEmailAndPassword,
@@ -11,34 +14,35 @@ import {
   createUserWithEmailAndPassword,
   sendEmailVerification,
   GoogleAuthProvider,
-  signInWithCredential
+  signInWithCredential,
+  updateProfile
 } from 'firebase/auth';
 
 import {
   doc, getDoc, setDoc, updateDoc, deleteDoc,
-  collection, query, where, orderBy, limit, getDocs, increment,
-  arrayUnion, runTransaction
+  collection, query, where, getDocs, increment,
+  arrayUnion, runTransaction, writeBatch // Thêm writeBatch
 } from 'firebase/firestore';
 
-import * as Notifications from 'expo-notifications';
+import { encrypt, decrypt } from '../utils/encryption';
 
 const CLOUD_NAME = "dqpyrygyu";
 const UPLOAD_PRESET = "ecoapp_preset";
 const GUEST_DATA_KEY = "guest_user_data";
 
-// --- Helper: Tạo dữ liệu mặc định (Chuẩn hóa cho cả 2 bạn) ---
+// --- Helper: Tạo dữ liệu mặc định ---
 const getDefaultUserData = (displayName) => ({
   displayName: displayName || "Người dùng",
   location: "Chưa cập nhật",
   phoneNumber: "",
-  photoURL: "",
+  photoURL: null,
   isLocationShared: false,
   aqiSettings: { isEnabled: true, threshold: "150" },
   notificationSettings: { weather: false, trash: false, campaign: false, community: false },
   createdAt: new Date().toISOString(),
   stats: {
-    points: 0, 
-    highScore: 0, 
+    points: 0,
+    highScore: 0,
     sentReports: 0, trashSorted: 0, community: 0, levelProgress: 0,
     communityStats: [
       { label: 'T1', report: 0, recycle: 0 },
@@ -48,7 +52,7 @@ const getDefaultUserData = (displayName) => ({
       { label: 'T5', report: 0, recycle: 0 },
     ]
   },
-  quizResults: {}, 
+  quizResults: {},
   reportHistory: [],
   chatHistory: []
 });
@@ -70,10 +74,15 @@ export const useUserStore = create((set, get) => ({
     });
   },
 
-  register: async (email, password) => {
+  register: async (email, password, name) => {
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-      return { success: true, user: userCredential.user };
+      const user = userCredential.user;
+      if (name) await updateProfile(user, { displayName: name });
+      const defaultData = getDefaultUserData(name);
+      await setDoc(doc(db, "users", user.uid), defaultData);
+      set({ userProfile: defaultData });
+      return { success: true, user: user };
     } catch (error) { return { success: false, error }; }
   },
 
@@ -101,15 +110,17 @@ export const useUserStore = create((set, get) => ({
     return { success: false, error: 'No user found' };
   },
 
-  // --- 2. LOGIC LẤY PROFILE  ---
+  // --- 2. LOGIC LẤY PROFILE (ĐÃ SỬA: GIẢI MÃ DỮ LIỆU) ---
   fetchUserProfile: async (uid) => {
     const user = auth.currentUser;
-
     if (user && user.isAnonymous) {
       try {
         const storedData = await AsyncStorage.getItem(GUEST_DATA_KEY);
         if (storedData) {
-          set({ userProfile: JSON.parse(storedData), isLoading: false });
+          const parsedData = JSON.parse(storedData);
+          if (parsedData.phoneNumber) parsedData.phoneNumber = decrypt(parsedData.phoneNumber);
+          if (parsedData.location) parsedData.location = decrypt(parsedData.location);
+          set({ userProfile: parsedData, isLoading: false });
         } else {
           const defaultData = getDefaultUserData("Khách ghé thăm");
           await AsyncStorage.setItem(GUEST_DATA_KEY, JSON.stringify(defaultData));
@@ -122,20 +133,16 @@ export const useUserStore = create((set, get) => ({
     try {
       const docRef = doc(db, "users", uid);
       const docSnap = await getDoc(docRef);
-
       if (docSnap.exists()) {
         const serverData = docSnap.data();
+        if (serverData.phoneNumber) serverData.phoneNumber = decrypt(serverData.phoneNumber);
+        if (serverData.location) serverData.location = decrypt(serverData.location);
+
         const defaultData = getDefaultUserData();
-        const mergedData = {
-            ...defaultData,
-            ...serverData,
-            stats: { ...defaultData.stats, ...(serverData.stats || {}) },
-            quizResults: serverData.quizResults || {},
-            notificationSettings: serverData.notificationSettings || defaultData.notificationSettings
-        };
+        const mergedData = { ...defaultData, ...serverData };
         set({ userProfile: mergedData, isLoading: false });
       } else {
-        const defaultData = getDefaultUserData(auth.currentUser?.email?.split('@')[0]);
+        const defaultData = getDefaultUserData(auth.currentUser?.displayName || auth.currentUser?.email?.split('@')[0]);
         await setDoc(docRef, defaultData);
         set({ userProfile: defaultData, isLoading: false });
       }
@@ -153,18 +160,10 @@ export const useUserStore = create((set, get) => ({
     const currentProfile = get().userProfile;
     const currentPoints = currentProfile?.stats?.points || 0;
     const currentHighScore = currentProfile?.stats?.highScore || 0;
-    
     const newPoints = Math.max(0, currentPoints + pointsToAdd);
     const newHighScore = Math.max(currentHighScore, newPoints);
 
-    const newProfileState = {
-      ...currentProfile,
-      stats: {
-        ...currentProfile.stats,
-        points: newPoints,
-        highScore: newHighScore
-      }
-    };
+    const newProfileState = { ...currentProfile, stats: { ...currentProfile.stats, points: newPoints, highScore: newHighScore } };
     set({ userProfile: newProfileState });
 
     if (user.isAnonymous) {
@@ -175,27 +174,13 @@ export const useUserStore = create((set, get) => ({
     }
 
     try {
-        const docRef = doc(db, "users", user.uid);
-        await runTransaction(db, async (transaction) => {
-            const userSnap = await transaction.get(docRef);
-            const data = userSnap.data();
-            const svPoints = data?.stats?.points || 0;
-            const svHighScore = data?.stats?.highScore || 0;
-
-            const finalPoints = Math.max(0, svPoints + pointsToAdd);
-            const finalHighScore = Math.max(svHighScore, finalPoints);
-
-            transaction.update(docRef, {
-                "stats.points": finalPoints, 
-                "stats.highScore": finalHighScore
-            });
-        });
-        return { success: true, newPoints, newHighScore };
-    } catch (error) {
-        console.error("Lỗi transaction điểm:", error);
-        set({ userProfile: currentProfile });
-        return { success: false, error: error.message };
-    }
+      const docRef = doc(db, "users", user.uid);
+      await updateDoc(docRef, {
+        "stats.points": newPoints,
+        "stats.highScore": newHighScore
+      });
+      return { success: true, newPoints, newHighScore };
+    } catch (error) { return { success: false, error: error.message }; }
   },
 
   recordQuizResult: async (quizId, currentCorrectCount, pointsPerQuestion) => {
@@ -203,64 +188,63 @@ export const useUserStore = create((set, get) => ({
     if (!user) return { success: false, error: "User not authenticated" };
 
     if (user.isAnonymous) {
-        const pointsToAward = currentCorrectCount * pointsPerQuestion; 
-        await get().addPointsToUser(pointsToAward);
-        return { success: true, pointsAwarded: pointsToAward };
+      const pointsToAward = currentCorrectCount * pointsPerQuestion;
+      await get().addPointsToUser(pointsToAward);
+      return { success: true, pointsAwarded: pointsToAward };
     }
 
     const docRef = doc(db, "users", user.uid);
     let pointsToAward = 0;
 
     try {
-        await runTransaction(db, async (transaction) => {
-            const userSnap = await transaction.get(docRef);
-            const data = userSnap.data();
-            const results = data?.quizResults || {};
-            const previousBestCorrect = results[quizId]?.correctCount || 0;
-            
-            if (currentCorrectCount > previousBestCorrect) {
-                const newCorrectAnswers = currentCorrectCount - previousBestCorrect;
-                pointsToAward = newCorrectAnswers * pointsPerQuestion;
-                
-                const currentPoints = data?.stats?.points || 0;
-                const currentHighScore = data?.stats?.highScore || 0;
-                
-                const newPointsTotal = currentPoints + pointsToAward;
-                const newHighScoreTotal = Math.max(currentHighScore, newPointsTotal);
+      await runTransaction(db, async (transaction) => {
+        const userSnap = await transaction.get(docRef);
+        const data = userSnap.data();
+        const results = data?.quizResults || {};
+        const previousBestCorrect = results[quizId]?.correctCount || 0;
 
-                transaction.update(docRef, {
-                    "stats.points": newPointsTotal,
-                    "stats.highScore": newHighScoreTotal,
-                    [`quizResults.${quizId}`]: {
-                        correctCount: currentCorrectCount, 
-                        pointsEarned: (results[quizId]?.pointsEarned || 0) + pointsToAward 
-                    }
-                });
+        if (currentCorrectCount > previousBestCorrect) {
+          const newCorrectAnswers = currentCorrectCount - previousBestCorrect;
+          pointsToAward = newCorrectAnswers * pointsPerQuestion;
 
-                // Cập nhật UI State
-                const newProfile = { ...get().userProfile };
-                newProfile.stats.points = newPointsTotal;
-                newProfile.stats.highScore = newHighScoreTotal;
-                if(!newProfile.quizResults) newProfile.quizResults = {};
-                newProfile.quizResults[quizId] = {
-                    correctCount: currentCorrectCount,
-                    pointsEarned: (results[quizId]?.pointsEarned || 0) + pointsToAward
-                };
-                set({ userProfile: newProfile });
+          const currentPoints = data?.stats?.points || 0;
+          const currentHighScore = data?.stats?.highScore || 0;
+
+          const newPointsTotal = currentPoints + pointsToAward;
+          const newHighScoreTotal = Math.max(currentHighScore, newPointsTotal);
+
+          transaction.update(docRef, {
+            "stats.points": newPointsTotal,
+            "stats.highScore": newHighScoreTotal,
+            [`quizResults.${quizId}`]: {
+              correctCount: currentCorrectCount,
+              pointsEarned: (results[quizId]?.pointsEarned || 0) + pointsToAward
             }
-        });
-        return { success: true, pointsAwarded: pointsToAward }; 
+          });
+
+          // Cập nhật UI State
+          const newProfile = { ...get().userProfile };
+          newProfile.stats.points = newPointsTotal;
+          newProfile.stats.highScore = newHighScoreTotal;
+          if (!newProfile.quizResults) newProfile.quizResults = {};
+          newProfile.quizResults[quizId] = {
+            correctCount: currentCorrectCount,
+            pointsEarned: (results[quizId]?.pointsEarned || 0) + pointsToAward
+          };
+          set({ userProfile: newProfile });
+        }
+      });
+      return { success: true, pointsAwarded: pointsToAward };
     } catch (error) {
-        return { success: false, error: error.message };
+      return { success: false, error: error.message };
     }
   },
 
-  // --- 5. ĐỔI QUÀ ---
   exchangePointsForReward: async (rewardCost) => {
-    return await get().addPointsToUser(-rewardCost); // Tái sử dụng hàm addPointsToUser (đã hỗ trợ âm)
+    return await get().addPointsToUser(-rewardCost);
   },
 
-  // --- 6. CẬP NHẬT PROFILE & SETTINGS ---
+  // --- 4. CẬP NHẬT PROFILE (ĐÃ SỬA: MÃ HÓA DỮ LIỆU) ---
   updateUserProfile: async (data) => {
     const user = auth.currentUser;
     if (!user) return { success: false };
@@ -268,45 +252,85 @@ export const useUserStore = create((set, get) => ({
     const newProfile = { ...get().userProfile, ...data };
     set({ userProfile: newProfile });
 
+    const dataToSave = { ...data };
+    if (dataToSave.phoneNumber) dataToSave.phoneNumber = encrypt(dataToSave.phoneNumber);
+    if (dataToSave.location) dataToSave.location = encrypt(dataToSave.location);
+
     if (user.isAnonymous) {
-      try {
-        await AsyncStorage.setItem(GUEST_DATA_KEY, JSON.stringify(newProfile));
-        return { success: true };
-      } catch (e) { return { success: false, error: e }; }
+      const profileToStore = { ...newProfile, ...dataToSave };
+      await AsyncStorage.setItem(GUEST_DATA_KEY, JSON.stringify(profileToStore));
+      return { success: true };
     }
 
     try {
       const docRef = doc(db, "users", user.uid);
-      await updateDoc(docRef, data);
+      await updateDoc(docRef, dataToSave);
       return { success: true };
     } catch (error) { return { success: false, error }; }
   },
-  
-  // Update Settings (Wrapper)
+
   updateUserSettings: async (settingsData) => {
     return await get().updateUserProfile(settingsData);
   },
 
-  // --- 7. CÁC HÀM KHÁC (UPLOAD, LOGIN...) ---
-  uploadAvatar: async (uri) => {
-    const uid = auth.currentUser?.uid;
-    if (!uid || !uri) return { success: false, error: "No user or URI" };
+  // --- UPLOAD ĐA NĂNG (MỚI - ĐÃ FIX TIMEOUT & SIZE) ---
+  uploadMedia: async (uri, type = 'image') => {
+    if (!uri) return { success: false, error: "No URI" };
     try {
+      // 1. Check file size
+      const fileInfo = await FileSystem.getInfoAsync(uri);
+      if (fileInfo.exists && fileInfo.size > 10 * 1024 * 1024) return { success: false, error: "File quá lớn (>10MB)" };
+
+      // 2. Prepare FormData correctly
       const formData = new FormData();
-      formData.append('file', { uri: uri, type: 'image/jpeg', name: `avatar_${uid}.jpg` });
+      const uriParts = uri.split('.');
+      let fileType = uriParts[uriParts.length - 1];
+      if (fileType === 'jpeg') fileType = 'jpg';
+
+      const mimeType = type === 'video' ? `video/mp4` : `image/jpeg`;
+      const fileName = `upload_${Date.now()}.${type === 'video' ? 'mp4' : 'jpg'}`;
+
+      // Quan trọng: Cloudinary cần resource_type đúng trong URL
+      const resourceType = type === 'video' ? 'video' : 'image';
+
+      formData.append('file', {
+        uri: uri,
+        type: mimeType,
+        name: fileName
+      });
       formData.append('upload_preset', UPLOAD_PRESET);
       formData.append('cloud_name', CLOUD_NAME);
-      const response = await fetch(`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`, {
+
+      // 3. Upload with longer timeout
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 60000); // 60s timeout
+
+      const response = await fetch(`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/${resourceType}/upload`, {
         method: 'POST',
         body: formData,
-        headers: { 'Accept': 'application/json', 'Content-Type': 'multipart/form-data' },
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'multipart/form-data',
+        },
+        signal: controller.signal
       });
+
+      clearTimeout(timeoutId);
       const data = await response.json();
-      if (data.secure_url) {
-        await get().updateUserProfile({ photoURL: data.secure_url });
-        return { success: true, url: data.secure_url };
-      } else { return { success: false, error: "Upload failed" }; }
-    } catch (error) { return { success: false, error }; }
+
+      if (data.error) throw new Error(data.error.message);
+      if (!data.secure_url) throw new Error("Không nhận được link ảnh");
+
+      return { success: true, url: data.secure_url, type: resourceType };
+    } catch (error) {
+      console.error("Upload failed:", error);
+      return { success: false, error: error.message || "Lỗi upload" };
+    }
+  },
+
+  // Giữ lại uploadAvatar cũ (có thể dùng uploadMedia thay thế sau này)
+  uploadAvatar: async (uri) => {
+    return await get().uploadMedia(uri, 'image');
   },
 
   login: async (email, password) => {
@@ -345,7 +369,6 @@ export const useUserStore = create((set, get) => ({
     } catch (error) { return { success: false, error }; }
   },
 
-  // --- 8. RESET & DELETE ---
   resetUserData: async () => {
     const user = auth.currentUser;
     if (!user) return { success: false };
@@ -368,20 +391,38 @@ export const useUserStore = create((set, get) => ({
   deleteUserAccount: async () => {
     const user = auth.currentUser;
     if (!user) return { success: false };
+
     try {
       if (user.isAnonymous) {
         await AsyncStorage.removeItem(GUEST_DATA_KEY);
       } else {
         const uid = user.uid;
-        await deleteDoc(doc(db, "users", uid));
+        const batch = writeBatch(db);
+
+        // 1. Xóa bài viết (community_posts)
+        const postsQ = query(collection(db, "community_posts"), where("userId", "==", uid));
+        const postsSnap = await getDocs(postsQ);
+        postsSnap.forEach((doc) => batch.delete(doc.ref));
+
+        // 2. Xóa báo cáo (reports)
+        const reportsQ = query(collection(db, "reports"), where("userId", "==", uid));
+        const reportsSnap = await getDocs(reportsQ);
+        reportsSnap.forEach((doc) => batch.delete(doc.ref));
+
+        // 3. Xóa User Profile
+        const userRef = doc(db, "users", uid);
+        batch.delete(userRef);
+
+        await batch.commit();
       }
+
       await deleteUser(user);
       set({ user: null, userProfile: null });
       return { success: true };
-    } catch (error) { return { success: false, error }; }
+    } catch (error) { return { success: false, error: error.message }; }
   },
 
-  // --- 9. DATA HELPERS (READ-ONLY) ---
+  // --- Helpers ---
   getRealtimeAQI: async () => {
     try {
       const q = query(collection(db, "aqi_data"), orderBy("timestamp", "desc"), limit(1));
@@ -418,7 +459,7 @@ export const useUserStore = create((set, get) => ({
     } catch (e) { return 0; }
   },
 
-  // --- 10. HISTORY & REPORT ---
+  // --- HISTORY & REPORT ---
   addReportToHistory: async (reportData) => {
     const user = auth.currentUser;
     const currentProfile = get().userProfile;
@@ -463,18 +504,53 @@ export const useUserStore = create((set, get) => ({
       messages: messages
     };
 
-    const newHistory = [newChat, ...(currentProfile.chatHistory || [])];
+    // Giới hạn chỉ giữ 20 đoạn chat gần nhất
+    let newHistory = [newChat, ...(currentProfile.chatHistory || [])];
+    if (newHistory.length > 20) newHistory = newHistory.slice(0, 20);
+
     set({ userProfile: { ...currentProfile, chatHistory: newHistory } });
 
     if (user.isAnonymous) {
       await AsyncStorage.setItem(GUEST_DATA_KEY, JSON.stringify({ ...currentProfile, chatHistory: newHistory }));
     } else {
-      await updateDoc(doc(db, "users", user.uid), { chatHistory: arrayUnion(newChat) });
+      await updateDoc(doc(db, "users", user.uid), { chatHistory: newHistory }); // Lưu đè mảng mới đã cắt
     }
     return { success: true };
   },
 
-  // --- 11. NOTIFICATION TRIGGER ---
+  deleteChatSession: async (chatId) => {
+    const user = auth.currentUser;
+    const currentProfile = get().userProfile;
+    if (!currentProfile) return;
+
+    const newHistory = currentProfile.chatHistory.filter(c => c.id !== chatId);
+    set({ userProfile: { ...currentProfile, chatHistory: newHistory } });
+
+    if (user.isAnonymous) {
+      await AsyncStorage.setItem(GUEST_DATA_KEY, JSON.stringify({ ...currentProfile, chatHistory: newHistory }));
+    } else {
+      await updateDoc(doc(db, "users", user.uid), { chatHistory: newHistory });
+    }
+    return { success: true };
+  },
+
+  deleteReport: async (reportId) => {
+    const user = auth.currentUser;
+    const currentProfile = get().userProfile;
+    if (!currentProfile) return;
+
+    const newHistory = currentProfile.reportHistory.filter(r => r.id !== reportId);
+    set({ userProfile: { ...currentProfile, reportHistory: newHistory } });
+
+    if (user.isAnonymous) {
+      await AsyncStorage.setItem(GUEST_DATA_KEY, JSON.stringify({ ...currentProfile, reportHistory: newHistory }));
+    } else {
+      await updateDoc(doc(db, "users", user.uid), { reportHistory: newHistory });
+    }
+    return { success: true };
+  },
+
+  // --- NOTIFICATION ---
   triggerDynamicNotification: async (type) => {
     const { userProfile, getRealtimeAQI, getLatestCampaign, countActiveEvents, getTrashSchedule } = get();
     const userThreshold = parseInt(userProfile?.aqiSettings?.threshold || "150");

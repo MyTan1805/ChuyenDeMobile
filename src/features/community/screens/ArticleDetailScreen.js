@@ -1,52 +1,83 @@
 // src/features/community/screens/ArticleDetailScreen.js
 
-import React from 'react';
-import { View, Text, StyleSheet, Image, ScrollView, SafeAreaView, Dimensions } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { View, Text, StyleSheet, Image, ScrollView, SafeAreaView, Dimensions, ActivityIndicator } from 'react-native';
 import CustomHeader from '@/components/CustomHeader';
 import { Ionicons } from '@expo/vector-icons';
-
-const { width } = Dimensions.get('window');
+import { shareContent } from '@/utils/shareUtils'; // ✅ Import
+import { db } from '@/config/firebaseConfig';
+import { doc, getDoc } from 'firebase/firestore';
 
 const ArticleDetailScreen = ({ route }) => {
-    // Lấy dữ liệu bài viết được truyền sang từ màn hình trước
-    const { article } = route.params;
+    // route.params có thể chứa 'article' (từ list) hoặc 'articleId' (từ link)
+    const { article: initialArticle, articleId } = route.params || {};
+    const [article, setArticle] = useState(initialArticle || null);
+    const [loading, setLoading] = useState(!initialArticle);
+
+    // ✅ Logic tải dữ liệu khi mở từ Link
+    useEffect(() => {
+        const fetchArticle = async () => {
+            // Nếu chưa có data bài viết nhưng có ID (trường hợp mở từ Link hoặc Deep Link)
+            if (!article && articleId) {
+                try {
+                    // --- SỬA LOGIC GỌI FIRESTORE ---
+                    // Truy cập trực tiếp vào collection 'articles' và document có id = articleId
+                    const docRef = doc(db, 'articles', articleId);
+                    const docSnap = await getDoc(docRef);
+
+                    if (docSnap.exists()) {
+                        setArticle({ id: docSnap.id, ...docSnap.data() });
+                    } else {
+                        console.log("Không tìm thấy bài viết trên Firestore");
+                    }
+                } catch (e) {
+                    console.error("Lỗi tải bài viết:", e);
+                } finally {
+                    setLoading(false);
+                }
+            } else {
+                // Nếu đã có data truyền qua params thì không cần load
+                setLoading(false);
+            }
+        };
+        fetchArticle();
+    }, [articleId, article]);
+
+    // ✅ Hàm chia sẻ
+    const handleShare = () => {
+        if (!article) return;
+        shareContent({
+            title: article.title,
+            message: `📚 Đọc bài viết hay: "${article.title}"`,
+            path: `article/${article.id || 'unknown'}`
+        });
+    };
+
+    if (loading) return <ActivityIndicator size="large" style={{ marginTop: 50 }} color="#2F847C" />;
+    if (!article) return <Text style={{ textAlign: 'center', marginTop: 50 }}>Không tìm thấy bài viết</Text>;
 
     return (
         <SafeAreaView style={styles.safeArea}>
-            <CustomHeader title="Chi tiết bài viết" showBackButton={true} />
-            
+            <CustomHeader
+                title="Chi tiết bài viết"
+                showBackButton={true}
+                showSettingsButton={true}
+                rightIconName="share-social-outline" // ✅ Icon Share
+                onSettingsPress={handleShare} // ✅ Gọi hàm share
+            />
+
             <ScrollView contentContainerStyle={styles.scrollContent}>
-                {/* Ảnh bìa */}
-                <Image 
-                    source={{ uri: article.image }} 
-                    style={styles.heroImage} 
-                    resizeMode="cover"
-                />
-
+                <Image source={{ uri: article.image }} style={styles.heroImage} resizeMode="cover" />
                 <View style={styles.contentContainer}>
-                    {/* Thông tin metadata */}
                     <View style={styles.metaRow}>
-                        <View style={styles.tag}>
-                            <Text style={styles.tagText}>KIẾN THỨC</Text>
-                        </View>
-                        <View style={styles.dateContainer}>
-                            <Ionicons name="time-outline" size={14} color="#888" />
-                            <Text style={styles.dateText}> {article.readTime} đọc • {article.date}</Text>
-                        </View>
+                        <View style={styles.tag}><Text style={styles.tagText}>KIẾN THỨC</Text></View>
+                        <Text style={styles.dateText}>{article.readTime || '5 phút'} đọc</Text>
                     </View>
-
-                    {/* Tiêu đề */}
                     <Text style={styles.title}>{article.title}</Text>
-
-                    {/* Tóm tắt (In nghiêng) */}
                     <View style={styles.summaryBox}>
                         <Text style={styles.summaryText}>{article.summary}</Text>
                     </View>
-
-                    {/* Nội dung chính */}
-                    <Text style={styles.contentText}>
-                        {article.content || "Nội dung đang được cập nhật..."}
-                    </Text>
+                    <Text style={styles.contentText}>{article.content}</Text>
                 </View>
             </ScrollView>
         </SafeAreaView>
@@ -56,78 +87,16 @@ const ArticleDetailScreen = ({ route }) => {
 const styles = StyleSheet.create({
     safeArea: { flex: 1, backgroundColor: '#fff' },
     scrollContent: { paddingBottom: 40 },
-    
-    heroImage: {
-        width: '100%',
-        height: 250,
-    },
-    contentContainer: {
-        padding: 20,
-        backgroundColor: '#fff',
-        borderTopLeftRadius: 25,
-        borderTopRightRadius: 25,
-        marginTop: -25, // Kéo phần nội dung đè lên ảnh một chút
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: -2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 5,
-        elevation: 5,
-    },
-    metaRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        marginBottom: 15,
-    },
-    tag: {
-        backgroundColor: '#E8F5E9',
-        paddingHorizontal: 10,
-        paddingVertical: 4,
-        borderRadius: 5,
-    },
-    tagText: {
-        color: '#2E7D32',
-        fontSize: 12,
-        fontFamily: 'Nunito-Bold',
-    },
-    dateContainer: {
-        flexDirection: 'row',
-        alignItems: 'center',
-    },
-    dateText: {
-        color: '#888',
-        fontSize: 13,
-        fontFamily: 'Nunito-Regular',
-    },
-    title: {
-        fontSize: 24,
-        fontFamily: 'Nunito-Bold',
-        color: '#333',
-        marginBottom: 15,
-        lineHeight: 32,
-    },
-    summaryBox: {
-        borderLeftWidth: 4,
-        borderLeftColor: '#2F847C',
-        paddingLeft: 12,
-        marginBottom: 20,
-        backgroundColor: '#F9F9F9',
-        paddingVertical: 10,
-    },
-    summaryText: {
-        fontSize: 16,
-        fontFamily: 'Nunito-Regular',
-        color: '#555',
-        fontStyle: 'italic',
-        lineHeight: 24,
-    },
-    contentText: {
-        fontSize: 16,
-        fontFamily: 'Nunito-Regular',
-        color: '#333',
-        lineHeight: 28, // Giãn dòng rộng để dễ đọc
-        textAlign: 'justify', // Căn đều 2 bên
-    },
+    heroImage: { width: '100%', height: 250 },
+    contentContainer: { padding: 20, backgroundColor: '#fff', marginTop: -25, borderRadius: 25 },
+    metaRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 15 },
+    tag: { backgroundColor: '#E8F5E9', padding: 5, borderRadius: 5 },
+    tagText: { color: '#2E7D32', fontWeight: 'bold' },
+    dateText: { color: '#888' },
+    title: { fontSize: 24, fontWeight: 'bold', marginBottom: 15 },
+    summaryBox: { backgroundColor: '#F9F9F9', padding: 10, borderLeftWidth: 4, borderColor: '#2F847C', marginBottom: 20 },
+    summaryText: { fontStyle: 'italic', color: '#555' },
+    contentText: { lineHeight: 28, textAlign: 'justify' },
 });
 
 export default ArticleDetailScreen;

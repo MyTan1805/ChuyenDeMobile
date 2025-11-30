@@ -1,13 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { 
   View, Text, StyleSheet, ScrollView, TouchableOpacity, 
-  RefreshControl, SafeAreaView, StatusBar 
+  RefreshControl, SafeAreaView, StatusBar, Alert, Linking 
 } from 'react-native';
 import * as Location from 'expo-location';
 
 // --- STORES & HOOKS ---
 import { useAqiStore } from '../../../store/aqiStore'; 
 import { useNotifications } from '../../../hooks/useNotifications'; 
+import { useUserStore } from '@/store/userStore'; // ✅ Import User Store
 
 // --- COMPONENTS ---
 import { fetchAqiDataByCoords } from '../api/aqiApi'; 
@@ -17,7 +18,7 @@ import AppShortcuts from '../components/AppShortcuts';
 import DailyActions from '../components/DailyActions';
 import { AqiLineChart } from '../components/AqiCharts';
 import AqiSettingsModal from '../components/AqiSettingsModal';
-import CustomHeader from '../../../components/CustomHeader'; // Import Header chuẩn
+import CustomHeader from '../../../components/CustomHeader'; 
 
 const HomeScreen = ({ navigation }) => {
   // 1. State & Store
@@ -32,6 +33,9 @@ const HomeScreen = ({ navigation }) => {
   // Lấy ngưỡng từ Store và hàm bắn thông báo
   const threshold = useAqiStore((state) => state.threshold);
   const { sendAlert } = useNotifications();
+  
+  // ✅ Lấy profile từ Firebase Store để check quyền riêng tư
+  const userProfile = useUserStore((state) => state.userProfile);
 
   // 2. Logic kiểm tra cảnh báo
   const checkAndAlert = (data) => {
@@ -51,8 +55,34 @@ const HomeScreen = ({ navigation }) => {
   const loadData = async () => {
     setLoading(true);
     try {
+      // ⚠️ FR-7.3: KIỂM TRA QUYỀN RIÊNG TƯ TỪ FIREBASE TRƯỚC
+      // Nếu user chưa bật "Chia sẻ vị trí" trong cài đặt -> Dùng tọa độ mặc định
+      if (!userProfile?.isLocationShared) {
+        console.log("🔒 Vị trí bị tắt bởi người dùng.");
+        setLocationName("TP.HCM (Vị trí ẩn)");
+        
+        // Tọa độ mặc định (TP.HCM)
+        const defaultCoords = { latitude: 10.762, longitude: 106.660 };
+        const data = await fetchAqiDataByCoords(defaultCoords.latitude, defaultCoords.longitude);
+        
+        setAqiData(data);
+        setLoading(false);
+        setRefreshing(false);
+        return; // 🛑 DỪNG TẠI ĐÂY, KHÔNG GỌI LOCATION API
+      }
+
+      // --- CHỈ CHẠY KHI USER ĐÃ ĐỒNG Ý CHIA SẺ ---
       let { status } = await Location.requestForegroundPermissionsAsync();
+      
       if (status !== 'granted') {
+        Alert.alert(
+          "Cần quyền truy cập",
+          "Vui lòng cấp quyền vị trí để ứng dụng hiển thị AQI tại nơi bạn đứng.",
+          [
+            { text: "Hủy", style: "cancel" },
+            { text: "Mở Cài đặt", onPress: () => Linking.openSettings() }
+          ]
+        );
         setLocationName("Cần quyền vị trí");
         setLoading(false);
         return;
@@ -81,9 +111,10 @@ const HomeScreen = ({ navigation }) => {
     }
   };
 
+  // Reload khi component mount HOẶC khi user thay đổi setting chia sẻ vị trí
   useEffect(() => {
     loadData();
-  }, []);
+  }, [userProfile?.isLocationShared]);
 
   const onRefresh = () => {
     setRefreshing(true);

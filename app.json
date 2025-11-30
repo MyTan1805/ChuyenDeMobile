@@ -3,6 +3,7 @@
     "scheme": "ecomate",
     "name": "ChuyenDeMobile",
     "slug": "ChuyenDeMobile",
+    "owner": "purrfectstorm",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./src/assets/images/icon.png",
@@ -14,14 +15,18 @@
     },
     "ios": {
       "supportsTablet": true,
-      "associatedDomains": ["applinks:ecoapp-dc865.firebaseapp.com"],
+      "bundleIdentifier": "com.tan.chuyendemobile",
+      "associatedDomains": [
+        "applinks:ecoapp-dc865.firebaseapp.com"
+      ],
+      "googleServicesFile": "./GoogleService-Info.plist",
       "infoPlist": {
         "NSCameraUsageDescription": "Ứng dụng cần truy cập camera để chụp ảnh phân loại rác thải.",
         "NSPhotoLibraryUsageDescription": "Ứng dụng cần truy cập thư viện ảnh để chọn ảnh rác thải cần phân loại."
       }
     },
     "android": {
-      "package": "com.tan.chuyendemobile", 
+      "package": "com.tan.chuyendemobile",
       "intentFilters": [
         {
           "action": "VIEW",
@@ -36,7 +41,10 @@
               "scheme": "ecomate"
             }
           ],
-          "category": ["BROWSABLE", "DEFAULT"]
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
         }
       ],
       "adaptiveIcon": {
@@ -44,10 +52,12 @@
         "backgroundColor": "#ffffff"
       },
       "permissions": [
-        "CAMERA",
-        "READ_EXTERNAL_STORAGE",
-        "WRITE_EXTERNAL_STORAGE"
-      ]
+        "android.permission.CAMERA",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.RECORD_AUDIO"
+      ],
+      "googleServicesFile": "./google-services.json"
     },
     "web": {
       "favicon": "./src/assets/images/favicon.png"
@@ -60,7 +70,20 @@
           "photosPermission": "Cho phép EcoMate truy cập ảnh để phân loại rác.",
           "cameraPermission": "Cho phép EcoMate dùng camera để chụp ảnh rác."
         }
+      ],
+      [
+        "expo-build-properties",
+        {
+          "ios": {
+            "useFrameworks": "static"
+          }
+        }
       ]
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "c9dca98f-3667-4624-8cb7-b73e67f4935d"
+      }
+    }
   }
 }

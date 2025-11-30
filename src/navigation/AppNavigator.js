@@ -2,7 +2,8 @@
 
 import React, { useEffect } from 'react';
 import { View, ActivityIndicator } from 'react-native';
-import { NavigationContainer } from '@react-navigation/native';
+// 1. Thêm import getStateFromPath ở đây
+import { NavigationContainer, getStateFromPath } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import * as Linking from 'expo-linking';
@@ -22,11 +23,9 @@ import PrivacyScreen from '@/features/settings/screens/PrivacyScreen';
 
 // ----- QUẢN LÝ TRẠNG THÁI -----
 import { useUserStore } from '@/store/userStore';
-
 import { useNotifications } from '@/hooks/useNotifications';
 
 // ==================== IMPORT MÀN HÌNH ====================
-
 // 1. AUTH 
 import WelcomeScreen from '@/features/auth/screens/WelcomeScreen';
 import LoginScreen from '@/features/auth/screens/LoginScreen';
@@ -50,8 +49,6 @@ import QuizScreen from '@/features/community/screens/QuizScreen';
 import QuizCollectionScreen from '@/features/community/screens/QuizCollectionScreen';
 import PostDetailScreen from '@/features/community/screens/PostDetailScreen';
 import CreateGroupScreen from '@/features/community/screens/CreateGroupScreen';
-
-// 🆕 THÊM IMPORT MÀN HÌNH NHÓM MỚI (Đảm bảo file tồn tại)
 import GroupDetailScreen from '@/features/community/screens/GroupDetailScreen';
 import EditGroupScreen from '@/features/community/screens/EditGroupScreen';
 
@@ -77,6 +74,7 @@ const MainTab = createBottomTabNavigator();
 const MainStack = createStackNavigator();
 const VerifyStack = createStackNavigator();
 
+// --- CẤU HÌNH DEEP LINKING ---
 const prefix = Linking.createURL('/');
 const linking = {
   prefixes: [prefix, 'ecomate://', 'https://ecoapp-dc865.firebaseapp.com'],
@@ -87,15 +85,45 @@ const linking = {
           VerifyEmail: { path: 'verify-email', parse: { oobCode: (oobCode) => oobCode, mode: (mode) => mode } },
         },
       },
+      MainStack: {
+        screens: {
+          PostDetail: {
+            path: 'post/:postId',
+            parse: { postId: (id) => id },
+          },
+          ArticleDetail: {
+            path: 'article/:articleId',
+            parse: { articleId: (id) => id },
+          },
+          WasteDetail: {
+            path: 'waste/:wasteId',
+            parse: { wasteId: (id) => id },
+          },
+          AqiDetail: 'aqi',
+        }
+      },
       VerifyEmailCheck: { path: 'verify-email-check', parse: { oobCode: (oobCode) => oobCode, mode: (mode) => mode } }
     },
   },
-  getStateFromPath: (path, options) => {
+  // 2. Sửa hàm getStateFromPath
+  getStateFromPath: (path, config) => {
     const url = Linking.parse(path);
+
+    // Xử lý logic custom cho email verification
     if (url.queryParams?.mode === 'verifyEmail') {
-      return { routes: [{ name: 'VerifyEmailCheck', params: { oobCode: url.queryParams.oobCode, type: 'emailVerification' } }] };
+      return {
+        routes: [{
+          name: 'VerifyEmailCheck',
+          params: {
+            oobCode: url.queryParams.oobCode,
+            type: 'emailVerification'
+          }
+        }]
+      };
     }
-    return options.getStateFromPath(path, options);
+
+    // Sử dụng hàm getStateFromPath được import từ @react-navigation/native làm mặc định
+    return getStateFromPath(path, config);
   },
 };
 
@@ -135,7 +163,7 @@ function CommunityStackNavigator() {
     <CommunityStack.Navigator screenOptions={{ headerShown: false }}>
       <CommunityStack.Screen name="CommunityMain" component={CommunityScreen} />
       <CommunityStack.Screen name="WasteClassification" component={WasteClassificationScreen} />
-      <CommunityStack.Screen name="EcoLibrary" component={EcoLibraryScreen} /> 
+      <CommunityStack.Screen name="EcoLibrary" component={EcoLibraryScreen} />
       <CommunityStack.Screen name="ArticleDetail" component={ArticleDetailScreen} />
       <CommunityStack.Screen name="QuizCollection" component={QuizCollectionScreen} />
       <CommunityStack.Screen name="Quiz" component={QuizScreen} />
@@ -159,7 +187,7 @@ function MainTabNavigator() {
       <MainTab.Screen name="Trang chủ" component={HomeStackNavigator} />
       <MainTab.Screen name="Cộng đồng" component={CommunityStackNavigator} />
       <MainTab.Screen name="Đăng tin" component={PostScreen} />
-      <MainTab.Screen name="Cửa hàng" component={StoreScreen} options={{ headerShown: true, headerTitle: "Cửa hàng xanh" }} />
+      <MainTab.Screen name="Cửa hàng" component={StoreScreen} />
       <MainTab.Screen name="Hồ sơ" component={ProfileScreen} />
     </MainTab.Navigator>
   );
@@ -167,25 +195,25 @@ function MainTabNavigator() {
 
 // 6. MAIN NAVIGATOR (ROOT STACK)
 function MainNavigator() {
-
   useNotifications();
   return (
     <MainStack.Navigator screenOptions={{ headerShown: false }}>
       <MainStack.Screen name="MainTabs" component={MainTabNavigator} />
+
       <MainStack.Screen name="Chatbot" component={ChatbotScreen} />
       <MainStack.Screen name="EditProfile" component={EditProfileScreen} />
-
       <MainStack.Screen name="AqiDetail" component={AqiDetailScreen} />
-      <MainStack.Screen name="Notifications" component={NotificationListScreen} /> 
-      
+      <MainStack.Screen name="Notifications" component={NotificationListScreen} />
       <MainStack.Screen name="WasteSearch" component={WasteSearchScreen} />
+
+      <MainStack.Screen name="PostDetail" component={PostDetailScreen} />
+      <MainStack.Screen name="ArticleDetail" component={ArticleDetailScreen} />
       <MainStack.Screen name="WasteDetail" component={WasteDetailScreen} />
 
       <MainStack.Screen name="CreateReport" component={CreateReportScreen} />
       <MainStack.Screen name="Report" component={CreateReportScreen} options={{ headerShown: false }} />
       <MainStack.Screen name="ReportDetail" component={ReportDetailScreen} options={{ headerShown: false }} />
 
-      {/* Nhóm Setting */}
       <MainStack.Screen name="Settings" component={SettingsScreen} />
       <MainStack.Screen name="AccountManagement" component={AccountManagementScreen} />
       <MainStack.Screen name="ChangePasswordSettings" component={ChangePasswordScreen} />
@@ -200,18 +228,21 @@ function MainNavigator() {
       <MainStack.Screen name="PrivacyPolicy" component={PrivacyScreen} />
 
       <MainStack.Screen name="CreateGroup" component={CreateGroupScreen} />
-
-      {/* 🆕 THÊM ROUTES CHO NHÓM */}
       <MainStack.Screen name="GroupDetail" component={GroupDetailScreen} />
       <MainStack.Screen name="EditGroup" component={EditGroupScreen} />
 
-      <MainStack.Screen name="PostDetail" component={PostDetailScreen} />
-
+      {/* Cấu hình Modal cho Đăng tin */}
       <MainStack.Screen
         name="Đăng tin"
         component={PostScreen}
         options={{
           presentation: 'modal',
+
+          gestureEnabled: true,
+
+          // 3. (Tuỳ chọn) Nếu muốn hiệu ứng trong suốt mờ nền phía sau giống iOS 13+
+          // cardStyle: { backgroundColor: 'transparent' }, 
+
           headerShown: false
         }}
       />
