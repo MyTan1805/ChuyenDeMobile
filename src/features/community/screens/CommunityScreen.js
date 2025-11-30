@@ -1,4 +1,6 @@
-import React, { useState, useEffect } from 'react';
+// src/features/community/screens/CommunityScreen.js
+
+import React, { useState, useEffect, useMemo } from 'react';
 import {
     View, Text, StyleSheet, TextInput, TouchableOpacity,
     SafeAreaView, StatusBar, Platform, FlatList, Image, ScrollView, ActivityIndicator, Dimensions
@@ -16,16 +18,13 @@ import { useGroupStore } from '@/store/groupStore';
 
 const { width } = Dimensions.get('window');
 
-// --- LUXURY THEME PALETTE ---
 const THEME = {
-    primary: '#2F847C',       // Xanh thương hiệu
-    darkGreen: '#1A4D2E',     // Xanh đậm sang trọng
-    gold: '#D4A373',          // Vàng Gold điểm xuyết (Luxury)
-    bg: '#F9FAFB',            // Nền trắng xám hiện đại, sạch sẽ
-    cardBg: '#FFFFFF',
+    primary: '#2F847C',
+    darkGreen: '#1A4D2E',
+    gold: '#D4A373',
+    bg: '#F9FAFB',
     textMain: '#2D3436',
     textSub: '#636E72',
-    inputBg: '#F1F2F6',
     shadow: {
         shadowColor: "#2F847C",
         shadowOffset: { width: 0, height: 8 },
@@ -48,12 +47,15 @@ const CommunityScreen = () => {
     const [dailyTip, setDailyTip] = useState(null);
     const [loadingTip, setLoadingTip] = useState(true);
 
-    // --- STORE HOOKS (GIỮ NGUYÊN LOGIC) ---
     const { fetchGroups, allGroups } = useGroupStore();
     const { userProfile } = useUserStore();
     const { fetchPosts, posts, hiddenPosts } = useCommunityStore();
 
-    const visiblePosts = posts.filter(p => !hiddenPosts.includes(p.id));
+    // ✅ FIX 5: Lọc bài viết cẩn thận hơn để tránh crash list
+    const visiblePosts = useMemo(() => {
+        return posts.filter(p => p && p.id && !hiddenPosts.includes(p.id));
+    }, [posts, hiddenPosts]);
+
     const displayGroups = allGroups;
 
     useEffect(() => {
@@ -64,20 +66,6 @@ const CommunityScreen = () => {
             if (unsubGroups) unsubGroups();
         };
     }, []);
-
-    // Logic sắp xếp nhóm (Giữ nguyên từ code cũ)
-    const sortedGroups = React.useMemo(() => {
-        if (!allGroups) return [];
-        if (!userProfile?.location) return allGroups;
-        const userCity = userProfile.location.split(',').pop().trim();
-        return [...allGroups].sort((a, b) => {
-            const aMatch = a.city === userCity;
-            const bMatch = b.city === userCity;
-            if (aMatch && !bMatch) return -1;
-            if (!aMatch && bMatch) return 1;
-            return 0;
-        });
-    }, [allGroups, userProfile]);
 
     useEffect(() => {
         const tipsRef = ref(database, 'daily_tips');
@@ -95,8 +83,6 @@ const CommunityScreen = () => {
         });
         return () => unsubscribe();
     }, []);
-
-    // --- RENDER COMPONENTS (GIAO DIỆN MỚI) ---
 
     const renderHeader = () => (
         <View style={styles.headerContainer}>
@@ -127,7 +113,7 @@ const CommunityScreen = () => {
     const renderDailyTip = () => (
         <View style={styles.section}>
             <LinearGradient
-                colors={[THEME.primary, THEME.darkGreen]} // Gradient xanh đậm Luxury
+                colors={[THEME.primary, THEME.darkGreen]}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
                 style={styles.tipGradient}
@@ -143,7 +129,6 @@ const CommunityScreen = () => {
                 ) : (
                     <Text style={styles.tipText}>"{dailyTip}"</Text>
                 )}
-                {/* Họa tiết trang trí mờ */}
                 <Ionicons name="leaf" size={100} color="rgba(255,255,255,0.1)" style={styles.tipDecorImage} />
             </LinearGradient>
         </View>
@@ -247,16 +232,13 @@ const CommunityScreen = () => {
             {renderHeader()}
             {renderDailyTip()}
             {renderCategories()}
-
             {renderTabs()}
-
             <View style={styles.actionSection}>
                 {activeTab === 'feed' ? renderCreatePost() : renderCreateGroupBtn()}
             </View>
         </View>
     );
 
-    // Render Group Item (Luxury Cinematic Style)
     const renderGroupItem = ({ item }) => (
         <TouchableOpacity
             style={styles.groupCard}
@@ -319,8 +301,6 @@ const styles = StyleSheet.create({
     headerWrapper: {
         marginBottom: 10
     },
-
-    // Header
     headerContainer: {
         paddingHorizontal: 20,
         paddingTop: Platform.OS === 'android' ? 40 : 10,
@@ -375,8 +355,6 @@ const styles = StyleSheet.create({
         fontSize: 15,
         color: THEME.textMain
     },
-
-    // Sections
     section: {
         paddingHorizontal: 20,
         marginBottom: 24,
@@ -391,8 +369,6 @@ const styles = StyleSheet.create({
         marginBottom: 15,
         paddingHorizontal: 20,
     },
-
-    // Daily Tip (Luxury Card)
     tipGradient: {
         borderRadius: 24,
         padding: 24,
@@ -439,8 +415,6 @@ const styles = StyleSheet.create({
         opacity: 0.15,
         transform: [{ rotate: '-15deg' }]
     },
-
-    // Categories (Clean Style)
     catScrollContent: {
         paddingHorizontal: 40,
         paddingRight: 10
@@ -454,7 +428,6 @@ const styles = StyleSheet.create({
         borderRadius: 20,
         justifyContent: 'center', alignItems: 'center',
         marginBottom: 8,
-        // Nhẹ nhàng
         shadowColor: "#000", shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.05, shadowRadius: 6, elevation: 2
     },
     catTitle: {
@@ -462,8 +435,6 @@ const styles = StyleSheet.create({
         fontSize: 13,
         color: THEME.textMain
     },
-
-    // Tabs (Pill Style)
     tabSection: {
         paddingHorizontal: 20,
         marginBottom: 20
@@ -494,8 +465,6 @@ const styles = StyleSheet.create({
         color: THEME.primary,
         fontSize: 15,
     },
-
-    // Action Section (Create Post/Group)
     actionSection: {
         paddingHorizontal: 20,
         marginBottom: 10
@@ -523,8 +492,6 @@ const styles = StyleSheet.create({
         fontSize: 14,
         color: '#999'
     },
-
-    // Create Group Button (Luxury Gradient)
     createGroupCard: {
         borderRadius: 18,
         overflow: 'hidden',
@@ -556,8 +523,6 @@ const styles = StyleSheet.create({
         fontSize: 12,
         color: 'rgba(255,255,255,0.9)'
     },
-
-    // Group List Item (Cinematic)
     groupCard: {
         backgroundColor: '#fff',
         borderRadius: 20,
@@ -575,9 +540,6 @@ const styles = StyleSheet.create({
         ...StyleSheet.absoluteFillObject,
         justifyContent: 'flex-end',
         padding: 16,
-    },
-    groupInfoContainer: {
-
     },
     groupName: {
         fontFamily: 'Nunito-Bold',
@@ -608,8 +570,6 @@ const styles = StyleSheet.create({
         fontSize: 13,
         color: 'rgba(255,255,255,0.9)'
     },
-
-    // Empty State
     emptyContainer: {
         alignItems: 'center',
         marginTop: 40,

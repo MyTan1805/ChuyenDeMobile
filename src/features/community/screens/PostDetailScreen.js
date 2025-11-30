@@ -14,32 +14,53 @@ import { useCommunityStore } from '@/store/communityStore';
 import { auth } from '@/config/firebaseConfig';
 
 const PostDetailScreen = ({ route, navigation }) => {
-    const { post: initialPost } = route.params;
+    // ✅ FIX 1: Lấy an toàn cả post object VÀ postId từ params
+    const { post: initialPost, postId } = route.params || {};
+
     const { userProfile } = useUserStore();
-    const { addCommentToPost, posts } = useCommunityStore();
+    const { addCommentToPost, posts, getPostById } = useCommunityStore();
 
     const [commentText, setCommentText] = useState('');
-    // ✅ 1. Thêm trạng thái đang gửi để chống bấm 2 lần (Debounce thủ công)
     const [isSending, setIsSending] = useState(false);
 
-    // Lấy dữ liệu Realtime
-    const currentPost = posts.find(p => p.id === initialPost.id) || initialPost;
+    // ✅ FIX 2: Logic tìm bài viết thông minh
+    // Ưu tiên lấy từ Store (Realtime) dựa trên ID để dữ liệu luôn mới nhất
+    // Nếu không có trong store, dùng dữ liệu truyền qua navigation (initialPost)
+    const targetId = initialPost?.id || postId;
+    const currentPost = posts.find(p => p.id === targetId) || initialPost;
+
+    // ✅ FIX 3: Nếu vẫn không tìm thấy bài viết (ví dụ ID sai hoặc đã bị xóa), hiển thị thông báo thay vì Crash
+    if (!currentPost) {
+        return (
+            <View style={styles.container}>
+                <CustomHeader title="Chi tiết bài viết" showBackButton={true} />
+                <View style={styles.emptyContainer}>
+                    <Ionicons name="alert-circle-outline" size={48} color="#ccc" />
+                    <Text style={styles.emptyText}>
+                        Không tìm thấy bài viết hoặc bài viết đã bị xóa.
+                    </Text>
+                    <TouchableOpacity onPress={() => navigation.goBack()} style={styles.goBackBtn}>
+                        <Text style={styles.goBackText}>Quay lại</Text>
+                    </TouchableOpacity>
+                </View>
+            </View>
+        );
+    }
+
     const comments = currentPost.comments || [];
 
     const handleSendComment = async () => {
-        // ✅ 2. Chặn nếu đang gửi hoặc text rỗng
         if (!commentText.trim() || isSending) return;
 
-        setIsSending(true); // Khóa nút ngay lập tức
+        setIsSending(true);
 
-        // Logic lấy thông tin User
         const currentUser = auth.currentUser;
         const userId = userProfile?.uid || currentUser?.uid || 'guest_id';
         const userName = userProfile?.displayName || currentUser?.displayName || 'Người dùng ẩn danh';
         const userAvatar = userProfile?.photoURL || currentUser?.photoURL || null;
 
         const textToSend = commentText.trim();
-        setCommentText(''); // ✅ 3. Xóa text ngay lập tức để UX mượt hơn
+        setCommentText(''); // Xóa input ngay lập tức để UX mượt
         Keyboard.dismiss();
 
         const newComment = {
@@ -52,13 +73,12 @@ const PostDetailScreen = ({ route, navigation }) => {
 
         try {
             await addCommentToPost(currentPost.id, newComment);
-            // Không cần làm gì thêm vì setCommentText đã chạy ở trên
         } catch (error) {
             console.error("Lỗi gửi comment:", error);
             Alert.alert("Lỗi", "Không thể gửi bình luận lúc này.");
-            setCommentText(textToSend); // Nếu lỗi thì trả lại text cũ cho người dùng
+            setCommentText(textToSend); // Trả lại text nếu lỗi
         } finally {
-            setIsSending(false); // Mở khóa nút
+            setIsSending(false);
         }
     };
 
@@ -80,6 +100,7 @@ const PostDetailScreen = ({ route, navigation }) => {
 
     const renderListHeader = () => (
         <View style={styles.postWrapper}>
+            {/* Component PostCard đã được bảo vệ */}
             <CommunityPostCard post={currentPost} />
             <View style={styles.commentSectionHeader}>
                 <Text style={styles.sectionTitle}>Bình luận ({comments.length})</Text>
@@ -98,8 +119,8 @@ const PostDetailScreen = ({ route, navigation }) => {
             >
                 <FlatList
                     data={comments}
-                    // ✅ 4. KeyExtractor nên kết hợp index để đảm bảo unique tuyệt đối
-                    keyExtractor={(item, index) => item.createdAt + index.toString()}
+                    // KeyExtractor an toàn
+                    keyExtractor={(item, index) => (item.createdAt || index) + index.toString()}
                     renderItem={renderCommentItem}
                     ListHeaderComponent={renderListHeader}
                     ListEmptyComponent={
@@ -111,7 +132,6 @@ const PostDetailScreen = ({ route, navigation }) => {
                     showsVerticalScrollIndicator={false}
                 />
 
-                {/* Input Bar */}
                 <View style={styles.inputContainer}>
                     <TextInput
                         style={styles.input}
@@ -121,7 +141,7 @@ const PostDetailScreen = ({ route, navigation }) => {
                         onChangeText={setCommentText}
                         multiline
                         maxLength={500}
-                        editable={!isSending} // Khóa nhập khi đang gửi
+                        editable={!isSending}
                     />
                     <TouchableOpacity
                         style={[
@@ -191,8 +211,10 @@ const styles = StyleSheet.create({
         color: '#444',
         lineHeight: 20
     },
-    emptyContainer: { alignItems: 'center', padding: 20 },
-    emptyText: { color: '#999', fontFamily: 'Nunito-Regular', fontStyle: 'italic' },
+    emptyContainer: { alignItems: 'center', padding: 20, marginTop: 20 },
+    emptyText: { color: '#999', fontFamily: 'Nunito-Regular', fontStyle: 'italic', marginBottom: 15 },
+    goBackBtn: { padding: 10, backgroundColor: '#2F847C', borderRadius: 8 },
+    goBackText: { color: '#fff', fontFamily: 'Nunito-Bold' },
     inputContainer: {
         flexDirection: 'row',
         alignItems: 'center',

@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import {
     View, Text, StyleSheet, Image, TouchableOpacity,
-    Share, Modal, TouchableWithoutFeedback, Alert
+    Modal, TouchableWithoutFeedback, Alert
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useUserStore } from '@/store/userStore';
@@ -12,21 +12,19 @@ import { useNavigation } from '@react-navigation/native';
 import { Video, ResizeMode } from 'expo-av';
 
 const CommunityPostCard = ({ post }) => {
+    // ✅ FIX 4: Nếu prop post bị undefined/null, không render gì cả để tránh crash
+    if (!post || !post.id) return null;
+
     const navigation = useNavigation();
-
-    // ✅ Lấy cả 'user' (để lấy UID) và 'userProfile' (để lấy avatar/tên nếu cần)
-    const { user, userProfile } = useUserStore();
-
-    // ✅ Lấy đúng tên hàm toggleLikePost
-    const { toggleLikePost, deletePost, hidePost, getPostById, generateShareLink } = useCommunityStore();
+    const { user } = useUserStore();
+    const { toggleLikePost, deletePost, hidePost, getPostById } = useCommunityStore();
 
     const [modalVisible, setModalVisible] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
 
-    // Lấy dữ liệu mới nhất từ store (Realtime)
+    // Lấy dữ liệu mới nhất từ store để update like/comment realtime
     const currentPost = getPostById(post.id) || post;
 
-    // ✅✅✅ FIX CHÍNH: Kiểm tra an toàn likes và comments
     const isLiked = Array.isArray(currentPost.likes) && user?.uid
         ? currentPost.likes.includes(user.uid)
         : false;
@@ -38,10 +36,10 @@ const CommunityPostCard = ({ post }) => {
     if (currentPost.images && currentPost.images.length > 0) {
         mediaList = currentPost.images;
     } else if (currentPost.image) {
+        // Fallback cho dữ liệu cũ nếu có trường 'image' đơn lẻ
         mediaList = [{ uri: currentPost.image, type: 'image' }];
     }
 
-    // --- CÁC HÀM XỬ LÝ ---
     const handleLike = () => {
         if (!user?.uid) {
             Alert.alert("Thông báo", "Vui lòng đăng nhập để thích bài viết.");
@@ -79,7 +77,6 @@ const CommunityPostCard = ({ post }) => {
         hidePost(post.id);
     };
 
-    // --- RENDERERS ---
     const renderAvatar = () => {
         if (post.userAvatar) {
             return <Image source={{ uri: post.userAvatar }} style={styles.avatar} />;
@@ -93,17 +90,21 @@ const CommunityPostCard = ({ post }) => {
 
     const renderMediaSection = () => {
         if (mediaList.length === 0) return null;
+        const media = mediaList[0]; // Chỉ hiển thị media đầu tiên ở preview
+
         return (
             <View style={styles.singleMediaContainer}>
-                {mediaList[0].type === 'video' ? (
+                {media.type === 'video' ? (
                     <Video
-                        source={{ uri: mediaList[0].uri }}
+                        source={{ uri: media.uri }}
                         style={{ width: '100%', height: '100%' }}
-                        resizeMode={ResizeMode.CONTAIN}
+                        resizeMode={ResizeMode.COVER}
+                        useNativeControls={false}
+                        shouldPlay={false} // Không tự play ở list để tối ưu
                     />
                 ) : (
                     <Image
-                        source={{ uri: mediaList[0].uri }}
+                        source={{ uri: media.uri }}
                         style={{ width: '100%', height: '100%' }}
                         resizeMode="cover"
                     />
@@ -167,7 +168,6 @@ const CommunityPostCard = ({ post }) => {
             </TouchableOpacity>
 
             <View style={styles.footer}>
-                {/* Nút Like */}
                 <TouchableOpacity style={styles.actionButton} onPress={handleLike}>
                     <Ionicons
                         name={isLiked ? "heart" : "heart-outline"}

@@ -1,8 +1,8 @@
 // src/features/gamification/screens/StoreScreen.jsx
 import React, { useState, useEffect } from 'react';
-import { 
-    View, Text, StyleSheet, ScrollView, TouchableOpacity, 
-    Image, ActivityIndicator, Alert, Dimensions 
+import {
+    View, Text, StyleSheet, ScrollView, TouchableOpacity,
+    Image, ActivityIndicator, Alert, Dimensions
 } from 'react-native';
 import CustomHeader from '@/components/CustomHeader';
 import { Ionicons } from '@expo/vector-icons';
@@ -23,15 +23,15 @@ const RewardCard = ({ item, userPoints, onExchange }) => {
             <View style={styles.rewardContent}>
                 <Text style={styles.rewardTitle} numberOfLines={2}>{item.name}</Text>
                 <Text style={styles.rewardDescription} numberOfLines={2}>{item.description}</Text>
-                
+
                 <View style={styles.costContainer}>
                     <Ionicons name="sparkles" size={18} color="#FF9800" />
                     <Text style={styles.costText}>{item.cost} điểm</Text>
                 </View>
 
-                <TouchableOpacity 
+                <TouchableOpacity
                     style={[
-                        styles.exchangeButton, 
+                        styles.exchangeButton,
                         !isAffordable && styles.exchangeButtonDisabled
                     ]}
                     onPress={() => onExchange(item)}
@@ -87,14 +87,14 @@ const StoreScreen = ({ navigation }) => {
             `Bạn có chắc chắn muốn đổi "${reward.name}" với ${reward.cost} điểm không?`,
             [
                 { text: "Hủy", style: "cancel" },
-                { 
-                    text: "Đổi ngay", 
+                {
+                    text: "Đổi ngay",
                     style: "default",
                     onPress: async () => {
                         setIsExchanging(true); // Bật loading giao dịch
-                        
+
                         const result = await exchangePointsForReward(reward.cost);
-                        
+
                         setIsExchanging(false); // Tắt loading
 
                         if (result.success) {
@@ -113,8 +113,8 @@ const StoreScreen = ({ navigation }) => {
     return (
         <View style={styles.container}>
             {/* SỬ DỤNG CUSTOM HEADER TỪ COMPONENT */}
-            <CustomHeader title="Cửa hàng xanh" showBackButton={true} /> 
-            
+            <CustomHeader title="Cửa hàng xanh" showBackButton={true} />
+
             <View style={styles.header}>
                 <Text style={styles.currentPointsLabel}>Điểm tích lũy hiện tại:</Text>
                 <View style={styles.pointsDisplay}>
@@ -134,17 +134,17 @@ const StoreScreen = ({ navigation }) => {
                         <Text style={styles.emptyText}>Cửa hàng hiện đang hết hàng.</Text>
                     ) : (
                         rewards.map((reward) => (
-                            <RewardCard 
-                                key={reward.id} 
-                                item={reward} 
-                                userPoints={userPoints} 
+                            <RewardCard
+                                key={reward.id}
+                                item={reward}
+                                userPoints={userPoints}
                                 onExchange={handleExchange}
                             />
                         ))
                     )}
                 </ScrollView>
             )}
-            
+
             {/* Overlay chỉ hiện khi đang xử lý giao dịch */}
             {isExchanging && (
                 <View style={styles.loadingOverlay}>
@@ -162,8 +162,8 @@ const styles = StyleSheet.create({
         backgroundColor: '#f5f5f5',
     },
     center: {
-        flex: 1, 
-        justifyContent: 'center', 
+        flex: 1,
+        justifyContent: 'center',
         alignItems: 'center'
     },
     header: {
@@ -216,9 +216,9 @@ const styles = StyleSheet.create({
     },
     rewardImage: {
         width: '100%',
-        height: width > 500 ? 180 : 200, 
+        height: width > 500 ? 180 : 200,
         resizeMode: 'cover',
-        ...(width > 500 && { width: '40%', height: 'auto' }) 
+        ...(width > 500 && { width: '40%', height: 'auto' })
     },
     rewardContent: {
         padding: 15,
