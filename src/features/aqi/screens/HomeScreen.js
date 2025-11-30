@@ -3,14 +3,9 @@ import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Dimensions, Alert
 import { MaterialIcons, FontAwesome5, Ionicons } from '@expo/vector-icons'; 
 import CustomHeader from '@/components/CustomHeader';
 
-// Import Auth
-import { auth } from '../../../config/firebaseConfig';
-
-// --- CẤU HÌNH ADMIN ---
-const ADMIN_IDS = [
-    "vwrq5A3RsdW7vBPFodbSVfz75B93", 
-    "rMWE0wFBdnVGWYoxYbNo3uhLxJ73" 
-];
+// Import Firebase để lấy dữ liệu user
+import { doc, getDoc } from 'firebase/firestore';
+import { auth, db } from '../../../config/firebaseConfig';
 
 const { width } = Dimensions.get('window');
 const SPACING = 15; 
@@ -21,12 +16,26 @@ const HomeScreen = ({ navigation }) => {
     const [isAdmin, setIsAdmin] = useState(false);
 
     useEffect(() => {
-        const unsubscribe = auth.onAuthStateChanged(user => {
-            if (user && ADMIN_IDS.includes(user.uid)) {
-                setIsAdmin(true);
-            } else {
+        const checkAdminRole = async (user) => {
+            if (!user) {
+                setIsAdmin(false);
+                return;
+            }
+            try {
+                const userDoc = await getDoc(doc(db, 'users', user.uid));
+                if (userDoc.exists() && userDoc.data().role === 'admin') {
+                    setIsAdmin(true);
+                } else {
+                    setIsAdmin(false);
+                }
+            } catch (error) {
+                console.log("Lỗi kiểm tra quyền admin:", error);
                 setIsAdmin(false);
             }
+        };
+
+        const unsubscribe = auth.onAuthStateChanged(user => {
+            checkAdminRole(user);
         });
         return unsubscribe;
     }, []);
@@ -52,16 +61,16 @@ const HomeScreen = ({ navigation }) => {
         },
     ];
 
-    // [LOGIC QUAN TRỌNG] Chỉ thêm Analytics nếu là Admin
+    // Chỉ thêm Analytics nếu là Admin
     const featuresToDisplay = isAdmin ? [
         ...baseFeatures,
         { 
-            id: 7, // ID riêng cho Admin
+            id: 7, 
             label: 'Phân tích & Báo cáo', 
             icon: 'analytics', 
             iconFamily: MaterialIcons, 
             route: 'Analytics', 
-            bgColor: '#D1F2EB', // Màu xanh nhạt để nổi bật
+            bgColor: '#D1F2EB', 
         }
     ] : baseFeatures;
 
@@ -88,7 +97,6 @@ const HomeScreen = ({ navigation }) => {
                                 style={[
                                     styles.gridItem, 
                                     { width: ITEM_WIDTH, height: ITEM_WIDTH },
-                                    // Style đặc biệt cho nút Admin
                                     item.id === 7 && { backgroundColor: '#E8F8F5', borderColor: '#2F847C', borderWidth: 1 } 
                                 ]}
                                 onPress={() => handlePressFeature(item)}

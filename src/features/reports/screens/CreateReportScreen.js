@@ -9,11 +9,11 @@ import * as Location from 'expo-location';
 import { WebView } from 'react-native-webview';
 
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { collection, addDoc, doc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, addDoc, doc, updateDoc, serverTimestamp, getDoc } from 'firebase/firestore'; // Thêm getDoc
 import { db, storage, auth } from '../../../config/firebaseConfig'; 
 
-// --- CẤU HÌNH ADMIN ---
-const ADMIN_IDS = ["vwrq5A3RsdW7vBPFodbSVfz75B93"]; 
+// [XÓA] Không cần mảng ADMIN_IDS cứng nữa
+// const ADMIN_IDS = ["..."]; 
 
 const COLORS = {
   primary: '#81C784', 
@@ -32,7 +32,9 @@ const VIOLATION_TYPES = [
 const CreateReportScreen = ({ route, navigation }) => {
   const { reportData } = route.params || {}; 
   const isViewMode = !!reportData; 
-  const isUserAdmin = auth?.currentUser && ADMIN_IDS.includes(auth.currentUser.uid);
+  
+  // State lưu quyền Admin (mặc định là false)
+  const [isUserAdmin, setIsUserAdmin] = useState(false);
 
   const [violationType, setViolationType] = useState(reportData?.violationType || '');
   const [description, setDescription] = useState(reportData?.description || '');
@@ -53,13 +55,40 @@ const CreateReportScreen = ({ route, navigation }) => {
 
   const webViewRef = useRef(null);
 
+  // [MỚI] Hàm kiểm tra quyền Admin từ Database (Dynamic Role)
+  useEffect(() => {
+    const checkAdminRole = async () => {
+        const user = auth.currentUser;
+        if (!user) return;
+
+        try {
+            // Đọc thông tin user từ Firestore
+            const userDocRef = doc(db, 'users', user.uid);
+            const userDocSnap = await getDoc(userDocRef);
+
+            if (userDocSnap.exists()) {
+                const userData = userDocSnap.data();
+                // Kiểm tra field 'role'
+                if (userData.role === 'admin') {
+                    setIsUserAdmin(true);
+                    console.log("Đã xác nhận quyền Admin cho:", user.uid);
+                }
+            }
+        } catch (error) {
+            console.log("Lỗi kiểm tra quyền admin:", error);
+        }
+    };
+
+    if (db) checkAdminRole();
+  }, []);
+
   useEffect(() => {
     if (!db) Alert.alert("Lỗi Cấu Hình", "Không tìm thấy kết nối Database.");
-    
-    if (!isViewMode) {
-        getCurrentLocation();
-    }
+    if (!isViewMode) getCurrentLocation();
   }, []);
+
+  // ... (Giữ nguyên toàn bộ phần còn lại của file: getCurrentLocation, pickImage, handleSubmit, render...)
+  // (Phần dưới này không thay đổi gì so với file trước, chỉ cần thay logic check Admin ở trên)
 
   const getCurrentLocation = async () => {
       try {
@@ -164,39 +193,39 @@ const CreateReportScreen = ({ route, navigation }) => {
         setCurrentStatus(newStatus);
         Alert.alert("Thành công", `Đã ${action === 'approve' ? 'duyệt' : 'từ chối'} báo cáo.`);
     } catch (error) {
-        Alert.alert("Lỗi", error.message);
+        // Handle permission error gracefully
+        if (error.code === 'permission-denied') {
+            Alert.alert("Lỗi Quyền", "Tài khoản của bạn chưa được cấp quyền Admin trên server.");
+        } else {
+            Alert.alert("Lỗi", error.message);
+        }
     } finally {
         setLoading(false);
     }
   };
 
-  // [FIX LỖI QUAN TRỌNG]: Hàm format ngày tháng an toàn tuyệt đối
   const formatReportDate = () => {
       if (!reportData?.createdAt) return 'Vừa xong';
-      
-      // Kiểm tra nếu là Timestamp object của Firebase
-      if (reportData.createdAt.seconds) {
-          return new Date(reportData.createdAt.seconds * 1000).toLocaleString();
-      }
-      // Nếu là Date object
-      if (reportData.createdAt instanceof Date) {
-          return reportData.createdAt.toLocaleString();
-      }
-      // Nếu là string hoặc number
-      try {
-        return new Date(reportData.createdAt).toLocaleString();
-      } catch (e) {
-        return 'Ngày không xác định';
-      }
+      if (reportData.createdAt.seconds) return new Date(reportData.createdAt.seconds * 1000).toLocaleString();
+      try { return new Date(reportData.createdAt).toLocaleString(); } catch (e) { return 'Ngày không xác định'; }
   };
 
   const handleWebViewMessage = (event) => { try { const data = JSON.parse(event.nativeEvent.data); if (data.latitude) setTempCoordinate(data); } catch (e) {} };
-  const handleConfirmMapLocation = () => { 
-      if (tempCoordinate) { setCurrentLocation(tempCoordinate); reverseGeocode(tempCoordinate.latitude, tempCoordinate.longitude); setMapVisible(false); } 
+  const handleConfirmMapLocation = () => { if (tempCoordinate) { setCurrentLocation(tempCoordinate); reverseGeocode(tempCoordinate.latitude, tempCoordinate.longitude); setMapVisible(false); } };
+  const handleLocateMeOnMap = async () => {
+    let { status } = await Location.requestForegroundPermissionsAsync();
+    if (status !== 'granted') return;
+    try {
+      const current = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
+      if (current && current.coords) {
+        const { latitude, longitude } = current.coords;
+        setTempCoordinate({ latitude, longitude });
+        if(webViewRef.current) webViewRef.current.injectJavaScript(`window.updateMapCenter(${latitude}, ${longitude}); true;`);
+      }
+    } catch (error) {}
   };
+  const mapHtml = `<!DOCTYPE html><html><head><meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" /><link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" /><script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script><style>body { margin: 0; padding: 0; } #map { width: 100%; height: 100vh; }</style></head><body><div id="map"></div><script>var lat = ${currentLocation ? currentLocation.latitude : 10.762};var lng = ${currentLocation ? currentLocation.longitude : 106.660};var map = L.map('map', {zoomControl: false}).setView([lat, lng], 15);L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {attribution: '© OpenStreetMap'}).addTo(map);var marker = L.marker([lat, lng]).addTo(map);map.on('click', function(e) {if (marker) map.removeLayer(marker);marker = L.marker(e.latlng).addTo(map);window.ReactNativeWebView.postMessage(JSON.stringify({ latitude: e.latlng.lat, longitude: e.latlng.lng }));});window.updateMapCenter = function(newLat, newLng) {var newLatLng = new L.LatLng(newLat, newLng);map.setView(newLatLng, 16);if (marker) map.removeLayer(marker);marker = L.marker(newLatLng).addTo(map);window.ReactNativeWebView.postMessage(JSON.stringify({ latitude: newLat, longitude: newLng }));};</script></body></html>`;
   
-  const mapHtml = `<!DOCTYPE html><html><head><meta name="viewport" content="width=device-width, initial-scale=1.0"/><link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/><script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script><style>body{margin:0;padding:0}#map{width:100%;height:100vh}</style></head><body><div id="map"></div><script>var lat=${currentLocation?.latitude||10.762},lng=${currentLocation?.longitude||106.660};var map=L.map('map',{zoomControl:false}).setView([lat,lng],15);L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'OpenStreetMap'}).addTo(map);var marker=L.marker([lat,lng]).addTo(map);map.on('click',function(e){if(${isViewMode})return; if(marker)map.removeLayer(marker);marker=L.marker(e.latlng).addTo(map);window.ReactNativeWebView.postMessage(JSON.stringify({latitude:e.latlng.lat,longitude:e.latlng.lng}));});</script></body></html>`;
-
   const renderModalItem = ({ item }) => (
     <TouchableOpacity style={styles.modalItem} onPress={() => { setViolationType(item.label); setModalVisible(false); }}>
       <Text style={styles.modalItemText}>{item.label}</Text>
@@ -206,62 +235,39 @@ const CreateReportScreen = ({ route, navigation }) => {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()}><Ionicons name="arrow-back" size={24} color="#000" /></TouchableOpacity>
+        <TouchableOpacity onPress={() => navigation.goBack()}>
+            <Ionicons name="arrow-back" size={24} color="#000" />
+        </TouchableOpacity>
         <Text style={styles.headerTitle}>{isViewMode ? "Chi tiết báo cáo" : "Tạo báo cáo"}</Text>
         <View style={{ width: 24 }} /> 
       </View>
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        
-        {/* [FIX LỖI]: Gọi hàm formatReportDate() thay vì render trực tiếp object */}
-        {isViewMode && (
-            <Text style={styles.dateLabel}>{formatReportDate()}</Text>
-        )}
-
+        {isViewMode && <Text style={styles.dateLabel}>{formatReportDate()}</Text>}
         <Text style={styles.label}>Loại Vi Phạm</Text>
-        <TouchableOpacity 
-            style={[styles.inputContainer, isViewMode && styles.readOnly]} 
-            onPress={() => !isViewMode && setModalVisible(true)}
-            disabled={isViewMode}
-        >
+        <TouchableOpacity style={[styles.inputContainer, isViewMode && styles.readOnly]} onPress={() => !isViewMode && setModalVisible(true)} disabled={isViewMode}>
           <Text style={[styles.inputText, !violationType && { color: '#999' }]}>{violationType || 'Chọn loại vi phạm'}</Text>
           {!isViewMode && <Ionicons name="chevron-down" size={20} color="#666" />}
         </TouchableOpacity>
-
         <Text style={styles.label}>Mô tả</Text>
         <View style={[styles.textAreaContainer, isViewMode && styles.readOnly]}>
-          <TextInput 
-            style={styles.textArea} placeholder="Mô tả chi tiết..." multiline numberOfLines={4} 
-            value={description} onChangeText={setDescription} textAlignVertical="top" 
-            editable={!isViewMode} 
-          />
+          <TextInput style={styles.textArea} placeholder="Mô tả chi tiết..." multiline numberOfLines={4} value={description} onChangeText={setDescription} textAlignVertical="top" editable={!isViewMode} />
         </View>
-
         <Text style={styles.label}>Bằng chứng</Text>
         <View style={styles.uploadContainer}>
           <TouchableOpacity style={styles.uploadBox} onPress={pickImage} disabled={isViewMode}>
             {imageUri ? (
               <Image source={{ uri: imageUri }} style={styles.previewImage} resizeMode="contain" />
             ) : (
-              <View style={{alignItems:'center'}}>
-                <FontAwesome5 name="camera" size={32} color="#999" />
-                {!isViewMode && <Text style={{color:'#999', fontSize:12, marginTop:5}}>Chạm để chọn ảnh</Text>}
-              </View>
+              <View style={{alignItems:'center'}}><FontAwesome5 name="camera" size={32} color="#999" />{!isViewMode && <Text style={{color:'#999', fontSize:12, marginTop:5}}>Chạm để chọn ảnh</Text>}</View>
             )}
              {isViewMode && (
-                <View style={[
-                    styles.statusBadge, 
-                    currentStatus === 'approved' ? {backgroundColor:'#27AE60'} : 
-                    currentStatus === 'rejected' ? {backgroundColor:'#C0392B'} : {backgroundColor:'#F39C12'}
-                ]}>
-                    <Text style={styles.statusText}>
-                        {currentStatus === 'approved' ? 'Đã duyệt' : currentStatus === 'rejected' ? 'Từ chối' : 'Đang chờ'}
-                    </Text>
+                <View style={[styles.statusBadge, currentStatus === 'approved' ? {backgroundColor:'#27AE60'} : currentStatus === 'rejected' ? {backgroundColor:'#C0392B'} : {backgroundColor:'#F39C12'}]}>
+                    <Text style={styles.statusText}>{currentStatus === 'approved' ? 'Đã duyệt' : currentStatus === 'rejected' ? 'Từ chối' : 'Đang chờ'}</Text>
                 </View>
             )}
           </TouchableOpacity>
         </View>
-
         <View style={{flexDirection: 'row', justifyContent:'space-between', alignItems:'center', marginBottom: 10}}>
            <Text style={styles.labelNoMargin}>Vị trí</Text>
         </View>
@@ -272,22 +278,12 @@ const CreateReportScreen = ({ route, navigation }) => {
           </View>
         </View>
         <TouchableOpacity style={styles.mapButton} onPress={() => setMapVisible(true)}>
-          <Ionicons name="map-outline" size={20} color="#333" />
-          <Text style={styles.mapButtonText}>{isViewMode ? "Xem trên bản đồ" : "Chọn từ bản đồ"}</Text>
+          <Ionicons name="map-outline" size={20} color="#333" /><Text style={styles.mapButtonText}>{isViewMode ? "Xem trên bản đồ" : "Chọn từ bản đồ"}</Text>
         </TouchableOpacity>
-
         <Text style={styles.label}>Mức Độ Nghiêm Trọng</Text>
         <View style={styles.severityContainer}>
           {['low', 'medium', 'high'].map(level => (
-            <TouchableOpacity 
-              key={level}
-              style={[
-                  styles.severityBox, 
-                  { backgroundColor: COLORS[level].bg, borderWidth: severity === level ? 2 : 0, borderColor: severity === level ? COLORS[level].label : 'transparent' }
-              ]}
-              onPress={() => !isViewMode && setSeverity(level)}
-              disabled={isViewMode}
-            >
+            <TouchableOpacity key={level} style={[styles.severityBox, { backgroundColor: COLORS[level].bg, borderWidth: severity === level ? 2 : 0, borderColor: severity === level ? COLORS[level].label : 'transparent' }]} onPress={() => !isViewMode && setSeverity(level)} disabled={isViewMode}>
               {level === 'low' && <Ionicons name="warning" size={24} color={COLORS.low.label} />}
               {level === 'medium' && <MaterialCommunityIcons name="cards-diamond" size={24} color={COLORS.medium.label} />}
               {level === 'high' && <MaterialCommunityIcons name="alarm-light" size={24} color={COLORS.high.label} />}
@@ -295,46 +291,29 @@ const CreateReportScreen = ({ route, navigation }) => {
             </TouchableOpacity>
           ))}
         </View>
-
         {!isViewMode && (
             <TouchableOpacity style={styles.submitButton} onPress={handleSubmit} disabled={loading}>
             {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.submitButtonText}>Xác Nhận</Text>}
             </TouchableOpacity>
         )}
-
         {isViewMode && isUserAdmin && currentStatus === 'pending' && (
             <View style={styles.adminActions}>
-                <TouchableOpacity style={[styles.adminBtn, {backgroundColor:'#FFEBEE'}]} onPress={() => handleAdminAction('reject')}>
-                     <Text style={{color:'#D32F2F', fontWeight:'bold'}}>Từ chối</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={[styles.adminBtn, {backgroundColor:'#E8F5E9'}]} onPress={() => handleAdminAction('approve')}>
-                     <Text style={{color:'#27AE60', fontWeight:'bold'}}>Duyệt (+Điểm)</Text>
-                </TouchableOpacity>
+                <TouchableOpacity style={[styles.adminBtn, {backgroundColor:'#FFEBEE'}]} onPress={() => handleAdminAction('reject')}><Text style={{color:'#D32F2F', fontWeight:'bold'}}>Từ chối</Text></TouchableOpacity>
+                <TouchableOpacity style={[styles.adminBtn, {backgroundColor:'#E8F5E9'}]} onPress={() => handleAdminAction('approve')}><Text style={{color:'#27AE60', fontWeight:'bold'}}>Duyệt (+Điểm)</Text></TouchableOpacity>
             </View>
         )}
-
         <View style={{ height: 50 }} />
       </ScrollView>
-
       <Modal visible={modalVisible} transparent animationType="fade" onRequestClose={() => setModalVisible(false)}>
         <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setModalVisible(false)}>
-          <View style={styles.modalContent}>
-            <FlatList data={VIOLATION_TYPES} keyExtractor={item => item.id} renderItem={renderModalItem} />
-          </View>
+          <View style={styles.modalContent}><FlatList data={VIOLATION_TYPES} keyExtractor={item => item.id} renderItem={renderModalItem} /></View>
         </TouchableOpacity>
       </Modal>
-
       <Modal visible={mapVisible} animationType="slide" onRequestClose={() => setMapVisible(false)}>
         <View style={{flex: 1, backgroundColor: '#fff'}}>
             <WebView ref={webViewRef} originWhitelist={['*']} source={{ html: mapHtml }} style={{flex: 1}} onMessage={handleWebViewMessage} />
-            {!isViewMode && (
-                 <View style={styles.mapActions}>
-                    <TouchableOpacity style={styles.mapConfirmBtn} onPress={handleConfirmMapLocation}><Text style={{color:'#fff', fontWeight:'bold'}}>Xác nhận vị trí</Text></TouchableOpacity>
-                </View>
-            )}
-            {isViewMode && (
-                <TouchableOpacity style={styles.mapCloseBtnFloating} onPress={() => setMapVisible(false)}><Ionicons name="close" size={24} color="#333"/></TouchableOpacity>
-            )}
+            {!isViewMode && (<View style={styles.mapActions}><TouchableOpacity style={styles.mapConfirmBtn} onPress={handleConfirmMapLocation}><Text style={{color:'#fff', fontWeight:'bold'}}>Xác nhận vị trí</Text></TouchableOpacity></View>)}
+            {isViewMode && (<TouchableOpacity style={styles.mapCloseBtnFloating} onPress={() => setMapVisible(false)}><Ionicons name="close" size={24} color="#333"/></TouchableOpacity>)}
         </View>
       </Modal>
     </View>
