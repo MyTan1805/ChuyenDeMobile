@@ -111,7 +111,10 @@ const EditGroupScreen = ({ route }) => {
 
                         if (result.success) {
                             Alert.alert("Đã xóa", "Nhóm đã được xóa thành công.", [
-                                { text: "OK", onPress: () => navigation.navigate('CommunityMain') }
+                                {
+                                    text: "OK",
+                                    onPress: () => navigation.navigate('MainTabs', { screen: 'Cộng đồng' })
+                                }
                             ]);
                         } else {
                             Alert.alert("Lỗi", result.error || "Không thể xóa nhóm.");

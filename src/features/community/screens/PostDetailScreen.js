@@ -1,138 +1,162 @@
-// ✅ FIX: Bình luận được lưu vào store và hiển thị đúng
 // src/features/community/screens/PostDetailScreen.js
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
-    View, Text, StyleSheet, ScrollView, Image, TextInput,
-    TouchableOpacity, KeyboardAvoidingView, Platform
+    View, Text, StyleSheet, TextInput,
+    TouchableOpacity, KeyboardAvoidingView, Platform,
+    FlatList, Image, Keyboard, Alert, ActivityIndicator
 } from 'react-native';
-import CustomHeader from '@/components/CustomHeader';
 import { Ionicons } from '@expo/vector-icons';
+import CustomHeader from '@/components/CustomHeader';
+import CommunityPostCard from '../components/CommunityPostCard';
 import { useUserStore } from '@/store/userStore';
 import { useCommunityStore } from '@/store/communityStore';
+import { auth } from '@/config/firebaseConfig';
 
 const PostDetailScreen = ({ route, navigation }) => {
-    const { post } = route.params;
+    // ✅ FIX 1: Lấy an toàn cả post object VÀ postId từ params
+    const { post: initialPost, postId } = route.params || {};
+
     const { userProfile } = useUserStore();
-    const { addCommentToPost, toggleLike } = useCommunityStore(); // ✅ Lấy hàm từ store
+    const { addCommentToPost, posts, getPostById } = useCommunityStore();
 
-    // ✅ Lấy comments từ post (đã được cập nhật qua store)
-    const [comments, setComments] = useState(post.comments || []);
-    const [inputComment, setInputComment] = useState('');
+    const [commentText, setCommentText] = useState('');
+    const [isSending, setIsSending] = useState(false);
 
-    // ✅ Cập nhật comments khi post thay đổi
-    useEffect(() => {
-        setComments(post.comments || []);
-    }, [post.comments]);
+    // ✅ FIX 2: Logic tìm bài viết thông minh
+    // Ưu tiên lấy từ Store (Realtime) dựa trên ID để dữ liệu luôn mới nhất
+    // Nếu không có trong store, dùng dữ liệu truyền qua navigation (initialPost)
+    const targetId = initialPost?.id || postId;
+    const currentPost = posts.find(p => p.id === targetId) || initialPost;
 
-    const handleSend = () => {
-        if (!inputComment.trim()) return;
+    // ✅ FIX 3: Nếu vẫn không tìm thấy bài viết (ví dụ ID sai hoặc đã bị xóa), hiển thị thông báo thay vì Crash
+    if (!currentPost) {
+        return (
+            <View style={styles.container}>
+                <CustomHeader title="Chi tiết bài viết" showBackButton={true} />
+                <View style={styles.emptyContainer}>
+                    <Ionicons name="alert-circle-outline" size={48} color="#ccc" />
+                    <Text style={styles.emptyText}>
+                        Không tìm thấy bài viết hoặc bài viết đã bị xóa.
+                    </Text>
+                    <TouchableOpacity onPress={() => navigation.goBack()} style={styles.goBackBtn}>
+                        <Text style={styles.goBackText}>Quay lại</Text>
+                    </TouchableOpacity>
+                </View>
+            </View>
+        );
+    }
+
+    const comments = currentPost.comments || [];
+
+    const handleSendComment = async () => {
+        if (!commentText.trim() || isSending) return;
+
+        setIsSending(true);
+
+        const currentUser = auth.currentUser;
+        const userId = userProfile?.uid || currentUser?.uid || 'guest_id';
+        const userName = userProfile?.displayName || currentUser?.displayName || 'Người dùng ẩn danh';
+        const userAvatar = userProfile?.photoURL || currentUser?.photoURL || null;
+
+        const textToSend = commentText.trim();
+        setCommentText(''); // Xóa input ngay lập tức để UX mượt
+        Keyboard.dismiss();
 
         const newComment = {
-            id: Date.now().toString(),
-            user: userProfile?.displayName || 'Tôi',
-            avatar: userProfile?.photoURL || 'https://i.pravatar.cc/150?img=3',
-            content: inputComment,
-            time: 'Vừa xong'
+            userId: userId,
+            userName: userName,
+            userAvatar: userAvatar,
+            text: textToSend,
+            createdAt: new Date().toISOString(),
         };
 
-        // ✅ Gọi hàm lưu comment vào store
-        addCommentToPost(post.id, newComment);
-
-        // Cập nhật UI local
-        setComments([newComment, ...comments]);
-        setInputComment('');
+        try {
+            await addCommentToPost(currentPost.id, newComment);
+        } catch (error) {
+            console.error("Lỗi gửi comment:", error);
+            Alert.alert("Lỗi", "Không thể gửi bình luận lúc này.");
+            setCommentText(textToSend); // Trả lại text nếu lỗi
+        } finally {
+            setIsSending(false);
+        }
     };
 
-    const renderComment = ({ item }) => (
+    const renderCommentItem = ({ item }) => (
         <View style={styles.commentItem}>
-            <Image source={{ uri: item.avatar }} style={styles.commentAvatar} />
-            <View style={styles.commentBubble}>
-                <Text style={styles.commentUser}>{item.user}</Text>
-                <Text style={styles.commentContent}>{item.content}</Text>
-                <Text style={styles.commentTime}>{item.time}</Text>
+            {item.userAvatar ? (
+                <Image source={{ uri: item.userAvatar }} style={styles.commentAvatar} />
+            ) : (
+                <View style={[styles.commentAvatar, styles.defaultAvatar]}>
+                    <Ionicons name="person" size={14} color="#fff" />
+                </View>
+            )}
+            <View style={styles.commentContent}>
+                <Text style={styles.commentUser}>{item.userName}</Text>
+                <Text style={styles.commentText}>{item.text}</Text>
+            </View>
+        </View>
+    );
+
+    const renderListHeader = () => (
+        <View style={styles.postWrapper}>
+            {/* Component PostCard đã được bảo vệ */}
+            <CommunityPostCard post={currentPost} />
+            <View style={styles.commentSectionHeader}>
+                <Text style={styles.sectionTitle}>Bình luận ({comments.length})</Text>
             </View>
         </View>
     );
 
     return (
         <View style={styles.container}>
-            <CustomHeader title="Bài viết" showBackButton={true} />
+            <CustomHeader title="Chi tiết bài viết" showBackButton={true} />
 
             <KeyboardAvoidingView
-                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                behavior={Platform.OS === "ios" ? "padding" : "height"}
                 style={{ flex: 1 }}
-                keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+                keyboardVerticalOffset={Platform.OS === "ios" ? 90 : 0}
             >
-                <ScrollView contentContainerStyle={styles.scrollContent}>
-                    {/* --- Post Content --- */}
-                    <View style={styles.postContainer}>
-                        <View style={styles.header}>
-                            <Image source={{ uri: post.userAvatar }} style={styles.avatar} />
-                            <View>
-                                <Text style={styles.userName}>{post.userName}</Text>
-                                <Text style={styles.time}>{post.time}</Text>
-                            </View>
+                <FlatList
+                    data={comments}
+                    // KeyExtractor an toàn
+                    keyExtractor={(item, index) => (item.createdAt || index) + index.toString()}
+                    renderItem={renderCommentItem}
+                    ListHeaderComponent={renderListHeader}
+                    ListEmptyComponent={
+                        <View style={styles.emptyContainer}>
+                            <Text style={styles.emptyText}>Chưa có bình luận nào. Hãy là người đầu tiên!</Text>
                         </View>
-                        <Text style={styles.content}>{post.content}</Text>
-                        {post.image && (
-                            <Image source={{ uri: post.image }} style={styles.postImage} resizeMode="cover" />
-                        )}
+                    }
+                    contentContainerStyle={styles.listContent}
+                    showsVerticalScrollIndicator={false}
+                />
 
-                        <View style={styles.statsRow}>
-                            <TouchableOpacity
-                                style={styles.stat}
-                                onPress={() => toggleLike(post.id)}
-                            >
-                                <Ionicons
-                                    name={post.isLiked ? "heart" : "heart-outline"}
-                                    size={24}
-                                    color={post.isLiked ? "#E91E63" : "#555"}
-                                />
-                                <Text style={[styles.statText, post.isLiked && { color: "#E91E63", fontWeight: 'bold' }]}>
-                                    {post.likes} lượt thích
-                                </Text>
-                            </TouchableOpacity>
-
-                            {/* ✅ Hiển thị số comment động */}
-                            <Text style={styles.statText}>{comments.length} bình luận</Text>
-                        </View>
-                    </View>
-
-                    {/* --- Comments List --- */}
-                    <View style={styles.commentsSection}>
-                        <Text style={styles.sectionTitle}>Bình luận ({comments.length})</Text>
-
-                        {comments.length === 0 ? (
-                            <Text style={{ textAlign: 'center', color: '#999', marginTop: 20 }}>
-                                Chưa có bình luận nào. Hãy là người đầu tiên!
-                            </Text>
-                        ) : (
-                            comments.map(item => (
-                                <View key={item.id}>{renderComment({ item })}</View>
-                            ))
-                        )}
-                    </View>
-                </ScrollView>
-
-                {/* --- Input Bar --- */}
-                <View style={styles.inputBar}>
-                    <Image
-                        source={{ uri: userProfile?.photoURL || 'https://i.pravatar.cc/150?img=3' }}
-                        style={styles.myAvatar}
+                <View style={styles.inputContainer}>
+                    <TextInput
+                        style={styles.input}
+                        placeholder="Viết bình luận..."
+                        placeholderTextColor="#999"
+                        value={commentText}
+                        onChangeText={setCommentText}
+                        multiline
+                        maxLength={500}
+                        editable={!isSending}
                     />
-                    <View style={styles.inputWrapper}>
-                        <TextInput
-                            style={styles.input}
-                            placeholder="Viết bình luận..."
-                            value={inputComment}
-                            onChangeText={setInputComment}
-                            multiline
-                        />
-                        <TouchableOpacity onPress={handleSend}>
-                            <Ionicons name="send" size={20} color="#2F847C" />
-                        </TouchableOpacity>
-                    </View>
+                    <TouchableOpacity
+                        style={[
+                            styles.sendBtn,
+                            (!commentText.trim() || isSending) && styles.disabledBtn
+                        ]}
+                        onPress={handleSendComment}
+                        disabled={!commentText.trim() || isSending}
+                    >
+                        {isSending ? (
+                            <ActivityIndicator size="small" color="#fff" />
+                        ) : (
+                            <Ionicons name="send" size={20} color="#fff" style={{ marginLeft: 2 }} />
+                        )}
+                    </TouchableOpacity>
                 </View>
             </KeyboardAvoidingView>
         </View>
@@ -140,54 +164,89 @@ const PostDetailScreen = ({ route, navigation }) => {
 };
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: '#F5F5F5' },
-    scrollContent: { paddingBottom: 80 },
-    postContainer: { backgroundColor: '#fff', padding: 16, marginBottom: 10 },
-    header: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
-    avatar: { width: 40, height: 40, borderRadius: 20, marginRight: 10, backgroundColor: '#e0e0e0' },
-    userName: { fontFamily: 'Nunito-Bold', fontSize: 16, color: '#333' },
-    time: { fontFamily: 'Nunito-Regular', fontSize: 12, color: '#888' },
-    content: { fontFamily: 'Nunito-Regular', fontSize: 15, marginBottom: 12, lineHeight: 22, color: '#333' },
-    postImage: { width: '100%', height: 300, borderRadius: 12 },
-    statsRow: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        marginTop: 15,
-        borderTopWidth: 1,
-        borderTopColor: '#f0f0f0',
-        paddingTop: 10
+    container: { flex: 1, backgroundColor: '#F7F9FC' },
+    listContent: { paddingBottom: 20 },
+    postWrapper: { marginBottom: 10 },
+    commentSectionHeader: {
+        paddingHorizontal: 16,
+        paddingBottom: 10,
+        backgroundColor: '#F7F9FC'
     },
-    stat: { flexDirection: 'row', alignItems: 'center', gap: 5 },
-    statText: { fontFamily: 'Nunito-Regular', color: '#666', fontSize: 13 },
-
-    commentsSection: { backgroundColor: '#fff', padding: 16, minHeight: 300 },
-    sectionTitle: { fontFamily: 'Nunito-Bold', fontSize: 16, marginBottom: 15, color: '#333' },
-    commentItem: { flexDirection: 'row', marginBottom: 15 },
-    commentAvatar: { width: 32, height: 32, borderRadius: 16, marginRight: 10, backgroundColor: '#e0e0e0' },
-    commentBubble: { flex: 1, backgroundColor: '#F0F2F5', borderRadius: 12, padding: 10 },
-    commentUser: { fontFamily: 'Nunito-Bold', fontSize: 13, marginBottom: 2, color: '#333' },
-    commentContent: { fontFamily: 'Nunito-Regular', fontSize: 14, color: '#333' },
-    commentTime: { fontFamily: 'Nunito-Regular', fontSize: 11, color: '#999', marginTop: 4 },
-
-    inputBar: {
+    sectionTitle: {
+        fontFamily: 'Nunito-Bold',
+        fontSize: 16,
+        color: '#333',
+    },
+    commentItem: {
+        flexDirection: 'row',
+        alignItems: 'flex-start',
+        paddingHorizontal: 16,
+        marginBottom: 12,
+    },
+    commentAvatar: {
+        width: 36, height: 36, borderRadius: 18, marginRight: 10,
+        backgroundColor: '#eee', borderWidth: 1, borderColor: '#fff'
+    },
+    defaultAvatar: {
+        backgroundColor: '#BDBDBD',
+        justifyContent: 'center', alignItems: 'center'
+    },
+    commentContent: {
+        flex: 1,
+        backgroundColor: '#fff',
+        borderRadius: 16,
+        padding: 10,
+        elevation: 1,
+        shadowColor: "#000", shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 2,
+    },
+    commentUser: {
+        fontFamily: 'Nunito-Bold',
+        fontSize: 13,
+        color: '#222',
+        marginBottom: 2
+    },
+    commentText: {
+        fontFamily: 'Nunito-Regular',
+        fontSize: 14,
+        color: '#444',
+        lineHeight: 20
+    },
+    emptyContainer: { alignItems: 'center', padding: 20, marginTop: 20 },
+    emptyText: { color: '#999', fontFamily: 'Nunito-Regular', fontStyle: 'italic', marginBottom: 15 },
+    goBackBtn: { padding: 10, backgroundColor: '#2F847C', borderRadius: 8 },
+    goBackText: { color: '#fff', fontFamily: 'Nunito-Bold' },
+    inputContainer: {
         flexDirection: 'row',
         alignItems: 'center',
-        padding: 10,
+        padding: 12,
         backgroundColor: '#fff',
-        borderTopWidth: 1,
-        borderTopColor: '#eee'
+        borderTopWidth: 1, borderTopColor: '#eee',
+        paddingBottom: Platform.OS === 'ios' ? 20 : 12,
+        shadowColor: "#000", shadowOffset: { width: 0, height: -2 }, shadowOpacity: 0.05, shadowRadius: 3, elevation: 5
     },
-    myAvatar: { width: 36, height: 36, borderRadius: 18, marginRight: 10, backgroundColor: '#e0e0e0' },
-    inputWrapper: {
+    input: {
         flex: 1,
-        flexDirection: 'row',
-        backgroundColor: '#F0F2F5',
-        borderRadius: 20,
-        paddingHorizontal: 15,
-        paddingVertical: 8,
-        alignItems: 'center'
+        backgroundColor: '#F5F6F8',
+        borderRadius: 24,
+        paddingHorizontal: 16,
+        paddingVertical: 10,
+        maxHeight: 100,
+        fontSize: 15,
+        fontFamily: 'Nunito-Regular',
+        marginRight: 10,
+        color: '#333'
     },
-    input: { flex: 1, fontSize: 14, fontFamily: 'Nunito-Regular', maxHeight: 80, color: '#333' },
+    sendBtn: {
+        width: 44, height: 44,
+        borderRadius: 22,
+        backgroundColor: '#2F847C',
+        justifyContent: 'center', alignItems: 'center',
+        shadowColor: "#2F847C", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.3, shadowRadius: 3, elevation: 3
+    },
+    disabledBtn: {
+        backgroundColor: '#E0E0E0',
+        shadowOpacity: 0, elevation: 0
+    }
 });
 
 export default PostDetailScreen;

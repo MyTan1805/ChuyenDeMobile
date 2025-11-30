@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import { View, ActivityIndicator } from 'react-native';
-import { NavigationContainer } from '@react-navigation/native';
+// 1. Thêm import getStateFromPath ở đây
+import { NavigationContainer, getStateFromPath } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import * as Linking from 'expo-linking';
@@ -23,7 +24,6 @@ import { useUserStore } from '@/store/userStore';
 import { useNotifications } from '@/hooks/useNotifications';
 
 // ==================== IMPORT MÀN HÌNH ====================
-
 // 1. AUTH 
 import WelcomeScreen from '@/features/auth/screens/WelcomeScreen';
 import LoginScreen from '@/features/auth/screens/LoginScreen';
@@ -81,6 +81,7 @@ const MainTab = createBottomTabNavigator();
 const MainStack = createStackNavigator();
 const VerifyStack = createStackNavigator();
 
+// --- CẤU HÌNH DEEP LINKING ---
 const prefix = Linking.createURL('/');
 const linking = {
   prefixes: [prefix, 'ecomate://', 'https://ecoapp-dc865.firebaseapp.com'],
@@ -91,15 +92,45 @@ const linking = {
           VerifyEmail: { path: 'verify-email', parse: { oobCode: (c) => c, mode: (m) => m } },
         },
       },
-      VerifyEmailCheck: { path: 'verify-email-check', parse: { oobCode: (c) => c, mode: (m) => m } }
+      MainStack: {
+        screens: {
+          PostDetail: {
+            path: 'post/:postId',
+            parse: { postId: (id) => id },
+          },
+          ArticleDetail: {
+            path: 'article/:articleId',
+            parse: { articleId: (id) => id },
+          },
+          WasteDetail: {
+            path: 'waste/:wasteId',
+            parse: { wasteId: (id) => id },
+          },
+          AqiDetail: 'aqi',
+        }
+      },
+      VerifyEmailCheck: { path: 'verify-email-check', parse: { oobCode: (oobCode) => oobCode, mode: (mode) => mode } }
     },
   },
-  getStateFromPath: (path, options) => {
+  // 2. Sửa hàm getStateFromPath
+  getStateFromPath: (path, config) => {
     const url = Linking.parse(path);
+
+    // Xử lý logic custom cho email verification
     if (url.queryParams?.mode === 'verifyEmail') {
-      return { routes: [{ name: 'VerifyEmailCheck', params: { oobCode: url.queryParams.oobCode, type: 'emailVerification' } }] };
+      return {
+        routes: [{
+          name: 'VerifyEmailCheck',
+          params: {
+            oobCode: url.queryParams.oobCode,
+            type: 'emailVerification'
+          }
+        }]
+      };
     }
-    return options.getStateFromPath(path, options);
+
+    // Sử dụng hàm getStateFromPath được import từ @react-navigation/native làm mặc định
+    return getStateFromPath(path, config);
   },
 };
 
@@ -137,7 +168,11 @@ function CommunityStackNavigator() {
   return (
     <CommunityStack.Navigator screenOptions={{ headerShown: false }}>
       <CommunityStack.Screen name="CommunityMain" component={CommunityScreen} />
-      {/* Các màn hình con của Community giờ để ở MainStack để che TabBar */}
+      <CommunityStack.Screen name="WasteClassification" component={WasteClassificationScreen} />
+      <CommunityStack.Screen name="EcoLibrary" component={EcoLibraryScreen} />
+      {/* <CommunityStack.Screen name="ArticleDetail" component={ArticleDetailScreen} /> */}
+      <CommunityStack.Screen name="QuizCollection" component={QuizCollectionScreen} />
+      <CommunityStack.Screen name="Quiz" component={QuizScreen} />
     </CommunityStack.Navigator>
   );
 }
@@ -172,14 +207,15 @@ function MainNavigator() {
     <MainStack.Navigator screenOptions={{ headerShown: false }}>
       <MainStack.Screen name="MainTabs" component={MainTabNavigator} />
       
-      {/* === NHÓM TÍNH NĂNG CHUNG === */}
       <MainStack.Screen name="Chatbot" component={ChatbotScreen} />
       <MainStack.Screen name="Notifications" component={NotificationListScreen} /> 
       <MainStack.Screen name="AqiDetail" component={AqiDetailScreen} />
 
-      {/* === NHÓM WASTE GUIDE (TÂN & TIỀN) === */}
       <MainStack.Screen name="WasteClassification" component={WasteClassificationScreen} />
       <MainStack.Screen name="WasteSearch" component={WasteSearchScreen} />
+
+      <MainStack.Screen name="PostDetail" component={PostDetailScreen} />
+      {/* <MainStack.Screen name="ArticleDetail" component={ArticleDetailScreen} /> */}
       <MainStack.Screen name="WasteDetail" component={WasteDetailScreen} />
       <MainStack.Screen name="RecycleDIY" component={RecycleDIYScreen} />
 
@@ -191,7 +227,6 @@ function MainNavigator() {
       <MainStack.Screen name="CreateGroup" component={CreateGroupScreen} />
       <MainStack.Screen name="GroupDetail" component={GroupDetailScreen} />
       <MainStack.Screen name="EditGroup" component={EditGroupScreen} />
-      <MainStack.Screen name="PostDetail" component={PostDetailScreen} />
 
       {/* === NHÓM REPORT & MAP (BẢO) === */}
       <MainStack.Screen name="CreateReport" component={CreateReportScreen} />
@@ -214,6 +249,22 @@ function MainNavigator() {
       <MainStack.Screen name="AboutApp" component={AboutScreen} />
       <MainStack.Screen name="TermsOfService" component={TermsScreen} />
       <MainStack.Screen name="PrivacyPolicy" component={PrivacyScreen} />
+
+      {/* Cấu hình Modal cho Đăng tin */}
+      <MainStack.Screen
+        name="Đăng tin"
+        component={PostScreen}
+        options={{
+          presentation: 'modal',
+
+          gestureEnabled: true,
+
+          // 3. (Tuỳ chọn) Nếu muốn hiệu ứng trong suốt mờ nền phía sau giống iOS 13+
+          // cardStyle: { backgroundColor: 'transparent' }, 
+
+          headerShown: false
+        }}
+      />
     </MainStack.Navigator>
   );
 }

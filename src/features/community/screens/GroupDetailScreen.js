@@ -1,9 +1,9 @@
 // src/features/community/screens/GroupDetailScreen.js
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
     View, Text, StyleSheet, ScrollView, Image, TouchableOpacity,
-    Alert, FlatList
+    Alert, FlatList, ActivityIndicator
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -11,24 +11,99 @@ import CustomHeader from '@/components/CustomHeader';
 import { useGroupStore } from '@/store/groupStore';
 import { useUserStore } from '@/store/userStore';
 import CommunityPostCard from '../components/CommunityPostCard';
+import { useCommunityStore } from '@/store/communityStore';
+import { doc, getDoc } from 'firebase/firestore';
+import { db } from '@/config/firebaseConfig';
 
 const GroupDetailScreen = ({ route, navigation }) => {
     const { groupId } = route.params;
     const { user } = useUserStore();
     const { getGroupById, joinGroup, leaveGroup, isUserInGroup } = useGroupStore();
+    const { fetchGroupPosts } = useCommunityStore();
 
     const [activeTab, setActiveTab] = useState('about');
-    const group = getGroupById(groupId);
-    const isMember = isUserInGroup(groupId);
-    const isAdmin = group?.adminId === user?.uid;
+    const [group, setGroup] = useState(null);
+    const [groupPosts, setGroupPosts] = useState([]);
+    const [fetchError, setFetchError] = useState(null);
+
+    const [memberDetails, setMemberDetails] = useState({});
+    const [loadingMembers, setLoadingMembers] = useState(false);
+
+    const validPosts = useMemo(() => {
+        return Array.isArray(groupPosts) ? groupPosts.filter(p => p && p.id) : [];
+    }, [groupPosts]);
+
+    // Effect 1: Lấy thông tin Group
+    useEffect(() => {
+        const updateGroup = () => {
+            const latestGroup = getGroupById(groupId);
+            setGroup(latestGroup);
+        };
+        updateGroup();
+        const unsubscribe = useGroupStore.subscribe(updateGroup);
+        return () => unsubscribe();
+    }, [groupId, getGroupById]);
+
+    // Effect 2: Lấy bài viết trong Group (ĐÃ SỬA LỖI CRASH)
+    useEffect(() => {
+        // fetchGroupPosts bây giờ trả về một hàm (function), không phải Promise (Object)
+        const unsubscribeFunc = fetchGroupPosts(groupId, (posts) => {
+            setGroupPosts(posts);
+            setFetchError(null);
+        });
+
+        // Cleanup function chuẩn cho useEffect
+        return () => {
+            if (typeof unsubscribeFunc === 'function') {
+                unsubscribeFunc();
+            }
+        };
+    }, [groupId]);
+
+    // Effect 3: Lấy thông tin thành viên
+    useEffect(() => {
+        const fetchMembersData = async () => {
+            if (!group?.membersList || !Array.isArray(group.membersList) || group.membersList.length === 0) {
+                setLoadingMembers(false);
+                return;
+            }
+            setLoadingMembers(true);
+            const details = { ...memberDetails };
+            const promises = [];
+
+            group.membersList.forEach(uid => {
+                if (uid && typeof uid === 'string' && uid.trim() !== '' && !details[uid]) {
+                    const promise = getDoc(doc(db, "users", uid))
+                        .then(docSnap => {
+                            if (docSnap.exists()) details[uid] = docSnap.data();
+                        })
+                        .catch(e => console.error(`Lỗi fetch user ${uid}:`, e));
+                    promises.push(promise);
+                }
+            });
+
+            if (promises.length > 0) {
+                await Promise.all(promises);
+                setMemberDetails(details);
+            }
+            setLoadingMembers(false);
+        };
+
+        if (group) fetchMembersData();
+    }, [group?.membersList]);
 
     if (!group) {
         return (
             <View style={styles.errorContainer}>
-                <Text>Không tìm thấy nhóm</Text>
+                <ActivityIndicator size="small" color="#2F847C" />
+                <Text style={{ marginTop: 10, color: '#666' }}>Đang tải thông tin nhóm...</Text>
             </View>
         );
     }
+
+    const isMember = isUserInGroup(groupId);
+    const isAdmin = group?.adminId === user?.uid;
+    const isPublicGroup = !group?.isPrivate;
 
     const handleJoinLeave = () => {
         if (isMember) {
@@ -38,8 +113,7 @@ const GroupDetailScreen = ({ route, navigation }) => {
                 [
                     { text: "Hủy", style: "cancel" },
                     {
-                        text: "Rời nhóm",
-                        style: "destructive",
+                        text: "Rời nhóm", style: "destructive",
                         onPress: () => {
                             const result = leaveGroup(groupId, user.uid);
                             if (result.success) Alert.alert("Thành công", "Đã rời nhóm");
@@ -54,63 +128,54 @@ const GroupDetailScreen = ({ route, navigation }) => {
         }
     };
 
+    // --- Render Functions ---
     const renderAboutTab = () => (
         <View style={styles.tabContent}>
+            {/* 1. Phần Giới thiệu (Đã có) */}
             <View style={styles.infoCard}>
                 <View style={styles.infoRow}>
                     <Ionicons name="document-text-outline" size={24} color="#2F847C" />
                     <View style={styles.infoText}>
                         <Text style={styles.infoLabel}>Giới thiệu</Text>
-                        <Text style={styles.infoValue}>{group.description}</Text>
+                        <Text style={styles.infoValue}>{group.description || "Chưa có mô tả"}</Text>
                     </View>
                 </View>
             </View>
 
+            {/* 2. Phần Khu vực hoạt động (Mới thêm) */}
             <View style={styles.infoCard}>
                 <View style={styles.infoRow}>
-                    <Ionicons name="map-outline" size={24} color="#F44336" />
+                    <Ionicons name="location-outline" size={24} color="#FF9800" />
                     <View style={styles.infoText}>
-                        <Text style={styles.infoLabel}>Khu vực</Text>
-                        <Text style={styles.infoValue}>{group.location}</Text>
+                        <Text style={styles.infoLabel}>Khu vực hoạt động</Text>
+                        <Text style={styles.infoValue}>{group.location || "Toàn quốc"}</Text>
+                        {/* Hiển thị chi tiết nếu có */}
+                        {(group.ward || group.district || group.city) && (
+                            <Text style={[styles.infoValue, { fontSize: 13, color: '#888', marginTop: 2 }]}>
+                                {[group.ward, group.district, group.city].filter(Boolean).join(', ')}
+                            </Text>
+                        )}
                     </View>
                 </View>
             </View>
 
-            <View style={styles.infoCard}>
-                <View style={styles.infoRow}>
-                    <Ionicons name="people-outline" size={24} color="#2196F3" />
-                    <View style={styles.infoText}>
-                        <Text style={styles.infoLabel}>Thành viên</Text>
-                        <Text style={styles.infoValue}>
-                            {group.members.toLocaleString()} người
-                        </Text>
-                    </View>
-                </View>
-            </View>
-
-            <View style={styles.infoCard}>
-                <View style={styles.infoRow}>
-                    <Ionicons name="calendar-outline" size={24} color="#FF9800" />
-                    <View style={styles.infoText}>
-                        <Text style={styles.infoLabel}>Ngày tạo</Text>
-                        <Text style={styles.infoValue}>
-                            {new Date(group.createdAt).toLocaleDateString('vi-VN')}
-                        </Text>
-                    </View>
-                </View>
-            </View>
-
+            {/* 3. Phần Quyền riêng tư (Mới thêm) */}
             <View style={styles.infoCard}>
                 <View style={styles.infoRow}>
                     <Ionicons
-                        name={group.isPrivate ? "lock-closed-outline" : "globe-outline"}
+                        name={group.isPrivate ? "lock-closed-outline" : "earth-outline"}
                         size={24}
-                        color="#9C27B0"
+                        color={group.isPrivate ? "#D32F2F" : "#2196F3"}
                     />
                     <View style={styles.infoText}>
                         <Text style={styles.infoLabel}>Quyền riêng tư</Text>
                         <Text style={styles.infoValue}>
-                            {group.isPrivate ? "Nhóm riêng tư" : "Nhóm công khai"}
+                            {group.isPrivate ? "Nhóm Riêng Tư" : "Nhóm Công Khai"}
+                        </Text>
+                        <Text style={[styles.infoValue, { fontSize: 13, color: '#888', marginTop: 2 }]}>
+                            {group.isPrivate
+                                ? "Chỉ thành viên mới xem được bài viết."
+                                : "Bất kỳ ai cũng có thể xem bài viết."}
                         </Text>
                     </View>
                 </View>
@@ -120,12 +185,12 @@ const GroupDetailScreen = ({ route, navigation }) => {
 
     const renderPostsTab = () => (
         <View style={styles.tabContent}>
-            {isMember ? (
-                group.posts && group.posts.length > 0 ? (
+            {(isMember || isPublicGroup) ? (
+                validPosts.length > 0 ? (
                     <FlatList
-                        data={group.posts}
+                        data={validPosts}
                         renderItem={({ item }) => <CommunityPostCard post={item} />}
-                        keyExtractor={item => item.id}
+                        keyExtractor={item => item?.id || Math.random().toString()}
                         scrollEnabled={false}
                     />
                 ) : (
@@ -137,59 +202,54 @@ const GroupDetailScreen = ({ route, navigation }) => {
             ) : (
                 <View style={styles.emptyState}>
                     <Ionicons name="lock-closed-outline" size={60} color="#ccc" />
-                    <Text style={styles.emptyText}>
-                        Tham gia nhóm để xem bài viết
-                    </Text>
+                    <Text style={styles.emptyText}>Tham gia nhóm để xem bài viết</Text>
                 </View>
             )}
         </View>
     );
 
-    // --- MỚI: Component render từng thành viên ---
-    const renderMemberItem = ({ item, index }) => {
-        const isMe = item === user?.uid;
-        const isAdminMember = item === group.adminId;
+    const renderMemberItem = ({ item }) => {
+        const uid = item;
+        const isMe = uid === user?.uid;
+        const isAdminMember = uid === group.adminId;
+        const memberInfo = memberDetails[uid] || {};
+        const displayName = memberInfo.displayName || "Người dùng";
+        const avatarUrl = memberInfo.photoURL;
 
         return (
             <View style={styles.memberItem}>
-                <View style={styles.memberAvatar}>
-                    <Ionicons name="person" size={20} color="#fff" />
-                </View>
-                <View style={styles.memberInfo}>
-                    <Text style={styles.memberName}>
-                        {isMe ? "Bạn" : `Thành viên ${index + 1}`}
-                    </Text>
-                    <Text style={styles.memberRole}>
-                        {isAdminMember ? "Quản trị viên" : "Thành viên"}
-                    </Text>
-                </View>
-                {/* Chỉ hiện nút chat nếu không phải là chính mình */}
-                {!isMe && (
-                    <TouchableOpacity style={styles.messageBtn}>
-                        <Ionicons name="chatbubble-ellipses-outline" size={20} color="#2F847C" />
-                    </TouchableOpacity>
+                {avatarUrl ? (
+                    <Image source={{ uri: avatarUrl }} style={styles.memberAvatarImage} />
+                ) : (
+                    <View style={styles.memberAvatar}>
+                        <Ionicons name="person" size={20} color="#fff" />
+                    </View>
                 )}
+                <View style={styles.memberInfo}>
+                    <Text style={styles.memberName}>{isMe ? "Bạn" : displayName}</Text>
+                    <Text style={styles.memberRole}>{isAdminMember ? "Quản trị viên" : "Thành viên"}</Text>
+                </View>
             </View>
         );
     };
 
-    // --- SỬA: Hàm render tab thành viên ---
     const renderMembersTab = () => (
         <View style={styles.tabContent}>
-            {group.membersList && group.membersList.length > 0 ? (
+            {loadingMembers ? (
+                <ActivityIndicator size="small" color="#2F847C" style={{ marginTop: 20 }} />
+            ) : (
                 <FlatList
                     data={group.membersList}
                     renderItem={renderMemberItem}
-                    keyExtractor={(item, index) => item + index} // Dùng ID hoặc index làm key
-                    scrollEnabled={false} // Tắt cuộn riêng để dùng cuộn của màn hình chính
+                    keyExtractor={(item, index) => item || index.toString()}
+                    scrollEnabled={false}
+                    ListEmptyComponent={
+                        <View style={styles.emptyState}>
+                            <Ionicons name="people-outline" size={60} color="#ccc" />
+                            <Text style={styles.emptyText}>Chưa có thành viên nào</Text>
+                        </View>
+                    }
                 />
-            ) : (
-                <View style={styles.emptyState}>
-                    <Ionicons name="people-outline" size={60} color="#ccc" />
-                    <Text style={styles.emptyText}>
-                        Chưa có thành viên nào
-                    </Text>
-                </View>
             )}
         </View>
     );
@@ -202,109 +262,50 @@ const GroupDetailScreen = ({ route, navigation }) => {
                 showSettingsButton={isAdmin}
                 onSettingsPress={() => navigation.navigate('EditGroup', { groupId })}
             />
-
             <ScrollView showsVerticalScrollIndicator={false}>
-                {/* --- HEADER ẢNH BÌA --- */}
                 <View style={styles.coverSection}>
-                    <Image source={{ uri: group.image }} style={styles.coverImage} />
-                    <LinearGradient
-                        colors={['transparent', 'rgba(0,0,0,0.85)']}
-                        style={styles.gradient}
-                    >
+                    <Image source={{ uri: group.image || 'https://via.placeholder.com/500' }} style={styles.coverImage} />
+                    <LinearGradient colors={['transparent', 'rgba(0,0,0,0.85)']} style={styles.gradient}>
                         <View style={styles.groupInfo}>
                             <Text style={styles.groupName}>{group.name}</Text>
-
-                            <View style={styles.metaContainer}>
-                                <View style={styles.metaRow}>
-                                    <Ionicons name="people" size={16} color="#fff" style={{ marginTop: 2 }} />
-                                    <Text style={styles.groupMetaText}>
-                                        {group.members.toLocaleString()} thành viên
-                                    </Text>
-                                </View>
-
-                                <View style={styles.metaRow}>
-                                    <Ionicons name="location" size={16} color="#fff" style={{ marginTop: 2 }} />
-                                    <Text style={styles.groupMetaTextLocation}>
-                                        {group.location}
-                                    </Text>
-                                </View>
-                            </View>
+                            <Text style={styles.groupMetaText}>{(group.members || 0).toLocaleString()} thành viên</Text>
                         </View>
                     </LinearGradient>
                 </View>
 
-                {/* --- ACTION BUTTONS --- */}
                 <View style={styles.actionsContainer}>
-                    <TouchableOpacity
-                        style={[styles.actionBtn, styles.primaryBtn]}
-                        onPress={handleJoinLeave}
-                    >
-                        <Ionicons
-                            name={isMember ? "exit-outline" : "add"}
-                            size={20}
-                            color="#fff"
-                        />
-                        <Text style={styles.primaryBtnText}>
-                            {isMember ? "Rời nhóm" : "Tham gia"}
-                        </Text>
+                    <TouchableOpacity style={[styles.actionBtn, styles.primaryBtn]} onPress={handleJoinLeave}>
+                        <Ionicons name={isMember ? "exit-outline" : "add"} size={20} color="#fff" />
+                        <Text style={styles.primaryBtnText}>{isMember ? "Rời nhóm" : "Tham gia"}</Text>
                     </TouchableOpacity>
-
                     {isMember && (
                         <TouchableOpacity
                             style={[styles.actionBtn, styles.secondaryBtn]}
                             onPress={() => navigation.navigate('Đăng tin', {
                                 fromCommunity: true,
                                 groupId: group.id,
-                                groupName: group.name
+                                groupName: group.name,
+                                groupIsPrivate: group.isPrivate // ✅ THÊM: Truyền cờ private sang
                             })}
                         >
                             <Ionicons name="create-outline" size={24} color="#2F847C" />
                         </TouchableOpacity>
                     )}
-
-                    <TouchableOpacity
-                        style={[styles.actionBtn, styles.secondaryBtn]}
-                        onPress={() => Alert.alert("Chia sẻ", "Link nhóm đã được sao chép!")}
-                    >
-                        <Ionicons name="share-social-outline" size={24} color="#2F847C" />
-                    </TouchableOpacity>
                 </View>
 
-                {/* Tabs */}
                 <View style={styles.tabsContainer}>
-                    <TouchableOpacity
-                        style={[styles.tab, activeTab === 'about' && styles.activeTab]}
-                        onPress={() => setActiveTab('about')}
-                    >
-                        <Text style={[styles.tabText, activeTab === 'about' && styles.activeTabText]}>
-                            Giới thiệu
-                        </Text>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity
-                        style={[styles.tab, activeTab === 'posts' && styles.activeTab]}
-                        onPress={() => setActiveTab('posts')}
-                    >
-                        <Text style={[styles.tabText, activeTab === 'posts' && styles.activeTabText]}>
-                            Bài viết
-                        </Text>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity
-                        style={[styles.tab, activeTab === 'members' && styles.activeTab]}
-                        onPress={() => setActiveTab('members')}
-                    >
-                        <Text style={[styles.tabText, activeTab === 'members' && styles.activeTabText]}>
-                            Thành viên
-                        </Text>
-                    </TouchableOpacity>
+                    {['about', 'posts', 'members'].map(tab => (
+                        <TouchableOpacity key={tab} style={[styles.tab, activeTab === tab && styles.activeTab]} onPress={() => setActiveTab(tab)}>
+                            <Text style={[styles.tabText, activeTab === tab && styles.activeTabText]}>
+                                {tab === 'about' ? 'Giới thiệu' : tab === 'posts' ? 'Bài viết' : 'Thành viên'}
+                            </Text>
+                        </TouchableOpacity>
+                    ))}
                 </View>
 
-                {/* Tab Content */}
                 {activeTab === 'about' && renderAboutTab()}
                 {activeTab === 'posts' && renderPostsTab()}
                 {activeTab === 'members' && renderMembersTab()}
-
                 <View style={{ height: 40 }} />
             </ScrollView>
         </View>
@@ -314,185 +315,36 @@ const GroupDetailScreen = ({ route, navigation }) => {
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: '#F7F9FC' },
     errorContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-
-    coverSection: { height: 280, position: 'relative' },
+    coverSection: { height: 250, position: 'relative' },
     coverImage: { width: '100%', height: '100%' },
-    gradient: {
-        position: 'absolute',
-        bottom: 0,
-        left: 0,
-        right: 0,
-        padding: 20,
-        paddingTop: 50
-    },
+    gradient: { position: 'absolute', bottom: 0, left: 0, right: 0, padding: 20, paddingTop: 50 },
     groupInfo: { marginBottom: 5 },
-    groupName: {
-        fontSize: 26,
-        fontFamily: 'Nunito-Bold',
-        color: '#fff',
-        marginBottom: 8
-    },
-
-    metaContainer: {
-        flexDirection: 'column',
-        gap: 6
-    },
-    metaRow: {
-        flexDirection: 'row',
-        alignItems: 'flex-start',
-        gap: 8,
-        paddingRight: 20
-    },
-    groupMetaText: {
-        fontSize: 14,
-        color: '#fff',
-        fontFamily: 'Nunito-Regular'
-    },
-    groupMetaTextLocation: {
-        fontSize: 14,
-        color: '#fff',
-        fontFamily: 'Nunito-Regular',
-        flex: 1,
-        flexWrap: 'wrap'
-    },
-
-    actionsContainer: {
-        flexDirection: 'row',
-        padding: 16,
-        gap: 12,
-        backgroundColor: '#fff'
-    },
-    actionBtn: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        paddingVertical: 12,
-        paddingHorizontal: 16,
-        borderRadius: 12,
-        gap: 8
-    },
-    primaryBtn: {
-        flex: 1,
-        backgroundColor: '#2F847C'
-    },
-    primaryBtnText: {
-        color: '#fff',
-        fontFamily: 'Nunito-Bold',
-        fontSize: 16
-    },
-    secondaryBtn: {
-        backgroundColor: '#E0F2F1',
-        width: 54, // Tăng nhẹ chiều rộng để icon cân đối
-    },
-
-    tabsContainer: {
-        flexDirection: 'row',
-        backgroundColor: '#fff',
-        borderBottomWidth: 1,
-        borderBottomColor: '#E0E0E0'
-    },
-    tab: {
-        flex: 1,
-        paddingVertical: 14,
-        alignItems: 'center'
-    },
-    activeTab: {
-        borderBottomWidth: 3,
-        borderBottomColor: '#2F847C'
-    },
-    tabText: {
-        fontSize: 15,
-        fontFamily: 'Nunito-Regular',
-        color: '#999'
-    },
-    activeTabText: {
-        fontFamily: 'Nunito-Bold',
-        color: '#2F847C'
-    },
-
-    tabContent: {
-        padding: 16
-    },
-    infoCard: {
-        backgroundColor: '#fff',
-        borderRadius: 12,
-        padding: 16,
-        marginBottom: 12,
-        elevation: 1
-    },
-    infoRow: {
-        flexDirection: 'row',
-        alignItems: 'flex-start',
-        gap: 12
-    },
-    infoText: {
-        flex: 1
-    },
-    infoLabel: {
-        fontSize: 13,
-        fontFamily: 'Nunito-Bold',
-        color: '#666',
-        marginBottom: 4
-    },
-    infoValue: {
-        fontSize: 15,
-        fontFamily: 'Nunito-Regular',
-        color: '#333',
-        lineHeight: 22
-    },
-
-    emptyState: {
-        alignItems: 'center',
-        justifyContent: 'center',
-        paddingVertical: 60
-    },
-    emptyText: {
-        marginTop: 16,
-        fontSize: 16,
-        fontFamily: 'Nunito-Regular',
-        color: '#999',
-        textAlign: 'center'
-    },
-
-    // --- MỚI: Styles cho Member Item ---
-    memberItem: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: '#fff',
-        padding: 12,
-        borderRadius: 12,
-        marginBottom: 10,
-        elevation: 1,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.05,
-        shadowRadius: 2,
-    },
-    memberAvatar: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
-        backgroundColor: '#CFD8DC',
-        alignItems: 'center',
-        justifyContent: 'center',
-        marginRight: 12,
-    },
-    memberInfo: {
-        flex: 1,
-    },
-    memberName: {
-        fontSize: 15,
-        fontFamily: 'Nunito-Bold',
-        color: '#333',
-    },
-    memberRole: {
-        fontSize: 12,
-        fontFamily: 'Nunito-Regular',
-        color: '#757575',
-    },
-    messageBtn: {
-        padding: 8,
-    }
+    groupName: { fontSize: 26, fontFamily: 'Nunito-Bold', color: '#fff', marginBottom: 8 },
+    groupMetaText: { fontSize: 14, color: '#fff', fontFamily: 'Nunito-Regular' },
+    actionsContainer: { flexDirection: 'row', padding: 16, gap: 12, backgroundColor: '#fff' },
+    actionBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 12, paddingHorizontal: 16, borderRadius: 12, gap: 8 },
+    primaryBtn: { flex: 1, backgroundColor: '#2F847C' },
+    primaryBtnText: { color: '#fff', fontFamily: 'Nunito-Bold', fontSize: 16 },
+    secondaryBtn: { backgroundColor: '#E0F2F1', width: 54 },
+    tabsContainer: { flexDirection: 'row', backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#E0E0E0' },
+    tab: { flex: 1, paddingVertical: 14, alignItems: 'center' },
+    activeTab: { borderBottomWidth: 3, borderBottomColor: '#2F847C' },
+    tabText: { fontSize: 15, fontFamily: 'Nunito-Regular', color: '#999' },
+    activeTabText: { fontFamily: 'Nunito-Bold', color: '#2F847C' },
+    tabContent: { padding: 16 },
+    infoCard: { backgroundColor: '#fff', borderRadius: 12, padding: 16, marginBottom: 12, elevation: 1 },
+    infoRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
+    infoText: { flex: 1 },
+    infoLabel: { fontSize: 13, fontFamily: 'Nunito-Bold', color: '#666', marginBottom: 4 },
+    infoValue: { fontSize: 15, fontFamily: 'Nunito-Regular', color: '#333', lineHeight: 22 },
+    emptyState: { alignItems: 'center', justifyContent: 'center', paddingVertical: 60 },
+    emptyText: { marginTop: 16, fontSize: 16, fontFamily: 'Nunito-Regular', color: '#999', textAlign: 'center' },
+    memberItem: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', padding: 12, borderRadius: 12, marginBottom: 10, elevation: 1 },
+    memberAvatar: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#CFD8DC', alignItems: 'center', justifyContent: 'center', marginRight: 12 },
+    memberAvatarImage: { width: 40, height: 40, borderRadius: 20, marginRight: 12 },
+    memberInfo: { flex: 1 },
+    memberName: { fontSize: 15, fontFamily: 'Nunito-Bold', color: '#333' },
+    memberRole: { fontSize: 12, fontFamily: 'Nunito-Regular', color: '#757575' }
 });
 
 export default GroupDetailScreen;

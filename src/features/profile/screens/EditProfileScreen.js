@@ -29,17 +29,19 @@ const EditProfileScreen = () => {
     }, [userProfile]);
 
     const pickImage = async () => {
-        let permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
-        if (permissionResult.granted === false) {
-            Alert.alert("Cần quyền truy cập", "Vui lòng cấp quyền truy cập thư viện ảnh.");
+        // 1. Xin quyền truy cập thư viện
+        const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (status !== 'granted') {
+            Alert.alert('Cần quyền', 'Vui lòng cấp quyền truy cập thư viện ảnh để tiếp tục.');
             return;
         }
 
+        // 2. Mở thư viện ảnh với cấu hình mới
         let result = await ImagePicker.launchImageLibraryAsync({
             mediaTypes: ImagePicker.MediaTypeOptions.Images,
             allowsEditing: true,
             aspect: [1, 1],
-            quality: 0.5,
+            quality: 0.7,
         });
 
         if (!result.canceled) {
