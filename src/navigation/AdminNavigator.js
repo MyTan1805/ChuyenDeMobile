@@ -2,10 +2,10 @@ import React from 'react';
 import { createStackNavigator } from '@react-navigation/stack';
 
 // Import các màn hình Admin
-import AdminDashboardScreen from '@/admin/screens/AdminDashboardScreen';
-import AdminReportListScreen from '@/admin/screens/AdminReportListScreen';
-import CreateQuizScreen from '@/admin/screens/CreateQuizScreen';
-import UserManagementScreen from '@/admin/screens/UserManagementScreen';
+import AdminDashboardScreen from '@/features/admin/screens/AdminDashboardScreen';
+import AdminReportListScreen from '@/features/admin/screens/AdminReportListScreen';
+import CreateQuizScreen from '@/features/admin/screens/CreateQuizScreen';
+import UserManagementScreen from '@/features/admin/screens/UserManagementScreen';
 
 const AdminStack = createStackNavigator();
 
