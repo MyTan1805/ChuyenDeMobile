@@ -31,39 +31,30 @@ const ProfileScreen = () => {
     const navigation = useNavigation();
     const { user, userProfile, logout, fetchUserProfile } = useUserStore();
 
-    // State cho thống kê báo cáo
+    // State thống kê
     const [realReportCount, setRealReportCount] = useState(0);
     const [communityTotal, setCommunityTotal] = useState(0);
     const [loadingPdf, setLoadingPdf] = useState(false);
 
-    // 1. Load User Profile
     useEffect(() => {
         if (user?.uid) fetchUserProfile(user.uid);
     }, [user]);
 
-    // 2. Lắng nghe số liệu báo cáo realtime (Firestore)
     useEffect(() => {
         const currentUser = auth?.currentUser;
         if (!currentUser) return;
-        
-        // Đếm báo cáo cá nhân
         const q1 = query(collection(db, 'reports'), where('userId', '==', currentUser.uid));
         const unsub1 = onSnapshot(q1, (snap) => setRealReportCount(snap.size));
-
-        // Đếm tổng báo cáo cộng đồng
         const q2 = query(collection(db, 'reports'));
         const unsub2 = onSnapshot(q2, (snap) => setCommunityTotal(snap.size));
-
         return () => { unsub1(); unsub2(); };
     }, []);
 
-    // 3. Hàm xuất báo cáo PDF
     const handleExportPersonalPDF = async () => {
         setLoadingPdf(true);
         try {
             const currentUser = auth?.currentUser;
             if (!currentUser) return;
-            
             const q = query(collection(db, 'reports'), where('userId', '==', currentUser.uid), orderBy('createdAt', 'desc'));
             const snapshot = await getDocs(q);
             const reports = snapshot.docs.map(doc => doc.data());
@@ -76,13 +67,16 @@ const ProfileScreen = () => {
 
             let rows = reports.map((item, idx) => {
                 let dateStr = 'N/A';
-                if (item.createdAt?.seconds) dateStr = new Date(item.createdAt.seconds * 1000).toLocaleDateString();
+                if (item.createdAt?.seconds) {
+                    dateStr = new Date(item.createdAt.seconds * 1000).toLocaleDateString('vi-VN');
+                }
                 const statusText = item.status === 'approved' ? 'Đã duyệt' : item.status === 'rejected' ? 'Từ chối' : 'Chờ duyệt';
                 return `<tr><td style="text-align:center">${idx + 1}</td><td>${item.violationType}</td><td>${dateStr}</td><td style="text-align:center">${statusText}</td></tr>`;
             }).join('');
 
             const html = `
-                <html><body><h2 style="text-align:center;color:#2F847C">BÁO CÁO CÁ NHÂN</h2>
+                <html><body>
+                <h2 style="text-align:center;color:#2F847C">BÁO CÁO CÁ NHÂN - ECOMATE</h2>
                 <p><strong>Người dùng:</strong> ${userProfile?.displayName}</p>
                 <table border="1" style="width:100%;border-collapse:collapse;padding:5px;">
                     <tr style="background-color:#eee;"><th>STT</th><th>Loại vi phạm</th><th>Ngày gửi</th><th>Trạng thái</th></tr>
@@ -95,12 +89,10 @@ const ProfileScreen = () => {
         } catch (e) { Alert.alert("Lỗi", e.message); } finally { setLoadingPdf(false); }
     };
 
-    // --- Render UI Logic ---
     if (!userProfile) {
          return (
             <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
                 <ActivityIndicator size="large" color="#2F847C" />
-                <Text style={{ marginTop: 10, color: '#666' }}>Đang tải hồ sơ...</Text>
             </View>
         );
     }
@@ -108,14 +100,12 @@ const ProfileScreen = () => {
     const stats = userProfile.stats || {};
     const quizResults = userProfile.quizResults || {};
     
-    // Tổng hợp số liệu hiển thị
     const displayStats = {
         ...stats,
-        sentReports: realReportCount, // Dùng số liệu thật từ Firestore
+        sentReports: realReportCount,
         community: stats.community || 0 
     };
 
-    // Xử lý Huy hiệu & Tiến độ
     const detailedBadges = getDetailedBadgeStatus(displayStats, quizResults);
     const allAchievedBadges = detailedBadges.filter(b => b.unlocked);
     
@@ -136,7 +126,6 @@ const ProfileScreen = () => {
 
     const isAdmin = userProfile.role === 'admin';
 
-    // Render Biểu đồ
     const renderCommunityChart = () => {
         const chartData = displayStats.communityStats || [];
          return (
@@ -156,11 +145,9 @@ const ProfileScreen = () => {
                         )
                     })}
                 </View>
-                
                 <View style={{marginTop: 10, alignItems:'center'}}>
                     <Text style={{color:'#555', fontSize: 12}}>Tổng báo cáo toàn hệ thống: <Text style={{fontWeight:'bold', color:'#2F847C'}}>{communityTotal}</Text></Text>
                 </View>
-
                 <View style={styles.chartLegend}>
                     <View style={styles.legendItem}><View style={[styles.legendDot, { backgroundColor: '#4FC3F7' }]} /><Text style={styles.legendText}>Báo vi phạm</Text></View>
                     <View style={styles.legendItem}><View style={[styles.legendDot, { backgroundColor: '#2F847C' }]} /><Text style={styles.legendText}>Tái chế (lần)</Text></View>
@@ -181,7 +168,7 @@ const ProfileScreen = () => {
 
             <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
 
-                {/* 1. Thông tin cá nhân */}
+                {/* 1. Header Info (Của Tân) */}
                 <View style={styles.card}>
                     <View style={styles.userInfoHeader}>
                         <View style={styles.avatarWrapper}>
@@ -194,7 +181,6 @@ const ProfileScreen = () => {
                                 <Ionicons name="pencil" size={12} color="white" />
                             </TouchableOpacity>
                         </View>
-
                         <View style={styles.userInfoText}>
                             <Text style={styles.userName}>{userProfile.displayName || "Người dùng"}</Text>
                             {displayStats.points > 0 && (
@@ -209,18 +195,28 @@ const ProfileScreen = () => {
                     </View>
                 </View>
 
-                {/* Admin Dashboard Button (Chỉ hiện nếu là Admin) */}
+                {/* === KHU VỰC ADMIN (DÙNG GIAO DIỆN CỦA BẢO) === */}
                 {isAdmin && (
-                    <TouchableOpacity style={styles.adminCard} onPress={() => navigation.navigate('AdminPortal')}>
-                        <View style={{flexDirection:'row', alignItems:'center'}}>
-                            <MaterialIcons name="admin-panel-settings" size={24} color="#fff" />
-                            <Text style={styles.adminText}> Truy cập trang Quản trị</Text>
+                    <View style={[styles.card, {backgroundColor: '#2C3E50'}]}>
+                        <View style={styles.cardHeader}>
+                            <MaterialIcons name="admin-panel-settings" size={24} color="#F1C40F" />
+                            <Text style={[styles.cardTitle, {color: '#fff'}]}>Quyền Quản Trị</Text>
                         </View>
-                        <Ionicons name="arrow-forward" size={20} color="#fff" />
-                    </TouchableOpacity>
+                        <Text style={{ color: '#BDC3C7', marginBottom: 15, fontSize: 13, fontFamily: 'Nunito-Regular' }}>
+                            Bạn có quyền truy cập vào hệ thống quản trị viên.
+                        </Text>
+                        <TouchableOpacity 
+                            style={styles.adminButton} 
+                            onPress={() => navigation.navigate('AdminPortal')}
+                        >
+                            <Text style={styles.adminButtonText}>Truy cập Dashboard</Text>
+                            <Ionicons name="arrow-forward" size={18} color="#2C3E50" />
+                        </TouchableOpacity>
+                    </View>
                 )}
+                {/* ================================================== */}
 
-                {/* 2. Thành tích & Huy hiệu */}
+                {/* 2. Thành tích (Của Tân) */}
                 <View style={styles.card}>
                     <View style={styles.cardHeader}>
                         <Ionicons name="trophy" size={20} color="#FFD700" />
@@ -254,7 +250,7 @@ const ProfileScreen = () => {
                     </TouchableOpacity>
                 </View>
 
-                {/* 3. Thống kê & Tiến độ */}
+                {/* 3. Thống kê cá nhân (Của Tân) */}
                 <View style={styles.card}>
                     <Text style={styles.cardTitleBold}>Thống kê cá nhân</Text>
 
@@ -272,10 +268,9 @@ const ProfileScreen = () => {
                         <Text style={styles.statRowValue}>{displayStats.trashSorted}</Text>
                     </View>
 
-                    {/* Progress Bar */}
                     <View style={styles.progressContainer}>
                         <View style={styles.progressHeader}>
-                            <Text style={styles.progressLabel}>Tiến độ: <Text style={styles.progressLabelName}>{progressName}</Text></Text>
+                            <Text style={styles.progressLabel}>Tiến độ lên cấp: <Text style={styles.progressLabelName}>{progressName}</Text></Text>
                             <Text style={styles.progressValue}>{Math.floor(progressValue)}%</Text>
                         </View>
                         <View style={styles.progressBarTrack}>
@@ -284,14 +279,14 @@ const ProfileScreen = () => {
                     </View>
                 </View>
 
-                {/* 4. Biểu đồ */}
+                {/* 4. Thống kê cộng đồng */}
                 <View style={styles.card}>
                     <Text style={styles.cardTitleBold}>Thống kê cộng đồng</Text>
                     <Text style={styles.chartSubtitle}>Hoạt động nhóm 5 tháng gần nhất</Text>
                     {renderCommunityChart()}
                 </View>
 
-                {/* 5. Chức năng khác */}
+                {/* 5. Actions */}
                 <View style={styles.actionContainer}>
                     <TouchableOpacity style={styles.secondaryButton} onPress={() => navigation.navigate('EditProfile')}>
                         <Text style={styles.secondaryButtonText}>Chỉnh sửa trang cá nhân</Text>
@@ -316,18 +311,30 @@ const ProfileScreen = () => {
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: '#F7F9FC' },
     scrollContent: { padding: 16 },
+
     card: {
         backgroundColor: 'white', borderRadius: 16, padding: 20, marginBottom: 16,
         shadowColor: "#000", shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.05, shadowRadius: 8, elevation: 3,
     },
-    // Admin Card
-    adminCard: {
-        backgroundColor: '#2C3E50', borderRadius: 12, padding: 15, marginBottom: 16,
-        flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', elevation: 5
+
+    // --- STYLE CHO ADMIN CARD (CỦA BẢO) ---
+    adminButton: {
+        backgroundColor: '#F1C40F', // Màu vàng nổi bật
+        padding: 12,
+        borderRadius: 8,
+        flexDirection: 'row',
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginTop: 5
     },
-    adminText: { color: '#fff', fontWeight: 'bold', fontSize: 16 },
-    // Header
+    adminButtonText: {
+        fontFamily: 'Nunito-Bold',
+        color: '#2C3E50', // Chữ màu tối
+        marginRight: 8
+    },
+    // -------------------------------------
+
     userInfoHeader: { flexDirection: 'row', alignItems: 'center' },
     avatarWrapper: { position: 'relative' },
     avatarPlaceholder: { width: 80, height: 80, borderRadius: 40, backgroundColor: '#E0E0E0' },
@@ -345,10 +352,10 @@ const styles = StyleSheet.create({
     },
     badgeText: { color: '#00796B', fontSize: 12, fontFamily: 'Nunito-Bold' },
     subText: { fontFamily: 'Nunito-Regular', color: '#757575', fontSize: 14 },
-    
-    // Stats Area
+
     cardHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 10 },
     cardTitle: { fontFamily: 'Nunito-Bold', fontSize: 18, marginLeft: 8, color: '#333' },
+    
     pointDisplayArea: {
         flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
         paddingVertical: 10, marginBottom: 15,
@@ -358,7 +365,6 @@ const styles = StyleSheet.create({
     pointsLabel: { fontFamily: 'Nunito-Regular', color: '#757575', fontSize: 14, textAlign: 'center' },
     pointsValue: { fontFamily: 'Nunito-Bold', fontSize: 28, color: '#333', marginTop: 5, textAlign: 'center' },
     
-    // Badges
     achievedBadgesRow: {
         flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center',
         paddingVertical: 15, minHeight: 40, borderTopWidth: 1, borderTopColor: '#F0F0F0',
@@ -370,7 +376,6 @@ const styles = StyleSheet.create({
     viewAllBadgesButton: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 10, marginTop: 10 },
     viewAllBadgesText: { fontFamily: 'Nunito-Bold', color: '#2F847C', fontSize: 16 },
     
-    // Personal Stats
     cardTitleBold: { fontFamily: 'Nunito-Bold', fontSize: 18, marginBottom: 16, color: '#333' },
     statRowItem: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 8 },
     statRowLabel: { fontFamily: 'Nunito-Regular', fontSize: 16, color: '#555' },
@@ -384,7 +389,6 @@ const styles = StyleSheet.create({
     progressBarTrack: { height: 8, backgroundColor: '#E0E0E0', borderRadius: 4, overflow: 'hidden', marginHorizontal: 10 },
     progressBarFill: { height: '100%', backgroundColor: '#2F847C', borderRadius: 4 },
 
-    // Chart
     chartSubtitle: { fontFamily: 'Nunito-Regular', color: '#757575', fontSize: 13, marginBottom: 20 },
     chartContainer: { alignItems: 'center' },
     chartRow: { flexDirection: 'row', justifyContent: 'space-between', width: '100%', height: 120, alignItems: 'flex-end', paddingHorizontal: 10 },
@@ -397,7 +401,6 @@ const styles = StyleSheet.create({
     legendDot: { width: 10, height: 10, borderRadius: 5, marginRight: 6 },
     legendText: { fontSize: 12, color: '#555' },
 
-    // Buttons
     actionContainer: { gap: 12 },
     secondaryButton: {
         backgroundColor: '#fff', borderWidth: 1, borderColor: '#E0E0E0',
