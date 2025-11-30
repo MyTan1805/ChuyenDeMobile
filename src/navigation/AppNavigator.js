@@ -8,99 +8,85 @@ import * as Linking from 'expo-linking';
 // ----- QUẢN LÝ TRẠNG THÁI -----
 import { useUserStore } from '@/store/userStore';
 
-// ==================== IMPORT MÀN HÌNH ====================
+// ==================== IMPORT CÁC MÀN HÌNH ====================
 
-// 1. AUTH 
+// 1. AUTH (Xác thực)
 import WelcomeScreen from '@/features/auth/screens/WelcomeScreen';
 import LoginScreen from '@/features/auth/screens/LoginScreen';
 import RegisterScreen from '@/features/auth/screens/RegisterScreen';
 import ForgotPasswordScreen from '@/features/auth/screens/ForgetPasswordScreen';
 import VerifyEmailScreen from '@/features/auth/screens/VerifyEmailScreen';
-// ĐÃ XOÁ: import NewPasswordScreen...
 
-// 2. AQI & HOME 
+// 2. HOME & AQI 
 import HomeScreen from '@/features/aqi/screens/HomeScreen';
 import AqiDetailScreen from '@/features/aqi/screens/AqiDetailScreen'; 
 import ChatbotScreen from '@/features/chatbot/screens/ChatbotScreen';
 
-// 3. COMMUNITY 
+// 3. REPORTS (BÁO CÁO)
+// [QUAN TRỌNG] Đảm bảo import đúng tên file và đường dẫn 'reports'
+import CreateReportScreen from '@/features/reports/screens/CreateReportScreen';
+import ReportHistoryScreen from '@/features/reports/screens/ReportsHistoryScreen';
+import ReportDetailScreen from '@/features/reports/screens/ReportDetailScreen';
+
+// 4. COMMUNITY (CỘNG ĐỒNG)
 import CommunityScreen from '@/features/community/screens/CommunityScreen';
 import WasteClassificationScreen from '@/features/community/screens/WasteClassificationScreen';
 import WasteDetailScreen from '@/features/community/screens/WasteDetailScreen';
 import PostScreen from '@/features/community/screens/PostScreen';
 
-// 4. GAMIFICATION & PROFILE
+// 5. PROFILE & GAMIFICATION (HỒ SƠ)
 import StoreScreen from '@/features/gamification/screens/StoreScreen';
 import ProfileScreen from '@/features/profile/screens/ProfileScreen';
 import EditProfileScreen from '@/features/profile/screens/EditProfileScreen';
 
-// 5. REPORT
-import CreateReportScreen from '@/features/reports/screens/CreateReportScreen';
+// 6. MAP (BẢN ĐỒ)
+import EnvironmentalMapScreen from '@/features/map/screens/EnvironmentalMapScreen';
+
+// 7. ADMIN PORTAL
+import AdminNavigator from '@/navigation/AdminNavigator'; // Đường dẫn đến AdminNavigator
+
+// 8. ANALYTICS
+import AnalyticsScreen from '@/features/analytics/screens/AnalyticsScreen';
 
 
 // ----- COMPONENT -----
 import CustomTabBar from '@/components/CustomTabBar'; 
 
-// ==================== KHỞI TẠO ====================
+// ==================== KHỞI TẠO NAVIGATOR ====================
 const AuthStack = createStackNavigator();
 const HomeStack = createStackNavigator();       
 const CommunityStack = createStackNavigator();     
-
-// ==================== 1. AUTH NAVIGATOR ====================
 const MainTab = createBottomTabNavigator();
-const MainStack = createStackNavigator();
+const MainStack = createStackNavigator(); 
 
+// ==================== CẤU HÌNH LINKING ====================
 const prefix = Linking.createURL('/');
-
 const linking = {
-  prefixes: [
-    prefix,
-    'ecomate://',
-    'https://ecoapp-dc865.firebaseapp.com',
-  ],
+  prefixes: [prefix, 'ecomate://', 'https://ecoapp-dc865.firebaseapp.com'],
   config: {
     screens: {
       AuthFlow: {
         screens: {
-          // ĐÃ XOÁ: Cấu hình NewPassword ở đây để app không chặn link reset nữa
           VerifyEmail: {
             path: 'verify-email',
-            parse: {
-              oobCode: (oobCode) => oobCode,
-              mode: (mode) => mode,
-            },
+            parse: { oobCode: (code) => code, mode: (m) => m },
           },
         },
       },
     },
   },
-  // Giữ lại logic xử lý verifyEmail, nhưng bỏ resetPassword
   getStateFromPath: (path, options) => {
     const url = Linking.parse(path);
-
-    if (url.queryParams?.mode) {
-      const { mode, oobCode } = url.queryParams;
-
-      // Nếu là verify email thì mở app vào màn hình VerifyEmail
-      if (mode === 'verifyEmail') {
-        return {
-          routes: [
-            {
-              name: 'VerifyEmail',
-              params: { oobCode, type: 'emailVerification' } // Bỏ AuthFlow wrapper nếu không cần thiết hoặc giữ nguyên cấu trúc cũ của bạn
-            },
-          ],
-        };
-      }
-
-      // ĐÃ XOÁ: Logic check mode === 'resetPassword' để không mở app
+    if (url.queryParams?.mode === 'verifyEmail') {
+      return {
+        routes: [{ name: 'VerifyEmail', params: { oobCode: url.queryParams.oobCode } }],
+      };
     }
-
     return options.getStateFromPath(path, options);
   },
 };
 
-// 1. NAVIGATOR XÁC THỰC
+// ==================== 1. AUTH NAVIGATOR ====================
 function AuthNavigator() {
   return (
     <AuthStack.Navigator screenOptions={{ headerShown: false }}>
@@ -109,7 +95,6 @@ function AuthNavigator() {
       <AuthStack.Screen name="Register" component={RegisterScreen} />
       <AuthStack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
       <AuthStack.Screen name="VerifyEmail" component={VerifyEmailScreen} />
-      {/* ĐÃ XOÁ: AuthStack.Screen name="NewPassword" */}
     </AuthStack.Navigator>
   );
 }
@@ -120,8 +105,10 @@ function HomeStackNavigator() {
     <HomeStack.Navigator screenOptions={{ headerShown: false }}>
       <HomeStack.Screen name="AqiDashboard" component={HomeScreen} />
       <HomeStack.Screen name="AqiDetail" component={AqiDetailScreen} />
-
+      
+      {/* Các màn hình truy cập từ Home */}
       <HomeStack.Screen name="CreateReport" component={CreateReportScreen} />
+      <HomeStack.Screen name="EnvironmentalMap" component={EnvironmentalMapScreen} />
     </HomeStack.Navigator>
   );
 }
@@ -138,8 +125,6 @@ function CommunityStackNavigator() {
 }
 
 // ==================== 4. MAIN TAB NAVIGATOR ====================
-// ... (Giữ nguyên MainTabNavigator, MainNavigator, AppNavigator như cũ)
-// Chỉ cần đảm bảo bỏ NewPasswordScreen ở import và AuthNavigator
 function MainTabNavigator() {
   return (
     <MainTab.Navigator 
@@ -151,6 +136,7 @@ function MainTabNavigator() {
       <MainTab.Screen name="Đăng tin" component={PostScreen} options={{ headerShown: true, headerTitle: "Đăng bài viết" }} />
       <MainTab.Screen name="Cửa hàng" component={StoreScreen} options={{ headerShown: true, headerTitle: "Cửa hàng xanh" }} />
       <MainTab.Screen name="Hồ sơ" component={ProfileScreen} />
+
     </MainTab.Navigator>
   );
 }
@@ -160,12 +146,24 @@ function MainNavigator() {
   return (
     <MainStack.Navigator screenOptions={{ headerShown: false }}>
       <MainStack.Screen name="MainTabs" component={MainTabNavigator} />
+      
+      {/* Các màn hình phụ */}
       <MainStack.Screen name="Chatbot" component={ChatbotScreen} />
       <MainStack.Screen name="EditProfile" component={EditProfileScreen} />
+      
+      {/* [BỔ SUNG] Đăng ký màn hình Lịch sử & Chi tiết ở đây để gọi từ Profile */}
+      <MainStack.Screen name="ReportHistory" component={ReportHistoryScreen} />
+      <MainStack.Screen name="ReportDetail" component={ReportDetailScreen} />
+      <MainStack.Screen name="AdminPortal" component={AdminNavigator} />
+      
+      <MainStack.Screen name="Analytics" component={AnalyticsScreen} />
+
+      
     </MainStack.Navigator>
   );
 }
 
+// ==================== APP NAVIGATOR ====================
 export default function AppNavigator() {
   const { user, isLoading, checkAuthState } = useUserStore((state) => state);
   

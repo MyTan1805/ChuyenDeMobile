@@ -1,124 +1,122 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Dimensions, Alert } from 'react-native';
 import { MaterialIcons, FontAwesome5, Ionicons } from '@expo/vector-icons'; 
-// Đảm bảo đường dẫn import CustomHeader đúng với dự án của bạn
-// Nếu báo lỗi, hãy thử đổi thành '../../components/CustomHeader' hoặc '../components/CustomHeader'
 import CustomHeader from '@/components/CustomHeader';
 
-// Tính toán kích thước ô lưới để chia đều 3 cột
+// Import Auth
+import { auth } from '../../../config/firebaseConfig';
+
+// --- CẤU HÌNH ADMIN ---
+const ADMIN_IDS = [
+    "vwrq5A3RsdW7vBPFodbSVfz75B93", 
+    "rMWE0wFBdnVGWYoxYbNo3uhLxJ73" 
+];
+
 const { width } = Dimensions.get('window');
-const SPACING = 15; // Khoảng cách giữa các ô
-const PADDING = 20; // Padding 2 bên màn hình
-// Công thức: (Chiều rộng màn hình - Padding 2 bên - Khoảng cách giữa 2 khe) chia 3
+const SPACING = 15; 
+const PADDING = 20; 
 const ITEM_WIDTH = (width - (PADDING * 2) - (SPACING * 2)) / 3;
 
 const HomeScreen = ({ navigation }) => {
+    const [isAdmin, setIsAdmin] = useState(false);
 
-    // Danh sách tính năng (Giống trong ảnh)
-    const FEATURES = [
+    useEffect(() => {
+        const unsubscribe = auth.onAuthStateChanged(user => {
+            if (user && ADMIN_IDS.includes(user.uid)) {
+                setIsAdmin(true);
+            } else {
+                setIsAdmin(false);
+            }
+        });
+        return unsubscribe;
+    }, []);
+
+    const baseFeatures = [
         { 
-            id: 1, 
-            label: 'Báo cáo vi phạm', 
-            icon: 'report-problem', 
-            iconFamily: MaterialIcons, 
-            route: 'CreateReport', // Tên màn hình trong Navigator
-            bgColor: '#e0e0e0', // Màu nền xám nhạt như ảnh
+            id: 1, label: 'Báo cáo vi phạm', icon: 'report-problem', iconFamily: MaterialIcons, route: 'CreateReport', bgColor: '#e0e0e0', 
         },
         { 
-            id: 2, 
-            label: 'Phân loại rác thải', 
-            icon: 'recycle', 
-            iconFamily: FontAwesome5, 
-            route: null,
-            bgColor: '#e0e0e0',
+            id: 2, label: 'Phân loại rác thải', icon: 'recycle', iconFamily: FontAwesome5, route: 'WasteClassification', bgColor: '#e0e0e0',
         },
         { 
-            id: 3, 
-            label: 'AI Chatbot', 
-            icon: 'robot', 
-            iconFamily: FontAwesome5, 
-            route: null,
-            bgColor: '#e0e0e0',
+            id: 3, label: 'AI Chatbot', icon: 'robot', iconFamily: FontAwesome5, route: 'Chatbot', bgColor: '#e0e0e0',
         },
         { 
-            id: 4, 
-            label: 'Bản đồ môi trường', 
-            icon: 'map-outline', 
-            iconFamily: Ionicons, 
-            route: null,
-            bgColor: '#e0e0e0',
+            id: 4, label: 'Bản đồ môi trường', icon: 'map-outline', iconFamily: Ionicons, route: 'EnvironmentalMap', bgColor: '#e0e0e0',
         },
         { 
-            id: 5, 
-            label: 'Huy hiệu', 
-            icon: 'medal', 
-            iconFamily: FontAwesome5, 
-            route: null,
-            bgColor: '#e0e0e0',
+            id: 5, label: 'Huy hiệu', icon: 'medal', iconFamily: FontAwesome5, route: null, bgColor: '#e0e0e0',
         },
         { 
-            id: 6, 
-            label: 'Hướng dẫn xử lý rác', 
-            icon: 'book-open', 
-            iconFamily: FontAwesome5, 
-            route: null,
-            bgColor: '#e0e0e0',
+            id: 6, label: 'Hướng dẫn xử lý rác', icon: 'book-open', iconFamily: FontAwesome5, route: null, bgColor: '#e0e0e0',
         },
     ];
 
+    // [LOGIC QUAN TRỌNG] Chỉ thêm Analytics nếu là Admin
+    const featuresToDisplay = isAdmin ? [
+        ...baseFeatures,
+        { 
+            id: 7, // ID riêng cho Admin
+            label: 'Phân tích & Báo cáo', 
+            icon: 'analytics', 
+            iconFamily: MaterialIcons, 
+            route: 'Analytics', 
+            bgColor: '#D1F2EB', // Màu xanh nhạt để nổi bật
+        }
+    ] : baseFeatures;
+
     const handlePressFeature = (feature) => {
         if (feature.route) {
-            // Điều hướng nếu có route
             navigation.navigate(feature.route);
         } else {
-            // Thông báo nếu tính năng chưa làm
             Alert.alert("Thông báo", `Tính năng "${feature.label}" đang được phát triển!`);
         }
     };
 
     return (
         <View style={styles.container}>
-            {/* Header cũ của bạn */}
-            <CustomHeader
-                useLogo={true}
-                showMenuButton={true}
-                showNotificationButton={true}
-                onMenuPress={() => Alert.alert('Menu pressed!')}
-                onNotificationPress={() => Alert.alert('Notification pressed!')}
-            />
+            <CustomHeader useLogo={true} showMenuButton={true} showNotificationButton={true} onMenuPress={() => Alert.alert('Menu pressed!')} onNotificationPress={() => Alert.alert('Notification pressed!')} />
             
             <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
                 <View style={styles.content}>
-                    
-                    {/* Tiêu đề Section */}
                     <Text style={styles.sectionTitle}>Ứng dụng</Text>
 
-                    {/* Lưới chức năng (Grid Layout) */}
                     <View style={styles.gridContainer}>
-                        {FEATURES.map((item) => (
+                        {featuresToDisplay.map((item) => (
                             <TouchableOpacity 
                                 key={item.id} 
-                                style={[styles.gridItem, { width: ITEM_WIDTH, height: ITEM_WIDTH }]}
+                                style={[
+                                    styles.gridItem, 
+                                    { width: ITEM_WIDTH, height: ITEM_WIDTH },
+                                    // Style đặc biệt cho nút Admin
+                                    item.id === 7 && { backgroundColor: '#E8F8F5', borderColor: '#2F847C', borderWidth: 1 } 
+                                ]}
                                 onPress={() => handlePressFeature(item)}
                             >
-                                {/* Icon */}
                                 <View style={styles.iconWrapper}>
-                                    <item.iconFamily name={item.icon} size={24} color="#333" />
+                                    <item.iconFamily 
+                                        name={item.icon} 
+                                        size={24} 
+                                        color={item.id === 7 ? "#2F847C" : "#333"} 
+                                    />
                                 </View>
-                                
-                                {/* Text */}
-                                <Text style={styles.gridLabel}>{item.label}</Text>
+                                <Text 
+                                    style={[
+                                        styles.gridLabel,
+                                        item.id === 7 && { color: '#2F847C', fontWeight: 'bold' }
+                                    ]}
+                                >
+                                    {item.label}
+                                </Text>
                             </TouchableOpacity>
                         ))}
                     </View>
 
-                    {/* Khu vực nội dung khác bên dưới (nếu có) */}
                     <View style={{ marginTop: 30 }}>
                         <Text style={{ textAlign: 'center', color: '#999' }}>
-                            Thêm các nội dung khác của trang chủ ở đây...
+                            {isAdmin ? "Chế độ Quản trị viên đang bật" : "Chung tay bảo vệ hành tinh xanh"}
                         </Text>
                     </View>
-
                 </View>
             </ScrollView>
         </View>
@@ -126,47 +124,14 @@ const HomeScreen = ({ navigation }) => {
 };
 
 const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: '#fff',
-    },
-    scrollView: {
-        flex: 1,
-    },
-    content: {
-        padding: PADDING,
-    },
-    sectionTitle: {
-        fontSize: 20,
-        fontWeight: '500', // Font mảnh vừa phải giống ảnh
-        color: '#000',
-        marginBottom: 15,
-    },
-    // Grid Styles
-    gridContainer: {
-        flexDirection: 'row',
-        flexWrap: 'wrap',
-        justifyContent: 'space-between', // Tự động đẩy các ô ra 2 biên
-        gap: SPACING, // (Chỉ hoạt động trên React Native mới), nếu lỗi layout dùng marginBottom ở dưới
-    },
-    gridItem: {
-        backgroundColor: '#e0e0e0', // Màu nền xám như thiết kế
-        borderRadius: 12,
-        marginBottom: SPACING, // Khoảng cách dòng
-        justifyContent: 'center',
-        alignItems: 'center',
-        padding: 5,
-    },
-    iconWrapper: {
-        marginBottom: 8,
-    },
-    gridLabel: {
-        fontSize: 12,
-        color: '#000',
-        textAlign: 'center',
-        fontWeight: '400',
-        paddingHorizontal: 2,
-    }
+    container: { flex: 1, backgroundColor: '#fff' },
+    scrollView: { flex: 1 },
+    content: { padding: PADDING },
+    sectionTitle: { fontSize: 20, fontWeight: '500', color: '#000', marginBottom: 15 },
+    gridContainer: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', gap: SPACING },
+    gridItem: { backgroundColor: '#e0e0e0', borderRadius: 12, marginBottom: SPACING, justifyContent: 'center', alignItems: 'center', padding: 5 },
+    iconWrapper: { marginBottom: 8 },
+    gridLabel: { fontSize: 12, color: '#000', textAlign: 'center', fontWeight: '400', paddingHorizontal: 2 }
 });
 
 export default HomeScreen;
