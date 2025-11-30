@@ -76,7 +76,6 @@ const CommunityPostCard = ({ post }) => {
         hidePost(post.id);
     };
 
-    // ✅ HÀM XỬ LÝ BÁO CÁO VI PHẠM
     const handleReport = () => {
         setModalVisible(false);
         setReportModalVisible(true);
@@ -102,7 +101,6 @@ const CommunityPostCard = ({ post }) => {
         }
     };
 
-    // ✅ HÀM CHUYỂN ĐẾN NHÓM
     const handleGroupPress = () => {
         if (currentPost.groupId) {
             navigation.navigate('GroupDetail', { groupId: currentPost.groupId });
@@ -172,7 +170,6 @@ const CommunityPostCard = ({ post }) => {
                                     <Ionicons name="eye-off-outline" size={20} color="#333" />
                                     <Text style={styles.modalText}>Ẩn bài viết</Text>
                                 </TouchableOpacity>
-                                {/* ✅ NÚT BÁO CÁO VI PHẠM */}
                                 <TouchableOpacity style={styles.modalItem} onPress={handleReport}>
                                     <Ionicons name="flag-outline" size={20} color="#FF9800" />
                                     <Text style={[styles.modalText, { color: '#FF9800' }]}>Báo cáo vi phạm</Text>
@@ -185,7 +182,6 @@ const CommunityPostCard = ({ post }) => {
         </Modal>
     );
 
-    // ✅ MODAL BÁO CÁO VI PHẠM
     const renderReportModal = () => (
         <Modal
             transparent={true}
@@ -243,7 +239,6 @@ const CommunityPostCard = ({ post }) => {
                 {renderAvatar()}
                 <View style={styles.userInfo}>
                     <Text style={styles.userName}>{post.userName}</Text>
-                    {/* ✅ HIỂN THỊ TÊN NHÓM NẾU CÓ */}
                     {post.groupName && (
                         <TouchableOpacity
                             onPress={handleGroupPress}
@@ -333,7 +328,6 @@ const styles = StyleSheet.create({
         fontSize: 16,
         color: '#333'
     },
-    // ✅ STYLE CHO TÊN NHÓM
     groupBadge: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -415,7 +409,6 @@ const styles = StyleSheet.create({
         fontFamily: 'Nunito-Regular',
         color: '#333'
     },
-    // ✅ STYLES CHO MODAL BÁO CÁO
     reportModalContent: {
         backgroundColor: 'white',
         borderRadius: 20,

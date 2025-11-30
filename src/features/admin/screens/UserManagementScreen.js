@@ -21,7 +21,6 @@ const UserManagementScreen = ({ navigation }) => {
     return () => unsubscribe();
   }, []);
 
-  // Hàm xóa người dùng (Chỉ xóa trên Firestore, không xóa Auth vì cần Admin SDK)
   const handleDeleteUser = (userId) => {
     Alert.alert(
       "Xác nhận xóa",
@@ -44,8 +43,6 @@ const UserManagementScreen = ({ navigation }) => {
     );
   };
 
-  // Hàm đổi quyền (Ví dụ: Ban/Unban hoặc Cấp quyền)
-  // Ở đây tôi demo chức năng khóa tài khoản (isBanned)
   const handleToggleBan = async (user) => {
     const newStatus = !user.isBanned;
     try {
@@ -72,7 +69,6 @@ const UserManagementScreen = ({ navigation }) => {
       </View>
       
       <View style={styles.actions}>
-        {/* Nút Khóa/Mở khóa */}
         <TouchableOpacity 
             style={[styles.actionBtn, {backgroundColor: item.isBanned ? '#27AE60' : '#F39C12'}]}
             onPress={() => handleToggleBan(item)}
@@ -80,7 +76,6 @@ const UserManagementScreen = ({ navigation }) => {
             <MaterialIcons name={item.isBanned ? "lock-open" : "lock-outline"} size={20} color="#fff" />
         </TouchableOpacity>
         
-        {/* Nút Xóa */}
         <TouchableOpacity 
             style={[styles.actionBtn, {backgroundColor: '#C0392B'}]}
             onPress={() => handleDeleteUser(item.id)}
@@ -94,8 +89,6 @@ const UserManagementScreen = ({ navigation }) => {
   return (
     <View style={styles.container}>
         <View style={styles.header}>
-             {/* Nếu bạn dùng AdminNavigator có header riêng thì có thể bỏ header custom này */}
-             {/* Nhưng để đồng bộ style, ta có thể giữ lại */}
         </View>
 
       {loading ? (
@@ -116,7 +109,7 @@ const UserManagementScreen = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F4F6F8' },
   listContent: { padding: 15 },
-  header: { height: 10 }, // Spacer nếu cần
+  header: { height: 10 }, 
   emptyText: { textAlign: 'center', marginTop: 20, color: '#7F8C8D' },
   
   card: {

@@ -4,11 +4,9 @@ import {
 } from 'react-native';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 
-// Import Firebase
 import { collection, query, orderBy, onSnapshot } from 'firebase/firestore';
 import { db } from '../../../config/firebaseConfig';
 
-// Cấu hình hiển thị trạng thái
 const STATUS_CONFIG = {
   'pending': { label: 'Chờ duyệt', color: '#F39C12', bg: '#FEF5E7' },
   'approved': { label: 'Đã duyệt', color: '#27AE60', bg: '#E9F7EF' },
@@ -23,7 +21,6 @@ const AdminReportListScreen = ({ navigation }) => {
   useEffect(() => {
     const reportsRef = collection(db, 'reports');
     
-    // --- QUERY ADMIN: Lấy TẤT CẢ báo cáo, mới nhất lên đầu ---
     const q = query(
       reportsRef, 
       orderBy('createdAt', 'desc')
@@ -52,24 +49,19 @@ const AdminReportListScreen = ({ navigation }) => {
 
   const formatTime = (timestamp) => {
     if (!timestamp) return '';
-    // Kiểm tra an toàn cho timestamp
     const date = timestamp?.toDate ? timestamp.toDate() : new Date(timestamp);
-    // Nếu date không hợp lệ
     if (isNaN(date.getTime())) return 'Vừa xong';
     
     return `${date.getDate()}/${date.getMonth() + 1} ${date.getHours()}:${date.getMinutes() < 10 ? '0' : ''}${date.getMinutes()}`;
   };
 
   const handlePressReport = (report) => {
-    // Chuyển sang màn hình chi tiết (ReportDetail)
-    // Màn hình này đã được tích hợp logic Admin duyệt bài
     navigation.navigate('ReportDetail', { reportData: report });
   };
 
   const renderItem = ({ item }) => {
     const status = STATUS_CONFIG[item.status] || STATUS_CONFIG['pending'];
     
-    // [FIX LỖI] Kiểm tra an toàn trước khi cắt chuỗi userId
     const userIdDisplay = item.userId && typeof item.userId === 'string' 
         ? item.userId.substring(0, 8) + '...' 
         : 'Khách (Không ID)';
@@ -80,7 +72,6 @@ const AdminReportListScreen = ({ navigation }) => {
         onPress={() => handlePressReport(item)}
         activeOpacity={0.7}
       >
-        {/* Ảnh thumbnail */}
         <View style={styles.imageContainer}>
           {item.imageUrl ? (
             <Image source={{ uri: item.imageUrl }} style={styles.image} />
@@ -91,7 +82,6 @@ const AdminReportListScreen = ({ navigation }) => {
           )}
         </View>
 
-        {/* Nội dung */}
         <View style={styles.cardContent}>
           <View style={styles.cardHeader}>
             <Text style={styles.violationTitle} numberOfLines={1}>{item.violationType || "Báo cáo"}</Text>
@@ -102,7 +92,6 @@ const AdminReportListScreen = ({ navigation }) => {
           
           <Text style={styles.dateText}>{formatTime(item.createdAt)}</Text>
           
-          {/* Hiển thị User ID an toàn */}
           <View style={styles.userRow}>
              <Ionicons name="person-circle-outline" size={14} color="#7f8c8d" />
              <Text style={styles.userText} numberOfLines={1}>

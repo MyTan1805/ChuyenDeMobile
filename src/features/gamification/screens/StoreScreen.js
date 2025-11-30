@@ -113,7 +113,7 @@ const StoreScreen = ({ navigation }) => {
     return (
         <View style={styles.container}>
             {/* SỬ DỤNG CUSTOM HEADER TỪ COMPONENT */}
-            <CustomHeader title="Cửa hàng xanh" showBackButton={true} />
+            <CustomHeader title="Cửa hàng xanh" />
 
             <View style={styles.header}>
                 <Text style={styles.currentPointsLabel}>Điểm tích lũy hiện tại:</Text>

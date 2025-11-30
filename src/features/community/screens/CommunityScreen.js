@@ -35,8 +35,7 @@ const THEME = {
 };
 
 const CATEGORIES = [
-    { id: 'diy', title: 'Tái chế &\nDIY', icon: 'tools', iconLib: 'Ionicons', screen: 'RecycleDIY' },
-    { id: 'quiz', title: 'Thử thách', icon: 'game-controller', iconLib: 'Ionicons', screen: 'QuizCollection' },
+    { id: 'diy', title: 'Tái chế &\nDIY', icon: 'tools', iconLib: 'FontAwesome5', screen: 'RecycleDIY', color: '#E0F2F1' },
     { id: 'waste', title: 'Phân Loại', subtitle: 'Rác thải', icon: 'recycle', iconLib: 'MaterialCommunityIcons', screen: 'WasteClassification', color: '#E8F5E9' },
     { id: 'library', title: 'Thư Viện', subtitle: 'Kiến thức', icon: 'book-open-page-variant', iconLib: 'MaterialCommunityIcons', screen: 'EcoLibrary', color: '#E3F2FD' },
     { id: 'quiz', title: 'Thử Thách', subtitle: 'Đố vui', icon: 'brain', iconLib: 'MaterialCommunityIcons', screen: 'QuizCollection', color: '#FFF3E0' },
@@ -146,16 +145,24 @@ const CommunityScreen = () => {
                 contentContainerStyle={styles.catScrollContent}
             >
                 {CATEGORIES.map((item, index) => {
-                    const IconComp = item.iconLib === 'Ionicons' ? Ionicons : MaterialCommunityIcons;
+                    const IconComp = item.iconLib === 'Ionicons' ? Ionicons : 
+                                     item.iconLib === 'FontAwesome5' ? FontAwesome5 : MaterialCommunityIcons;
+                    
                     return (
                         <TouchableOpacity
                             key={index}
                             style={styles.catCard}
-                            onPress={() => item.screen ? navigation.navigate(item.screen) : alert('Tính năng đang phát triển')}
+                            onPress={() => {
+                                if (item.screen) {
+                                    navigation.navigate(item.screen, item.params);
+                                } else {
+                                    alert('Tính năng đang phát triển');
+                                }
+                            }}
                             activeOpacity={0.8}
                         >
                             <View style={[styles.catIconContainer, { backgroundColor: item.color }]}>
-                                <IconComp name={item.icon} size={26} color={THEME.primary} />
+                                <IconComp name={item.icon} size={24} color={THEME.primary} />
                             </View>
                             <Text style={styles.catTitle}>{item.title}</Text>
                         </TouchableOpacity>

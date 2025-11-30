@@ -1,21 +1,16 @@
-// src/component/SearchBar.js
-
 import React from 'react';
 import { View, TextInput, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 const SearchBar = ({ value, onChangeText, placeholder = "Tìm kiếm...", style }) => {
-    // Hàm để xóa nội dung trong ô tìm kiếm
     const handleClear = () => {
         onChangeText('');
     };
 
     return (
         <View style={[styles.container, style]}>
-            {/* Icon tìm kiếm bên trái */}
             <Ionicons name="search-outline" size={22} color="#888" style={styles.icon} />
 
-            {/* Ô nhập liệu */}
             <TextInput
                 style={styles.input}
                 placeholder={placeholder}
@@ -24,7 +19,6 @@ const SearchBar = ({ value, onChangeText, placeholder = "Tìm kiếm...", style 
                 onChangeText={onChangeText}
             />
 
-            {/* Nút 'x' để xóa, chỉ hiện khi có chữ */}
             {value.length > 0 && (
                 <TouchableOpacity onPress={handleClear}>
                     <Ionicons name="close-circle" size={22} color="#888" style={styles.icon} />
@@ -38,7 +32,7 @@ const styles = StyleSheet.create({
     container: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: '#f0f1f5', // Màu nền xám nhạt
+        backgroundColor: '#f0f1f5', 
         borderRadius: 12,
         height: 45,
         paddingHorizontal: 12,

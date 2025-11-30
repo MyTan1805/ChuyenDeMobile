@@ -25,21 +25,17 @@ export default function VerifyEmailScreen() {
 
     const { email, type } = route.params || {};
 
-    // Logic kiểm tra verify
     const handleCheckVerification = async () => {
         setChecking(true);
         const isVerified = await checkVerificationStatus();
         setChecking(false);
 
         if (isVerified) {
-            // Nếu verify thành công, AppNavigator sẽ tự chuyển sang MainStack
-            // Không cần navigate thủ công
         } else {
-            // Alert.alert("Chưa xác thực", "Vui lòng kiểm tra email và ấn link xác nhận.");
+            Alert.alert("Chưa xác thực", "Vui lòng kiểm tra email và ấn link xác nhận.");
         }
     };
 
-    // Tự động kiểm tra khi app quay lại từ background (sau khi user check mail xong)
     useEffect(() => {
         const handleAppStateChange = async (nextAppState) => {
             if (nextAppState === 'active' && type === 'emailVerification') {
@@ -67,7 +63,6 @@ export default function VerifyEmailScreen() {
 
     const handleLogout = async () => {
         await logout();
-        // AppNavigator tự chuyển về màn Login
     };
 
     const getMessage = () => {
@@ -92,7 +87,6 @@ export default function VerifyEmailScreen() {
                         <Text style={styles.messageText}>{getMessage()}</Text>
                     </View>
 
-                    {/* Nút xác nhận thủ công (cho trường hợp AppState chưa kịp bắt) */}
                     {isVerifyFlow && (
                         <TouchableOpacity
                             style={styles.button}
@@ -107,7 +101,6 @@ export default function VerifyEmailScreen() {
                         </TouchableOpacity>
                     )}
 
-                    {/* Nút quay lại / Đăng xuất */}
                     {isVerifyFlow ? (
                         <TouchableOpacity onPress={handleLogout} style={{ marginTop: 20 }}>
                             <Text style={styles.link}>Đăng nhập tài khoản khác</Text>

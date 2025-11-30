@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { View, ImageBackground, Text, StyleSheet, SafeAreaView, ScrollView, TextInput, TouchableOpacity } from 'react-native';
 import { Svg, Path } from 'react-native-svg';
 
-// Component Input tái sử dụng
 const CustomTextInput = ({ placeholder, icon, secureTextEntry = false, value, onChangeText }) => (
     <View style={styles.inputContainer}>
         <View style={styles.icon}>{icon}</View>
@@ -17,7 +16,6 @@ const CustomTextInput = ({ placeholder, icon, secureTextEntry = false, value, on
     </View>
 );
 
-// Component Header tái sử dụng
 const AuthHeader = () => (
     <ImageBackground
         style={styles.headerBackground}
@@ -74,17 +72,16 @@ export default function NewPasswordScreen({ navigation }) {
     );
 }
 
-// Styles
 const styles = StyleSheet.create({
     safeArea: { flex: 1, backgroundColor: '#fff' },
     scrollView: { flexGrow: 1, backgroundColor: '#fff' },
     headerBackground: {
         width: '100%',
-        height: 306, // Chiều cao cố định như hình
+        height: 306, 
         alignItems: 'center',
         justifyContent: 'center',
-        borderBottomRightRadius: 180, // Tạo hình cong ở góc dưới bên phải
-        overflow: 'hidden', // Quan trọng để bo góc hoạt động
+        borderBottomRightRadius: 180, 
+        overflow: 'hidden',  
     },
     headerTitle: {
         fontFamily: 'LilitaOne-Regular',

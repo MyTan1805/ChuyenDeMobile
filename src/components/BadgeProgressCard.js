@@ -1,9 +1,6 @@
-// src/component/BadgeProgressCard.js
-
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 
-// --- COMPONENT ProgressBar (giờ nằm bên trong file này và không cần export) ---
 const ProgressBar = ({
     progress = 0,
     height = 8,
@@ -27,10 +24,7 @@ const ProgressBar = ({
         </View>
     );
 };
-// --- KẾT THÚC COMPONENT ProgressBar ---
 
-
-// --- COMPONENT CHÍNH (BadgeProgressCard) SẼ SỬ DỤNG COMPONENT ProgressBar Ở TRÊN ---
 const BadgeProgressCard = ({
     title,
     label,
@@ -50,7 +44,6 @@ const BadgeProgressCard = ({
                 <Text style={styles.percentageText}>{percentage}%</Text>
             </View>
 
-            {/* Sử dụng ProgressBar được định nghĩa ngay bên trên */}
             <ProgressBar
                 progress={progress}
                 style={styles.progressBar}
@@ -67,9 +60,7 @@ const BadgeProgressCard = ({
     );
 };
 
-// --- STYLES CHO CẢ HAI COMPONENT ---
 const styles = StyleSheet.create({
-    // Styles cho BadgeProgressCard
     container: {
         backgroundColor: '#f0f1f5',
         borderRadius: 16,
@@ -105,7 +96,6 @@ const styles = StyleSheet.create({
         color: '#666',
     },
 
-    // Styles cho ProgressBar (lấy từ file cũ)
     track: {
         width: '100%',
         justifyContent: 'center',

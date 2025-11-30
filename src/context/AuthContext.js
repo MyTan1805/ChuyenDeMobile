@@ -40,19 +40,14 @@ export const AuthProvider = ({ children }) => {
                 register: (email, password) => createUserWithEmailAndPassword(auth, email, password),
                 logout: () => signOut(auth),
 
-                // Gửi email reset password
                 resetPassword: (email) => sendPasswordResetEmail(auth, email),
 
-                // Gửi email xác nhận (sau khi đăng ký)
                 sendVerification: (user) => sendEmailVerification(user),
 
-                // Xác minh mã reset password
                 verifyResetCode: (oobCode) => verifyPasswordResetCode(auth, oobCode),
 
-                // Xác nhận đổi mật khẩu mới
                 confirmNewPassword: (oobCode, newPassword) => confirmPasswordReset(auth, oobCode, newPassword),
 
-                // Xác nhận email verification
                 verifyEmail: (oobCode) => applyActionCode(auth, oobCode)
             }}
         >

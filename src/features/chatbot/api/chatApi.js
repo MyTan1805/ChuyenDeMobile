@@ -1,15 +1,9 @@
-// src/features/chatbot/api/chatApi.js
 import { GEMINI_API_KEY } from '@env';
 
-// ✅ GEMINI 2.5 FLASH - Model mới nhất, nhanh và thông minh
 const GEMINI_ENDPOINT = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent';
 
-// 🔧 MOCK MODE - Bật để test khi hết quota
-const USE_MOCK = false; // Đổi thành false khi có API key mới
+const USE_MOCK = false; 
 
-/**
- * Mock responses cho testing
- */
 const MOCK_RESPONSES = {
   'rác': 'Pin cũ thuộc loại rác thải nguy hại, cần đưa đến điểm thu gom chuyên dụng. Ở Việt Nam, bạn có thể tìm điểm thu gom pin tại các siêu thị lớn (Co.opMart, BigC) hoặc liên hệ đội thu gom rác khu vực. 🔋♻️',
   'pin': 'Pin và ắc quy cần được xử lý riêng vì chứa kim loại nặng độc hại. Không vứt pin vào rác thải sinh hoạt! Các trung tâm điện máy như Thế Giới Di Động, FPT Shop thường có thùng thu gom pin cũ miễn phí. 🔋',
@@ -29,14 +23,10 @@ function getMockResponse(message) {
   return MOCK_RESPONSES.default;
 }
 
-/**
- * Gửi tin nhắn đến Gemini AI và nhận phản hồi
- */
 export const sendMessageToAI = async (userMessage) => {
-  // 🔧 Mock mode cho testing
   if (USE_MOCK) {
     console.log('🧪 Using MOCK mode');
-    await new Promise(resolve => setTimeout(resolve, 1000)); // Giả lập delay
+    await new Promise(resolve => setTimeout(resolve, 1000)); 
     return {
       text: getMockResponse(userMessage),
       suggestions: generateContextualSuggestions(userMessage)
@@ -73,7 +63,6 @@ Câu hỏi: ${userMessage}`;
       const errorData = await response.json();
       console.error('❌ API Error:', errorData);
       
-      // Fallback to mock if rate limited
       if (errorData.error?.code === 429) {
         console.log('⚠️ Rate limited, using mock response');
         return {
@@ -104,9 +93,6 @@ Câu hỏi: ${userMessage}`;
   }
 };
 
-/**
- * Tạo gợi ý câu hỏi dựa trên context
- */
 function generateContextualSuggestions(lastMessage) {
   const msg = lastMessage.toLowerCase();
   
@@ -134,7 +120,6 @@ function generateContextualSuggestions(lastMessage) {
     ];
   }
   
-  // Gợi ý mặc định
   return [
     "Mẹo sống xanh mỗi ngày? 🌿",
     "Cách giảm rác thải nhựa? 🥤",
@@ -142,10 +127,6 @@ function generateContextualSuggestions(lastMessage) {
   ];
 }
 
-/**
- * Lấy gợi ý hành động theo mùa/sự kiện từ AI (FR-5.3)
- * AI tự động phân tích và đưa ra lời khuyên phù hợp
- */
 export const getSeasonalSuggestions = async () => {
   const currentMonth = new Date().getMonth() + 1;
   const currentDate = new Date().toLocaleDateString('vi-VN', { 
@@ -154,7 +135,6 @@ export const getSeasonalSuggestions = async () => {
     year: 'numeric' 
   });
   
-  // Prompt để AI tạo gợi ý theo mùa
   const seasonPrompt = `Hôm nay là ${currentDate} tại Việt Nam.
 
 Hãy đưa ra 4 gợi ý ngắn gọn (mỗi gợi ý 5-8 từ) về hành động bảo vệ môi trường phù hợp với:
@@ -173,7 +153,6 @@ Trả về ĐÚNG format JSON sau (không có văn bản giải thích khác):
 }`;
 
   try {
-    // Nếu dùng mock mode
     if (USE_MOCK) {
       return getMockSeasonalSuggestions(currentMonth);
     }
@@ -186,7 +165,7 @@ Trả về ĐÚNG format JSON sau (không có văn bản giải thích khác):
       body: JSON.stringify({
         contents: [{ parts: [{ text: seasonPrompt }] }],
         generationConfig: {
-          temperature: 0.8, // Cao hơn để sáng tạo
+          temperature: 0.8, 
           maxOutputTokens: 300,
           topP: 0.95,
           topK: 40
@@ -201,7 +180,6 @@ Trả về ĐÚNG format JSON sau (không có văn bản giải thích khác):
     const data = await response.json();
     const aiText = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
 
-    // Parse JSON từ response
     const jsonMatch = aiText.match(/\{[\s\S]*\}/);
     if (jsonMatch) {
       const parsed = JSON.parse(jsonMatch[0]);
@@ -209,7 +187,6 @@ Trả về ĐÚNG format JSON sau (không có văn bản giải thích khác):
       return parsed.suggestions;
     }
 
-    // Fallback nếu parse thất bại
     return getMockSeasonalSuggestions(currentMonth);
 
   } catch (error) {
@@ -218,9 +195,6 @@ Trả về ĐÚNG format JSON sau (không có văn bản giải thích khác):
   }
 };
 
-/**
- * Mock seasonal suggestions (fallback)
- */
 function getMockSeasonalSuggestions(month) {
   const seasonalTips = {
     dry: [
@@ -241,24 +215,19 @@ function getMockSeasonalSuggestions(month) {
   return seasonalTips[season];
 }
 
-/**
- * Text-to-Speech: Đọc văn bản (FR-5.2)
- */
 export const speakText = async (text) => {
   try {
     const Speech = require('expo-speech');
     
-    // Kiểm tra xem có đang nói không
     const isSpeaking = await Speech.isSpeakingAsync();
     if (isSpeaking) {
       await Speech.stop();
     }
     
-    // Đọc văn bản bằng giọng Việt Nam
     await Speech.speak(text, {
       language: 'vi-VN',
       pitch: 1.0,
-      rate: 0.85, // Tốc độ chậm hơn chút cho dễ nghe
+      rate: 0.85, 
     });
     
     console.log('🔊 Speaking:', text.substring(0, 50) + '...');
@@ -268,10 +237,6 @@ export const speakText = async (text) => {
   }
 };
 
-/**
- * Speech-to-Text: Placeholder (FR-5.2)
- * TODO: Cần tích hợp expo-speech-recognition hoặc Google Speech API
- */
 export const startVoiceRecognition = async () => {
   try {
     const { ExpoSpeechRecognitionModule, useSpeechRecognitionEvent } = 

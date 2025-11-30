@@ -56,7 +56,7 @@ const styles = StyleSheet.create({
     },
     container: {
         flex: 1,
-        justifyContent: 'center', // Căn giữa tiêu đề
+        justifyContent: 'center', 
         alignItems: 'center',
     },
     title: {
@@ -66,11 +66,11 @@ const styles = StyleSheet.create({
         textShadowColor: 'rgba(0, 0, 0, 0.75)',
         textShadowOffset: { width: 2, height: 3 },
         textShadowRadius: 5,
-        position: 'absolute', // Đặt tiêu đề ở giữa
+        position: 'absolute', 
         top: '25%',
     },
     bottomZone: {
-        position: 'absolute', // Đặt vùng nút ở dưới
+        position: 'absolute',  
         bottom: '15%',
         width: '100%',
         alignItems: 'center',

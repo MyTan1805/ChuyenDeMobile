@@ -1,8 +1,6 @@
-// src/component/CustomCheckbox.js
-
 import React from 'react';
 import { TouchableOpacity, StyleSheet, View } from 'react-native';
-import { Ionicons } from '@expo/vector-icons'; // Import icon
+import { Ionicons } from '@expo/vector-icons';  
 
 const CustomCheckbox = ({
     isChecked,
@@ -23,13 +21,11 @@ const CustomCheckbox = ({
                         width: size, 
                         height: size, 
                         borderWidth: 2,
-                        // Áp dụng style dựa trên isChecked
                         backgroundColor: isChecked ? '#009688' : '#FFFFFF',
                         borderColor: isChecked ? '#009688' : '#BDBDBD',
                     }
                 ]}
             >
-                {/* Chỉ hiển thị icon khi isChecked là true */}
                 {isChecked && (
                     <Ionicons name="checkmark" size={size * 0.7} color="white" />
                 )}

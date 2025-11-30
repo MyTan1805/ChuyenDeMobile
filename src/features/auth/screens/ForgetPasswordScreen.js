@@ -10,12 +10,11 @@ import {
     TouchableOpacity,
     ActivityIndicator,
     Alert,
-    KeyboardAvoidingView, Platform // <-- Đã thêm import
+    KeyboardAvoidingView, Platform  
 } from 'react-native';
 import { Svg, Path } from 'react-native-svg';
 import { useNavigation } from '@react-navigation/native';
 
-// --- THAY VÌ DÙNG CONTEXT, GỌI TRỰC TIẾP FIREBASE ---
 import { auth } from '../../../config/firebaseConfig'; 
 import { sendPasswordResetEmail } from 'firebase/auth';
 
@@ -62,7 +61,6 @@ export default function ForgetPasswordScreen() {
 
         setLoading(true);
         try {
-            // Gọi hàm gửi mail trực tiếp từ Firebase
             await sendPasswordResetEmail(auth, email.trim());
             
             Alert.alert(
@@ -77,7 +75,6 @@ export default function ForgetPasswordScreen() {
             );
         } catch (error) {
             let friendlyMessage = "Đã xảy ra lỗi. Vui lòng thử lại.";
-            // Xử lý các mã lỗi phổ biến
             if (error.code === 'auth/user-not-found') friendlyMessage = "Email này chưa đăng ký tài khoản.";
             if (error.code === 'auth/invalid-email') friendlyMessage = "Email không hợp lệ.";
             
@@ -90,7 +87,6 @@ export default function ForgetPasswordScreen() {
 
     return (
         <SafeAreaView style={styles.safeArea}>
-            {/* Thêm KeyboardAvoidingView bao bọc ScrollView */}
             <KeyboardAvoidingView
                 style={{ flex: 1 }}
                 behavior={Platform.OS === "ios" ? "padding" : "height"}

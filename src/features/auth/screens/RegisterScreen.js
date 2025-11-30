@@ -44,7 +44,6 @@ export default function RegisterScreen({ navigation }) {
 
         setLoading(true);
         try {
-            // CẬP NHẬT: Truyền name vào hàm register
             const result = await register(email, password, name);
 
             if (result.success) {
@@ -55,7 +54,6 @@ export default function RegisterScreen({ navigation }) {
                     "Vui lòng kiểm tra email để xác nhận tài khoản trước khi sử dụng."
                 );
 
-                // AppNavigator sẽ tự động điều hướng dựa trên user state
             } else {
                 let friendlyMessage = "Đã có lỗi xảy ra.";
                 if (result.error.code === 'auth/email-already-in-use') friendlyMessage = 'Email này đã được sử dụng.';

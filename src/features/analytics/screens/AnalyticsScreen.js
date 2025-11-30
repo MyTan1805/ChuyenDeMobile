@@ -7,7 +7,6 @@ import { LineChart, BarChart, PieChart } from 'react-native-chart-kit';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 
-// Firebase
 import { collection, query, getDocs, where } from 'firebase/firestore';
 import { db } from '../../../config/firebaseConfig';
 
@@ -20,7 +19,7 @@ const AnalyticsScreen = ({ navigation }) => {
     pending: 0,
     approved: 0,
     rejected: 0,
-    monthlyData: [0, 0, 0, 0, 0, 0], // Dữ liệu 6 tháng gần nhất
+    monthlyData: [0, 0, 0, 0, 0, 0], 
   });
 
   useEffect(() => {
@@ -34,7 +33,6 @@ const AnalyticsScreen = ({ navigation }) => {
       const snapshot = await getDocs(q);
       
       let total = 0, pending = 0, approved = 0, rejected = 0;
-      // Giả lập dữ liệu tháng (trong thực tế cần xử lý ngày tháng chi tiết hơn)
       const monthlyCounts = [0, 0, 0, 0, 0, 0]; 
 
       snapshot.forEach(doc => {
@@ -44,8 +42,6 @@ const AnalyticsScreen = ({ navigation }) => {
         if (data.status === 'approved') approved++;
         if (data.status === 'rejected') rejected++;
         
-        // Logic giả lập phân loại theo tháng để demo biểu đồ
-        // (Lấy ngẫu nhiên để biểu đồ có dữ liệu hiển thị đẹp mắt)
         const randomMonth = Math.floor(Math.random() * 6);
         monthlyCounts[randomMonth]++;
       });
@@ -62,7 +58,6 @@ const AnalyticsScreen = ({ navigation }) => {
     }
   };
 
-  // Hàm tạo và xuất PDF
   const handleExportPDF = async () => {
     try {
       const htmlContent = `
@@ -118,10 +113,8 @@ const AnalyticsScreen = ({ navigation }) => {
         </html>
       `;
 
-      // Tạo file PDF
       const { uri } = await Print.printToFileAsync({ html: htmlContent });
       
-      // Chia sẻ file PDF
       await Sharing.shareAsync(uri, { UTI: '.pdf', mimeType: 'application/pdf' });
       
     } catch (error) {
@@ -129,7 +122,6 @@ const AnalyticsScreen = ({ navigation }) => {
     }
   };
 
-  // Cấu hình biểu đồ
   const chartConfig = {
     backgroundGradientFrom: "#fff",
     backgroundGradientTo: "#fff",
@@ -161,7 +153,6 @@ const AnalyticsScreen = ({ navigation }) => {
           <ActivityIndicator size="large" color="#2F847C" style={{marginTop: 50}} />
         ) : (
           <>
-            {/* 1. Thẻ Tổng Quan */}
             <View style={styles.summaryContainer}>
                <View style={styles.summaryItem}>
                   <Text style={styles.summaryValue}>{stats.totalReports}</Text>
@@ -179,7 +170,6 @@ const AnalyticsScreen = ({ navigation }) => {
                </View>
             </View>
 
-            {/* 2. Biểu đồ Tròn (Tỷ lệ trạng thái) */}
             <Text style={styles.sectionTitle}>Tỷ lệ xử lý báo cáo</Text>
             <View style={styles.chartCard}>
                <PieChart
@@ -194,7 +184,6 @@ const AnalyticsScreen = ({ navigation }) => {
                />
             </View>
 
-            {/* 3. Biểu đồ Đường (Xu hướng theo tháng) */}
             <Text style={styles.sectionTitle}>Xu hướng báo cáo (6 tháng)</Text>
             <View style={styles.chartCard}>
                <LineChart
@@ -213,7 +202,6 @@ const AnalyticsScreen = ({ navigation }) => {
                />
             </View>
 
-            {/* Nút hành động */}
             <TouchableOpacity style={styles.exportButton} onPress={handleExportPDF}>
                 <Text style={styles.exportButtonText}>XUẤT BÁO CÁO CHI TIẾT (PDF)</Text>
                 <MaterialIcons name="file-download" size={20} color="#fff" style={{marginLeft: 8}} />
@@ -236,7 +224,6 @@ const styles = StyleSheet.create({
   headerTitle: { fontSize: 18, fontWeight: 'bold', color: '#333' },
   content: { padding: 16 },
   
-  // Summary
   summaryContainer: {
     flexDirection: 'row', backgroundColor: '#fff', borderRadius: 12, padding: 20,
     justifyContent: 'space-between', alignItems: 'center', marginBottom: 20,

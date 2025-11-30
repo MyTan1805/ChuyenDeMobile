@@ -29,13 +29,10 @@ const AdminDashboardScreen = ({ navigation }) => {
       </View>
 
       <View style={styles.menuContainer}>
-        {/* 1. Duyệt Báo Cáo */}
         {renderMenuOption('Duyệt Báo Cáo Vi Phạm', 'assignment-turned-in', '#E67E22', 'AdminReportList')}
 
-        {/* 2. Tạo Quiz */}
         {renderMenuOption('Tạo Quiz Mới', 'quiz', '#9B59B6', 'CreateQuiz')}
 
-        {/* 3. [MỚI] Quản lý người dùng - Đã đổi route thành 'UserManagement' */}
         {renderMenuOption('Quản Lý Người Dùng', 'people', '#3498DB', 'UserManagement')}
       </View>
     </ScrollView>

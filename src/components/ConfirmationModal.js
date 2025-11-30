@@ -1,48 +1,38 @@
-// src/component/ConfirmationModal.js
-
 import React from 'react';
 import { Modal, View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { Ionicons } from '@expo/vector-icons'; // Đảm bảo bạn đã cài @expo/vector-icons
+import { Ionicons } from '@expo/vector-icons'; 
 
 const ConfirmationModal = ({
-    visible,                // Prop để điều khiển ẩn/hiện modal (true/false)
-    title,                  // Tiêu đề của thông báo
-    message,                // Nội dung chi tiết của thông báo
-    onConfirm,              // Hàm sẽ được gọi khi nhấn "Xác Nhận"
-    onCancel,               // Hàm sẽ được gọi khi nhấn "Huỷ"
-    confirmText = 'Xác Nhận', // Chữ trên nút xác nhận, có thể tuỳ chỉnh
-    cancelText = 'Huỷ',     // Chữ trên nút huỷ, có thể tuỳ chỉnh
+    visible,         
+    title,    
+    message,        
+    onConfirm,   
+    onCancel,     
+    confirmText = 'Xác Nhận', 
+    cancelText = 'Huỷ',   
 }) => {
     return (
         <Modal
             transparent={true}
             visible={visible}
             animationType="fade"
-            onRequestClose={onCancel} // Cho phép nút back của Android đóng modal
+            onRequestClose={onCancel}  
         >
-            {/* Lớp phủ mờ */}
             <View style={styles.overlay}>
-                {/* Khung chứa nội dung */}
                 <View style={styles.modalContainer}>
-                    {/* Icon */}
                     <View style={styles.iconContainer}>
                         <Ionicons name="alert-outline" size={32} color="#f44336" />
                     </View>
 
-                    {/* Tiêu đề */}
                     <Text style={styles.title}>{title}</Text>
 
-                    {/* Nội dung (nếu có) */}
                     {message && <Text style={styles.message}>{message}</Text>}
 
-                    {/* Khu vực chứa các nút */}
                     <View style={styles.buttonsContainer}>
-                        {/* Nút Huỷ */}
                         <TouchableOpacity style={[styles.button, styles.cancelButton]} onPress={onCancel}>
                             <Text style={styles.buttonText}>{cancelText}</Text>
                         </TouchableOpacity>
 
-                        {/* Nút Xác Nhận */}
                         <TouchableOpacity style={[styles.button, styles.confirmButton]} onPress={onConfirm}>
                             <Text style={[styles.buttonText, styles.confirmButtonText]}>{confirmText}</Text>
                         </TouchableOpacity>
@@ -56,7 +46,7 @@ const ConfirmationModal = ({
 const styles = StyleSheet.create({
     overlay: {
         flex: 1,
-        backgroundColor: 'rgba(0, 0, 0, 0.5)', // Nền đen mờ 50%
+        backgroundColor: 'rgba(0, 0, 0, 0.5)',
         justifyContent: 'center',
         alignItems: 'center',
     },
@@ -76,7 +66,7 @@ const styles = StyleSheet.create({
         width: 60,
         height: 60,
         borderRadius: 30,
-        backgroundColor: '#feebee', // Màu nền đỏ nhạt
+        backgroundColor: '#feebee', 
         justifyContent: 'center',
         alignItems: 'center',
         marginBottom: 15,
@@ -99,20 +89,20 @@ const styles = StyleSheet.create({
     buttonsContainer: {
         flexDirection: 'row',
         width: '100%',
-        justifyContent: 'space-between', // Đẩy 2 nút ra 2 bên
+        justifyContent: 'space-between', 
     },
     button: {
-        flex: 1, // Chia đều không gian cho 2 nút
+        flex: 1, 
         paddingVertical: 12,
         borderRadius: 12,
         alignItems: 'center',
-        marginHorizontal: 5, // Tạo khoảng cách giữa 2 nút
+        marginHorizontal: 5, 
     },
     cancelButton: {
-        backgroundColor: '#e0e0e0', // Màu xám nhạt
+        backgroundColor: '#e0e0e0', 
     },
     confirmButton: {
-        backgroundColor: '#8BC34A', // Màu xanh lá cây
+        backgroundColor: '#8BC34A',  
     },
     buttonText: {
         fontSize: 16,

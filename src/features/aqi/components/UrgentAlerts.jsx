@@ -1,35 +1,57 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { Ionicons } from '@expo/vector-icons'; // Import Icon
-
-const mockAlerts = [
-    { id: 1, type: 'warning', text: 'Cảnh báo ô nhiễm không khí cao tại khu vực Hoàn Kiếm. Cần hành động!' },
-    { id: 2, type: 'info', text: 'Chiến dịch thu gom rác thải tình nguyện sắp diễn ra.' },
-];
+import { Ionicons } from '@expo/vector-icons';
+import { collection, query, where, onSnapshot, orderBy, limit } from 'firebase/firestore';
+import { db } from '../../../config/firebaseConfig'; // Import db
 
 const UrgentAlerts = () => {
+    const [alerts, setAlerts] = useState([]);
+
+    useEffect(() => {
+        // Lấy 2 chiến dịch mới nhất đang hoạt động
+        const q = query(
+            collection(db, "campaigns"),
+            where("isActive", "==", true),
+            orderBy("createdAt", "desc"),
+            limit(2)
+        );
+
+        const unsubscribe = onSnapshot(q, (snapshot) => {
+            const data = snapshot.docs.map(doc => ({
+                id: doc.id,
+                ...doc.data()
+            }));
+            setAlerts(data);
+        });
+
+        return () => unsubscribe();
+    }, []);
+
+    if (alerts.length === 0) return null; // Ẩn nếu không có tin
+
     return (
         <View style={styles.container}>
-            {mockAlerts.map((alert) => {
-                const isWarning = alert.type === 'warning';
-                return (
-                    <TouchableOpacity 
-                        key={alert.id} 
-                        style={[
-                            styles.alertItem, 
-                            isWarning ? styles.warningBg : styles.infoBg
-                        ]}
-                    >
-                        <Ionicons 
-                            name={isWarning ? "warning" : "notifications"} 
-                            size={24} 
-                            color={isWarning ? "#FF5252" : "#333"} 
-                            style={styles.icon}
-                        />
-                        <Text style={styles.alertText}>{alert.text}</Text>
-                    </TouchableOpacity>
-                );
-            })}
+            {alerts.map((item) => (
+                <TouchableOpacity 
+                    key={item.id} 
+                    style={[
+                        styles.alertItem, 
+                        // Chiến dịch quan trọng thì màu đỏ, thường thì màu xanh
+                        item.isUrgent ? styles.warningBg : styles.infoBg
+                    ]}
+                >
+                    <Ionicons 
+                        name={item.isUrgent ? "warning" : "megaphone"} 
+                        size={24} 
+                        color={item.isUrgent ? "#D32F2F" : "#2E7D32"} 
+                        style={styles.icon}
+                    />
+                    <View style={{flex: 1}}>
+                        <Text style={styles.title}>{item.name}</Text>
+                        <Text style={styles.alertText} numberOfLines={2}>{item.description}</Text>
+                    </View>
+                </TouchableOpacity>
+            ))}
         </View>
     );
 };
@@ -39,26 +61,15 @@ const styles = StyleSheet.create({
     alertItem: {
         flexDirection: 'row',
         padding: 16,
-        borderRadius: 16, // Bo góc tròn hơn
+        borderRadius: 16,
         marginBottom: 12,
         alignItems: 'center',
     },
-    warningBg: {
-        backgroundColor: '#FFEBEB', // Màu nền cảnh báo (hồng nhạt)
-    },
-    infoBg: {
-        backgroundColor: '#F5F5F5', // Màu nền thông tin (xám nhạt)
-    },
-    icon: { 
-        marginRight: 12 
-    },
-    alertText: { 
-        flex: 1, 
-        fontSize: 14, 
-        color: '#333',
-        lineHeight: 20, // Giãn dòng cho dễ đọc
-        fontWeight: '500'
-    },
+    warningBg: { backgroundColor: '#FFEBEE' },
+    infoBg: { backgroundColor: '#E8F5E9' },
+    icon: { marginRight: 12 },
+    title: { fontFamily: 'Nunito-Bold', fontSize: 15, color: '#333', marginBottom: 2 },
+    alertText: { fontSize: 13, color: '#555', fontFamily: 'Nunito-Regular', lineHeight: 18 },
 });
 
 export default UrgentAlerts;

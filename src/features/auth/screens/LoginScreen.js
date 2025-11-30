@@ -21,10 +21,8 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Linking from "expo-linking";
 import * as WebBrowser from "expo-web-browser";
 
-// --- QUAN TRỌNG: Import makeRedirectUri từ đây ---
 import { ResponseType, makeRedirectUri } from "expo-auth-session";
 
-// --- SOCIAL LOGIN PROVIDERS ---
 import * as Facebook from "expo-auth-session/providers/facebook";
 import * as Google from "expo-auth-session/providers/google";
 
@@ -37,10 +35,8 @@ import {
 import { auth } from "@/config/firebaseConfig";
 import { useUserStore } from "@/store/userStore";
 
-// Bắt buộc cho Expo WebBrowser
 WebBrowser.maybeCompleteAuthSession();
 
-// --- COMPONENTS ---
 const CustomTextInput = ({
   placeholder,
   icon,
@@ -87,20 +83,16 @@ export default function LoginScreen({ navigation }) {
     loadCredentials();
   }, []);
 
-  // --------------------------
-  // CẤU HÌNH SOCIAL LOGIN
-  // --------------------------
 
   const redirectUri = makeRedirectUri({
-    scheme: 'ecomate', // Phải khớp với "scheme" trong app.json
-    path: 'auth'       // Đường dẫn phụ để tránh xung đột
+    scheme: 'ecomate',  
+    path: 'auth'     
   });
 
   console.log("---------------------------------------------------");
   console.log("LINK ĐANG DÙNG:", redirectUri);
   console.log("---------------------------------------------------");
 
-  // --- FACEBOOK LOGIN CONFIG ---
   const [fbRequest, fbResponse, fbPromptAsync] = Facebook.useAuthRequest({
     clientId: "1528691631678762",
     responseType: ResponseType.Token,
@@ -119,9 +111,6 @@ export default function LoginScreen({ navigation }) {
     }
   }, [fbResponse]);
 
-  // --- GOOGLE LOGIN CONFIG ---
-  // Lưu ý: Google yêu cầu redirectUri khác, hoặc cần cấu hình riêng. 
-  // Với Proxy, Google thường yêu cầu link https://auth.expo.io/...
   const [gRequest, gResponse, gPromptAsync] = Google.useIdTokenAuthRequest({
     iosClientId: "982272940577-b1pghar1amret407nno3ums1t6ve4shh.apps.googleusercontent.com",
     androidClientId: "982272940577-p0vi3v54rrqqtslfmr3ar3l9hh2tp2u1.apps.googleusercontent.com",
@@ -137,7 +126,6 @@ export default function LoginScreen({ navigation }) {
     }
   }, [gResponse]);
 
-  // --- XỬ LÝ CHUNG FIREBASE SOCIAL ---
   const handleFirebaseSocialLogin = async (credential) => {
     setLoading(true);
     try {
@@ -264,7 +252,6 @@ export default function LoginScreen({ navigation }) {
             <Text style={styles.orText}>Hoặc</Text>
 
             <View style={styles.socialContainer}>
-              {/* GOOGLE */}
               <TouchableOpacity
                 style={[styles.socialButton, (!gRequest || loading) && { opacity: 0.5 }]}
                 onPress={() => gPromptAsync()}
@@ -273,7 +260,6 @@ export default function LoginScreen({ navigation }) {
                 <Image source={{ uri: "https://img.icons8.com/color/48/000000/google-logo.png" }} style={styles.socialIcon} resizeMode="contain" />
               </TouchableOpacity>
 
-              {/* FACEBOOK */}
               <TouchableOpacity
                 style={[styles.socialButton, (!fbRequest || loading) && { opacity: 0.5 }]}
                 onPress={() => fbPromptAsync()}

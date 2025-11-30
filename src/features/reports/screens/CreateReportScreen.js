@@ -177,7 +177,7 @@ const CreateReportScreen = ({ route, navigation }) => {
         status: 'pending', createdAt: serverTimestamp(), userId: userId, 
       };
       await addDoc(collection(db, 'reports'), data);
-      Alert.alert("THÀNH CÔNG", "Đã gửi báo cáo!", [{ text: "OK", onPress: () => navigation.goBack() }]);
+      Alert.alert("THÀNH CÔNG", "Đãr gửi báo cáo!", [{ text: "OK", onPress: () => navigation.goBack() }]);
     } catch (error) { Alert.alert("Lỗi", error.message); } finally { setLoading(false); }
   };
 

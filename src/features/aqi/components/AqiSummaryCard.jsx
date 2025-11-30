@@ -1,140 +1,169 @@
 import React from 'react';
 import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { AQI_SCALE } from '../../../constants/aqiScale'; 
 
 const AqiSummaryCard = ({ aqiData, locationName, loading }) => {
-  // 1. Xử lý trạng thái đang tải
   if (loading) {
     return (
       <View style={[styles.card, styles.centerContent]}>
-        <ActivityIndicator size="large" color="#2E7D32" />
-        <Text style={{ marginTop: 10, color: '#666' }}>Đang phân tích không khí...</Text>
+        <ActivityIndicator size="large" color="#2F847C" />
       </View>
     );
   }
 
-  // 2. Xử lý khi chưa có dữ liệu
   if (!aqiData) {
     return (
       <View style={[styles.card, styles.centerContent]}>
-        <MaterialCommunityIcons name="weather-cloudy-alert" size={40} color="#999" />
-        <Text style={{ marginTop: 10, color: '#666' }}>Chưa có dữ liệu</Text>
+        <Text style={{ color: '#666', fontFamily: 'Nunito-Regular' }}>Chưa có dữ liệu vị trí</Text>
       </View>
     );
   }
 
-  // 3. Lấy thông tin từ dữ liệu API
-  const { aqi, components, dt } = aqiData;
-  // Map màu sắc và lời khuyên từ file constant
+  const { aqi, components } = aqiData;
   const scaleInfo = AQI_SCALE[aqi] || AQI_SCALE[1]; 
+  const pm25 = components.pm2_5;
   
-  // Lấy thời gian cập nhật từ timestamp
-  const updateTime = new Date(dt * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  // Tính % cho thanh progress (Max 300)
+  const progressPercent = Math.min((pm25 / 300) * 100, 100);
+
+  // Bộ màu Pastel (Nền) và Màu đậm (Chữ/Icon)
+  const getTheme = () => {
+      switch(aqi) {
+          case 1: return { bg: ['#E8F5E9', '#C8E6C9'], text: '#1B5E20', accent: '#2E7D32' }; // Tốt (Xanh)
+          case 2: return { bg: ['#FFFDE7', '#FFF59D'], text: '#F57F17', accent: '#FBC02D' }; // Khá (Vàng)
+          case 3: return { bg: ['#FFF3E0', '#FFCC80'], text: '#E65100', accent: '#FB8C00' }; // TB (Cam)
+          case 4: return { bg: ['#FFEBEE', '#EF9A9A'], text: '#B71C1C', accent: '#D32F2F' }; // Kém (Đỏ)
+          default: return { bg: ['#F3E5F5', '#CE93D8'], text: '#4A148C', accent: '#7B1FA2' }; // Rất kém (Tím)
+      }
+  };
+
+  const theme = getTheme();
 
   return (
-    <View style={[styles.card, { borderTopWidth: 4, borderTopColor: scaleInfo.color }]}>
-      
-      {/* Hàng 1: Tiêu đề nhỏ + Icon gió */}
-      <View style={styles.row}>
-        <Text style={styles.subTitle}>Chất lượng không khí</Text>
-        <MaterialCommunityIcons name="weather-windy" size={24} color="#666" />
-      </View>
+    <LinearGradient
+        colors={theme.bg}
+        style={styles.card}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+    >
+        {/* Header: Location & Icon */}
+        <View style={styles.topRow}>
+            <View style={{flex: 1}}>
+                <View style={styles.locationRow}>
+                    <Ionicons name="location-sharp" size={16} color={theme.text} style={{marginTop: 2}} />
+                    <Text style={[styles.locationText, { color: theme.text }]} numberOfLines={1}>
+                        {locationName}
+                    </Text>
+                </View>
+                <Text style={[styles.subLabel, { color: theme.text, opacity: 0.8 }]}>
+                    Cập nhật trực tiếp
+                </Text>
+            </View>
+            <View style={[styles.statusBadge, { backgroundColor: theme.accent }]}>
+                <Text style={styles.statusText}>{scaleInfo.label}</Text>
+            </View>
+        </View>
 
-      {/* Hàng 2: Trạng thái chữ to (Ví dụ: Trung bình) */}
-      <Text style={[styles.statusText, { color: scaleInfo.color }]}>
-        {scaleInfo.label}
-      </Text>
+        {/* Big Data Section */}
+        <View style={styles.mainDataRow}>
+            <View>
+                <Text style={[styles.bigNumber, { color: theme.text }]}>
+                    {pm25.toFixed(0)}
+                </Text>
+                <Text style={[styles.unitText, { color: theme.text }]}>AQI (US)</Text>
+            </View>
+            
+            {/* Cột thông tin phụ bên cạnh số to */}
+            <View style={styles.subDataCol}>
+                <View style={styles.dataItem}>
+                    <Text style={[styles.dataLabel, {color: theme.text}]}>PM2.5</Text>
+                    <Text style={[styles.dataValue, {color: theme.text}]}>{pm25.toFixed(1)}</Text>
+                </View>
+                <View style={styles.divider} />
+                <View style={styles.dataItem}>
+                    <Text style={[styles.dataLabel, {color: theme.text}]}>PM10</Text>
+                    <Text style={[styles.dataValue, {color: theme.text}]}>{components.pm10.toFixed(1)}</Text>
+                </View>
+            </View>
+        </View>
 
-      {/* Hàng 3: Số to (Dùng PM2.5 để hiển thị số chi tiết giống thiết kế, vì AQI chỉ từ 1-5) */}
-      <Text style={styles.bigNumber}>
-        {components.pm2_5.toFixed(0)}
-        <Text style={styles.unit}> (PM2.5)</Text>
-      </Text>
+        {/* Warning Text */}
+        <View style={[styles.adviceBox, { borderColor: theme.accent }]}>
+            <MaterialCommunityIcons name="comment-alert-outline" size={18} color={theme.text} style={{marginRight: 8}} />
+            <Text style={[styles.adviceText, { color: theme.text }]}>
+                {scaleInfo.advice}
+            </Text>
+        </View>
 
-      {/* Hàng 4: Địa điểm và thời gian */}
-      <View style={styles.footer}>
-        <Text style={styles.locationText} numberOfLines={1}>{locationName}</Text>
-        <Text style={styles.timeText}>Cập nhật: {updateTime}</Text>
-      </View>
-      
-      {/* (Optional) Lời khuyên ngắn */}
-      <View style={[styles.adviceBox, { backgroundColor: scaleInfo.color + '20' }]}>
-         <Text style={[styles.adviceText, { color: scaleInfo.color }]}>
-           {scaleInfo.advice}
-         </Text>
-      </View>
+        {/* Progress Bar */}
+        <View style={styles.progressContainer}>
+            <View style={styles.progressBarTrack}>
+                <View 
+                    style={[
+                        styles.progressBarFill, 
+                        { width: `${progressPercent}%`, backgroundColor: theme.accent }
+                    ]} 
+                />
+            </View>
+            <View style={styles.scaleRow}>
+                <Text style={[styles.scaleText, { color: theme.text }]}>Tốt</Text>
+                <Text style={[styles.scaleText, { color: theme.text }]}>Nguy hại</Text>
+            </View>
+        </View>
 
-    </View>
+    </LinearGradient>
   );
 };
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: '#fff',
-    borderRadius: 16,
+    borderRadius: 24,
     padding: 20,
-    // Đổ bóng (Shadow) giống thiết kế
+    marginBottom: 10,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 10,
-    elevation: 5, // Cho Android
-    minHeight: 200,
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 4,
   },
-  centerContent: {
-    justifyContent: 'center',
-    alignItems: 'center',
+  centerContent: { backgroundColor: '#fff', alignItems: 'center', padding: 30, justifyContent: 'center' },
+  
+  // Top
+  topRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 15 },
+  locationRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 2 },
+  locationText: { fontSize: 16, fontFamily: 'Nunito-Bold', marginLeft: 4, flex: 1 },
+  subLabel: { fontSize: 12, fontFamily: 'Nunito-Regular', marginLeft: 20 },
+  statusBadge: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 12 },
+  statusText: { color: '#fff', fontFamily: 'Nunito-Bold', fontSize: 12, textTransform: 'uppercase' },
+
+  // Middle
+  mainDataRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 },
+  bigNumber: { fontSize: 72, fontFamily: 'LilitaOne-Regular', lineHeight: 80, includeFontPadding: false },
+  unitText: { fontSize: 14, fontFamily: 'Nunito-Bold', marginTop: -5, marginLeft: 5, opacity: 0.7 },
+  
+  subDataCol: { backgroundColor: 'rgba(255,255,255,0.4)', borderRadius: 16, padding: 12, width: 120 },
+  dataItem: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
+  dataLabel: { fontSize: 12, fontFamily: 'Nunito-Regular', opacity: 0.8 },
+  dataValue: { fontSize: 14, fontFamily: 'Nunito-Bold' },
+  divider: { height: 1, backgroundColor: 'rgba(0,0,0,0.1)', marginVertical: 6 },
+
+  // Advice
+  adviceBox: { 
+      flexDirection: 'row', alignItems: 'center', 
+      backgroundColor: 'rgba(255,255,255,0.3)', 
+      padding: 12, borderRadius: 12, marginBottom: 15,
+      borderWidth: 1, borderStyle: 'dashed'
   },
-  row: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 5,
-  },
-  subTitle: {
-    fontSize: 14,
-    color: '#888',
-    fontWeight: '500',
-  },
-  statusText: {
-    fontSize: 32, // Chữ to "Trung bình"
-    fontWeight: 'bold',
-    marginVertical: 5,
-  },
-  bigNumber: {
-    fontSize: 48, // Số "52" rất to
-    fontWeight: 'bold',
-    color: '#333',
-  },
-  unit: {
-    fontSize: 16,
-    color: '#999',
-    fontWeight: 'normal',
-  },
-  footer: {
-    marginTop: 15,
-  },
-  locationText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#333',
-  },
-  timeText: {
-    fontSize: 12,
-    color: '#999',
-    marginTop: 2,
-    fontStyle: 'italic',
-  },
-  adviceBox: {
-    marginTop: 15,
-    padding: 10,
-    borderRadius: 8,
-  },
-  adviceText: {
-    fontSize: 13,
-    fontWeight: '500',
-  }
+  adviceText: { flex: 1, fontSize: 13, fontFamily: 'Nunito-Bold', lineHeight: 18 },
+
+  // Progress
+  progressContainer: { width: '100%' },
+  progressBarTrack: { height: 6, backgroundColor: 'rgba(255,255,255,0.5)', borderRadius: 3, overflow: 'hidden', marginBottom: 4 },
+  progressBarFill: { height: '100%', borderRadius: 3 },
+  scaleRow: { flexDirection: 'row', justifyContent: 'space-between' },
+  scaleText: { fontSize: 10, fontFamily: 'Nunito-Bold', opacity: 0.7 }
 });
 
 export default AqiSummaryCard;

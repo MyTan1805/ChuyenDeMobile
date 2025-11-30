@@ -1,27 +1,20 @@
-// src/features/community/screens/ArticleDetailScreen.js
-
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, Image, ScrollView, SafeAreaView, Dimensions, ActivityIndicator } from 'react-native';
 import CustomHeader from '@/components/CustomHeader';
 import { Ionicons } from '@expo/vector-icons';
-import { shareContent } from '@/utils/shareUtils'; // ✅ Import
+import { shareContent } from '@/utils/shareUtils'; 
 import { db } from '@/config/firebaseConfig';
 import { doc, getDoc } from 'firebase/firestore';
 
 const ArticleDetailScreen = ({ route }) => {
-    // route.params có thể chứa 'article' (từ list) hoặc 'articleId' (từ link)
     const { article: initialArticle, articleId } = route.params || {};
     const [article, setArticle] = useState(initialArticle || null);
     const [loading, setLoading] = useState(!initialArticle);
 
-    // ✅ Logic tải dữ liệu khi mở từ Link
     useEffect(() => {
         const fetchArticle = async () => {
-            // Nếu chưa có data bài viết nhưng có ID (trường hợp mở từ Link hoặc Deep Link)
             if (!article && articleId) {
                 try {
-                    // --- SỬA LOGIC GỌI FIRESTORE ---
-                    // Truy cập trực tiếp vào collection 'articles' và document có id = articleId
                     const docRef = doc(db, 'articles', articleId);
                     const docSnap = await getDoc(docRef);
 
@@ -36,14 +29,12 @@ const ArticleDetailScreen = ({ route }) => {
                     setLoading(false);
                 }
             } else {
-                // Nếu đã có data truyền qua params thì không cần load
                 setLoading(false);
             }
         };
         fetchArticle();
     }, [articleId, article]);
 
-    // ✅ Hàm chia sẻ
     const handleShare = () => {
         if (!article) return;
         shareContent({
@@ -62,8 +53,8 @@ const ArticleDetailScreen = ({ route }) => {
                 title="Chi tiết bài viết"
                 showBackButton={true}
                 showSettingsButton={true}
-                rightIconName="share-social-outline" // ✅ Icon Share
-                onSettingsPress={handleShare} // ✅ Gọi hàm share
+                rightIconName="share-social-outline" 
+                onSettingsPress={handleShare} 
             />
 
             <ScrollView contentContainerStyle={styles.scrollContent}>

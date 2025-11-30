@@ -2,14 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { 
   View, Text, StyleSheet, Modal, TouchableOpacity, TextInput, Alert 
 } from 'react-native';
-import { useAqiStore } from '../../../store/aqiStore'; // Import từ Store
+import { useAqiStore } from '../../../store/aqiStore';  
 
 const AqiSettingsModal = ({ visible, onClose }) => {
-  // Lấy state và hàm từ Store
   const { threshold, setThreshold } = useAqiStore();
   const [tempValue, setTempValue] = useState(String(threshold));
 
-  // Cập nhật giá trị tạm khi mở modal
   useEffect(() => {
     if (visible) setTempValue(String(threshold));
   }, [visible, threshold]);
@@ -21,7 +19,7 @@ const AqiSettingsModal = ({ visible, onClose }) => {
       return;
     }
     
-    setThreshold(val); // Lưu vào Global State (Zustand tự lưu vào Storage)
+    setThreshold(val); 
     Alert.alert("Thành công", "Đã lưu cài đặt!");
     onClose();
   };

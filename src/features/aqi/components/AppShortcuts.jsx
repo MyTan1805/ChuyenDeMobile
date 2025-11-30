@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
-import { MaterialCommunityIcons, Ionicons, FontAwesome5 } from '@expo/vector-icons';
+import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 
 const shortcuts = [
@@ -9,43 +9,49 @@ const shortcuts = [
         label: 'Báo cáo vi phạm', 
         screen: 'CreateReport', 
         icon: 'alert-circle-outline', 
-        lib: MaterialCommunityIcons 
+        lib: MaterialCommunityIcons,
+        color: '#FFEBEE', iconColor: '#D32F2F' 
     },
     { 
         id: 2, 
         label: 'Phân loại rác', 
-        screen: 'WasteClassification', // ✅ Tên màn hình CHUẨN trong AppNavigator
+        screen: 'WasteClassification',
         icon: 'trash-can-outline', 
-        lib: MaterialCommunityIcons 
+        lib: MaterialCommunityIcons,
+        color: '#E8F5E9', iconColor: '#2E7D32'
     },
     { 
         id: 3, 
         label: 'AI Chatbot', 
         screen: 'Chatbot', 
         icon: 'robot-happy-outline', 
-        lib: MaterialCommunityIcons 
+        lib: MaterialCommunityIcons,
+        color: '#E3F2FD', iconColor: '#1976D2'
     },
     { 
         id: 4, 
-        label: 'Tra cứu rác (AI)', 
-        screen: 'WasteSearch', // ✅ Màn hình 3.2 của Tân
-        icon: 'book-open-variant', 
-        lib: MaterialCommunityIcons 
+        label: 'Bản đồ xanh', 
+        screen: 'EnvironmentalMap', 
+        icon: 'map-search-outline', 
+        lib: MaterialCommunityIcons,
+        color: '#FFF3E0', iconColor: '#F57C00'
     },
     { 
         id: 5, 
         label: 'Huy hiệu', 
         screen: 'BadgeCollection', 
         icon: 'medal-outline', 
-        lib: MaterialCommunityIcons 
+        lib: MaterialCommunityIcons,
+        color: '#F3E5F5', iconColor: '#7B1FA2'
     },
     { 
         id: 6, 
         label: 'Cửa hàng', 
-        screen: 'MainTabs', // Nhảy sang tab Cửa hàng
+        screen: 'MainTabs', 
         params: { screen: 'Cửa hàng' },
         icon: 'gift-outline', 
-        lib: Ionicons 
+        lib: Ionicons,
+        color: '#E0F7FA', iconColor: '#0097A7'
     },
 ];
 
@@ -54,19 +60,10 @@ const AppShortcuts = () => {
 
     const handlePress = (item) => {
         if (item.screen) {
-            try {
-                // Nếu có params (như nhảy sang Tab con)
-                if (item.params) {
-                    navigation.navigate(item.screen, item.params);
-                } else {
-                    navigation.navigate(item.screen);
-                }
-            } catch (error) {
-                console.error(error);
-                Alert.alert("Thông báo", `Chức năng "${item.label}" đang được hoàn thiện.`);
-            }
+            if (item.params) navigation.navigate(item.screen, item.params);
+            else navigation.navigate(item.screen);
         } else {
-            Alert.alert("Thông báo", `Chức năng "${item.label}" đang phát triển.`);
+            Alert.alert("Thông báo", "Tính năng đang phát triển.");
         }
     };
 
@@ -79,9 +76,10 @@ const AppShortcuts = () => {
                         key={index}
                         style={styles.item}
                         onPress={() => handlePress(item)}
+                        activeOpacity={0.7}
                     >
-                        <View style={styles.iconBox}>
-                            <IconTag name={item.icon} size={28} color="#555" />
+                        <View style={[styles.iconBox, { backgroundColor: item.color }]}>
+                            <IconTag name={item.icon} size={26} color={item.iconColor} />
                         </View>
                         <Text style={styles.label}>{item.label}</Text>
                     </TouchableOpacity>
@@ -99,22 +97,22 @@ const styles = StyleSheet.create({
         marginTop: 5
     },
     item: {
-        width: '31%',
-        aspectRatio: 1,
-        backgroundColor: '#F5F5F5',
-        borderRadius: 16,
-        justifyContent: 'center',
+        width: '31%', 
         alignItems: 'center',
-        marginBottom: 15,
-        padding: 8,
+        marginBottom: 20,
     },
     iconBox: {
+        width: 56,
+        height: 56,
+        borderRadius: 20,  
+        justifyContent: 'center',
+        alignItems: 'center',
         marginBottom: 8,
     },
     label: {
         textAlign: 'center',
         fontSize: 12,
-        fontWeight: '600',
+        fontFamily: 'Nunito-Bold',
         color: '#444'
     },
 });

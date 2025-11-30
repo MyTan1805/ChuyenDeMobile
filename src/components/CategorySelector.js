@@ -1,23 +1,20 @@
-// src/component/CategorySelector.js
-
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 
 const CategorySelector = ({
-    categories,         // Mảng các chuỗi danh mục, ví dụ: ['Hữu cơ', 'Vô cơ', ...]
-    selectedCategory,   // Danh mục hiện tại đang được chọn (do component cha truyền vào)
-    onSelectCategory,   // Hàm callback để thông báo cho cha khi một danh mục được chọn
-    style,              // Style tùy chỉnh cho container
+    categories, 
+    selectedCategory,  
+    onSelectCategory, 
+    style,      
 }) => {
     return (
         <View style={style}>
             <ScrollView
-                horizontal={true} // Cho phép cuộn ngang nếu có nhiều mục
-                showsHorizontalScrollIndicator={false} // Ẩn thanh cuộn
+                horizontal={true} 
+                showsHorizontalScrollIndicator={false} 
                 contentContainerStyle={styles.container}
             >
                 {categories.map((category, index) => {
-                    // Kiểm tra xem mục này có phải là mục đang được chọn hay không
                     const isActive = category === selectedCategory;
 
                     return (
@@ -58,10 +55,10 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     activeChip: {
-        backgroundColor: '#56CCF2', // Màu xanh dương như trong thiết kế
+        backgroundColor: '#56CCF2',  
     },
     inactiveChip: {
-        backgroundColor: '#f0f0f0', // Màu xám nhạt
+        backgroundColor: '#f0f0f0',  
     },
     chipText: {
         fontSize: 14,

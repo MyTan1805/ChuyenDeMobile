@@ -1,15 +1,9 @@
-// src/constants/badges.js
-
-// Huy hiệu chia thành các nhóm (Category)
 export const BADGE_CATEGORIES = {
     LEVEL: 'Cấp Độ',
-    MILESTONE: 'Mốc Điểm', // Đổi tên cho các mốc phụ
+    MILESTONE: 'Mốc Điểm', 
 };
 
 export const ALL_BADGES = [
-    // ----------------------------------------------------
-    // CẤP ĐỘ CHÍNH (TIER) - Dựa trên HighScore
-    // ----------------------------------------------------
     {
         id: 'green_person',
         name: 'Người Xanh',
@@ -17,7 +11,7 @@ export const ALL_BADGES = [
         color: '#4CAF50',
         threshold: 250, 
         category: BADGE_CATEGORIES.LEVEL,
-        isTier: true, // Quan trọng: Đánh dấu là cấp độ chính
+        isTier: true, 
         level: 1,
         description: 'Đạt 250 điểm tích lũy, bạn là người bắt đầu sống xanh.'
     },
@@ -26,7 +20,7 @@ export const ALL_BADGES = [
         name: 'Trợ lý Eco',
         icon: 'hands-helping',
         color: '#64B5F6',
-        threshold: 500, // Mốc 1
+        threshold: 500, 
         category: BADGE_CATEGORIES.MILESTONE,
         isTier: false,
         description: 'Đạt mốc 500 điểm tích lũy.'
@@ -43,9 +37,6 @@ export const ALL_BADGES = [
         description: 'Đạt mốc 1000 điểm, chứng minh sự tích cực.'
     },
     
-    // ----------------------------------------------------
-    // MỐC ĐIỂM PHỤ (MILESTONE) - Dựa trên HighScore
-    // ----------------------------------------------------
     {
         id: 'eco_expert',
         name: 'Chuyên gia Môi trường',
@@ -119,9 +110,7 @@ export const ALL_BADGES = [
     },
 ];
 
-// Hàm này xác định trạng thái mở khóa của TẤT CẢ huy hiệu
 export const getDetailedBadgeStatus = (stats, quizResults) => {
-    // CHỈ SỬ DỤNG highScore CHO TẤT CẢ CÁC HUY HIỆU
     const userHighScore = stats.highScore || 0;
     
     return ALL_BADGES.map(badge => {
@@ -138,13 +127,11 @@ export const getDetailedBadgeStatus = (stats, quizResults) => {
     });
 };
 
-// Hàm này dùng để lấy huy hiệu cấp độ cao nhất đã đạt được (cho ProfileScreen)
 export const getCurrentTierBadge = (detailedBadges) => {
     const tierBadges = detailedBadges
         .filter(b => b.isTier && b.unlocked)
         .sort((a, b) => b.threshold - a.threshold);
         
-    // Trả về huy hiệu cao nhất đã đạt, hoặc huy hiệu Cấp 1 nếu chưa đạt gì
     if (tierBadges.length > 0) {
         return tierBadges[0];
     }

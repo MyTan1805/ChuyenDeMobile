@@ -1,15 +1,13 @@
-// src/component/ConfirmationButtonGroup.js
-
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
-import AppButton from './AppButton'; // Import component AppButton đã tạo trước đó
+import AppButton from './AppButton'; 
 
 const ConfirmationButtonGroup = ({
-    onConfirm,                // Hàm được gọi khi nhấn nút xác nhận
-    onCancel,                 // Hàm được gọi khi nhấn nút huỷ
-    confirmText = 'Xác Nhận', // Chữ trên nút xác nhận (có thể thay đổi)
-    cancelText = 'Huỷ',       // Chữ trên nút huỷ (có thể thay đổi)
-    style,                    // Style tùy chỉnh cho cả nhóm nút
+    onConfirm,  
+    onCancel,  
+    confirmText = 'Xác Nhận', 
+    cancelText = 'Huỷ', 
+    style,  
 }) => {
     return (
         <View style={[styles.container, style]}>
@@ -18,7 +16,7 @@ const ConfirmationButtonGroup = ({
                 <AppButton
                     title={cancelText}
                     onPress={onCancel}
-                    type="secondary" // Sử dụng type 'secondary' cho nút màu xám
+                    type="secondary" 
                 />
             </View>
 
@@ -27,7 +25,7 @@ const ConfirmationButtonGroup = ({
                 <AppButton
                     title={confirmText}
                     onPress={onConfirm}
-                    type="primary" // Sử dụng type 'primary' cho nút màu xanh
+                    type="primary"  
                 />
             </View>
         </View>
@@ -36,13 +34,13 @@ const ConfirmationButtonGroup = ({
 
 const styles = StyleSheet.create({
     container: {
-        flexDirection: 'row', // Sắp xếp các nút nằm ngang
-        justifyContent: 'space-around', // Căn đều các nút
-        width: '100%', // Chiếm toàn bộ chiều rộng của container cha
+        flexDirection: 'row',  
+        justifyContent: 'space-around',  
+        width: '100%',  
     },
     buttonWrapper: {
-        flex: 1, // Chia đều không gian cho mỗi nút
-        marginHorizontal: 8, // Tạo khoảng cách giữa các nút
+        flex: 1,  
+        marginHorizontal: 8, 
     },
 });
 

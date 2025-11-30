@@ -3,14 +3,13 @@ import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Alert } fr
 import { Ionicons } from '@expo/vector-icons';
 import { generateDailyActions } from '../api/aiActionsApi';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useUserStore } from '@/store/userStore'; // ✅ ĐÃ THÊM LẠI STORE ĐỂ CỘNG ĐIỂM
+import { useUserStore } from '@/store/userStore'; 
 
 const DailyActions = () => {
   const [actions, setActions] = useState([]);
   const [progress, setProgress] = useState(0);
   const [loading, setLoading] = useState(true);
 
-  // Lấy hàm cộng điểm từ Store
   const addPointsToUser = useUserStore((state) => state.addPointsToUser);
 
   useEffect(() => {
@@ -55,16 +54,13 @@ const DailyActions = () => {
     setProgress(Math.round((checkedCount / list.length) * 100));
   };
 
-  // --- HÀM XỬ LÝ TICK VÀ CỘNG ĐIỂM ---
   const toggleAction = async (id) => {
-    // 1. Tìm action đang được bấm
     const currentAction = actions.find(a => a.id === id);
     if (!currentAction) return;
 
-    const isChecking = !currentAction.checked; // Trạng thái mới (Tick hay Bỏ tick)
-    const points = currentAction.points || 10; // Điểm mặc định là 10 nếu không có
+    const isChecking = !currentAction.checked; 
+    const points = currentAction.points || 10;  
 
-    // 2. Cập nhật UI và Local Storage trước (Optimistic Update)
     const updatedActions = actions.map(action =>
       action.id === id ? { ...action, checked: isChecking } : action
     );
@@ -77,19 +73,13 @@ const DailyActions = () => {
         actions: updatedActions
     }));
 
-    // 3. Gọi API cộng/trừ điểm (Logic của Tiền)
     if (isChecking) {
-        // TÍCH -> Cộng điểm
         const result = await addPointsToUser(points);
         if (result.success) {
-            // Thông báo nhỏ (Optional, để không phiền người dùng có thể bỏ Alert đi)
-            // Alert.alert("Tuyệt vời!", `Bạn nhận được +${points} điểm.`);
         } else {
              Alert.alert("Lỗi", "Không thể cộng điểm (kiểm tra mạng).");
-             // Nếu lỗi thì có thể revert UI lại (tùy chọn)
         }
     } else {
-        // BỎ TÍCH -> Trừ điểm lại
         const result = await addPointsToUser(-points);
         if (!result.success) {
              console.log("Lỗi trừ điểm");
@@ -150,7 +140,7 @@ const DailyActions = () => {
 };
 
 const styles = StyleSheet.create({
-  container: { backgroundColor: '#F9F9F9', borderRadius: 16, padding: 15 },
+  container: { backgroundColor: '#F7F9FC', borderRadius: 16, padding: 15 },
   loadingContainer: { padding: 20, alignItems: 'center', backgroundColor: '#F9F9F9', borderRadius: 16 },
   loadingText: { marginTop: 10, color: '#666', fontFamily: 'Nunito-Regular' },
   header: { marginBottom: 15 },

@@ -8,7 +8,7 @@ const CreateQuizScreen = ({ navigation }) => {
   const [optionA, setOptionA] = useState('');
   const [optionB, setOptionB] = useState('');
   const [optionC, setOptionC] = useState('');
-  const [correctOption, setCorrectOption] = useState(''); // A, B, or C
+  const [correctOption, setCorrectOption] = useState('');  
 
   const handleCreateQuiz = async () => {
     if (!question || !optionA || !optionB || !optionC || !correctOption) {
@@ -24,7 +24,6 @@ const CreateQuizScreen = ({ navigation }) => {
             createdAt: serverTimestamp()
         });
         Alert.alert("Thành công", "Đã tạo câu hỏi mới!");
-        // Reset form
         setQuestion(''); setOptionA(''); setOptionB(''); setOptionC(''); setCorrectOption('');
     } catch (error) {
         Alert.alert("Lỗi", error.message);
