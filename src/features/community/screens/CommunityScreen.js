@@ -61,9 +61,10 @@ const CommunityScreen = () => {
     useEffect(() => {
         const unsubPosts = fetchPosts();
         const unsubGroups = fetchGroups();
+
         return () => {
-            if (unsubPosts) unsubPosts();
-            if (unsubGroups) unsubGroups();
+            if (typeof unsubPosts === 'function') unsubPosts();
+            if (typeof unsubGroups === 'function') unsubGroups();
         };
     }, []);
 

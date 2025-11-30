@@ -3,10 +3,10 @@
 import { create } from 'zustand';
 import { db, auth } from '../config/firebaseConfig';
 import {
-    collection, addDoc, onSnapshot, query, orderBy, where, arrayRemove,
-    doc, updateDoc, increment, arrayUnion, serverTimestamp, deleteDoc, getDoc
+    collection, addDoc, onSnapshot, query, orderBy, where,
+    doc, updateDoc, increment, arrayUnion, arrayRemove,
+    serverTimestamp, deleteDoc, getDoc
 } from 'firebase/firestore';
-import * as Linking from 'expo-linking';
 
 export const useCommunityStore = create((set, get) => ({
     posts: [],
@@ -15,53 +15,134 @@ export const useCommunityStore = create((set, get) => ({
     unsubscribePosts: null,
 
     // ============================================
-    // 1. FETCH ALL POSTS (FEED CHUNG)
+    // ⭐ FETCH ALL POSTS - FIXED WITH ERROR HANDLING
     // ============================================
     fetchPosts: () => {
         set({ loading: true });
-        const q = query(collection(db, "community_posts"), orderBy("createdAt", "desc"));
+
+        // ✅ SỬA QUERY: Thêm điều kiện where("privacy", "==", "public")
+        // Điều này khớp với Rule cho phép đọc bài public.
+        const q = query(
+            collection(db, "community_posts"),
+            where("isHidden", "==", false),
+            where("privacy", "==", "public"), // <--- THÊM DÒNG NÀY
+            orderBy("createdAt", "desc")
+        );
+
         const unsubscribe = onSnapshot(q, (snapshot) => {
             const postsData = snapshot.docs.map(doc => {
                 const data = doc.data();
                 let timeStr = 'Vừa xong';
                 if (data.createdAt) {
                     const date = data.createdAt.toDate();
-                    timeStr = date.toLocaleDateString('vi-VN') + ' ' + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                    timeStr = date.toLocaleDateString('vi-VN') + ' ' +
+                        date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
                 }
                 return { id: doc.id, ...data, time: timeStr };
             });
+
+            // Không cần filter client-side nữa vì query đã lọc rồi
             set({ posts: postsData, loading: false });
-        });
+        },
+            (error) => {
+                console.error("❌ Fetch Posts Error:", error.message);
+                // Không set posts về rỗng để tránh mất dữ liệu cũ nếu lỗi mạng thoáng qua
+                set({ loading: false });
+            }
+        );
+
         set({ unsubscribePosts: unsubscribe });
         return unsubscribe;
     },
 
     // ============================================
-    // 2. FETCH GROUP POSTS (BÀI VIẾT CỦA 1 NHÓM)
+    // ⭐ FETCH GROUP POSTS - FIXED
     // ============================================
     fetchGroupPosts: (groupId, callback) => {
-        const q = query(
-            collection(db, "community_posts"),
-            where("groupId", "==", groupId),
-            orderBy("createdAt", "desc")
-        );
-        const unsubscribe = onSnapshot(q, (snapshot) => {
-            const groupPosts = snapshot.docs.map(doc => {
-                const data = doc.data();
-                let timeStr = 'Vừa xong';
-                if (data.createdAt) {
-                    const date = data.createdAt.toDate();
-                    timeStr = date.toLocaleDateString('vi-VN') + ' ' + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        let realUnsubscribe = null;
+        let isUnmounted = false;
+
+        const init = async () => {
+            try {
+                // 1. Lấy thông tin Group để check quyền
+                const groupRef = doc(db, "groups", groupId);
+                const groupSnap = await getDoc(groupRef);
+
+                if (isUnmounted) return;
+                if (!groupSnap.exists()) {
+                    if (callback) callback([]);
+                    return;
                 }
-                return { id: doc.id, ...data, time: timeStr };
-            });
-            if (callback) callback(groupPosts);
-        });
-        return unsubscribe;
+
+                const groupData = groupSnap.data();
+                const currentUser = auth.currentUser;
+                const membersList = groupData.membersList || [];
+
+                // Kiểm tra user có phải là thành viên không
+                const isMember = currentUser && membersList.includes(currentUser.uid);
+
+                // Nếu nhóm Riêng tư và không phải thành viên -> Chặn
+                if (groupData.isPrivate && !isMember) {
+                    if (callback) callback([]);
+                    return;
+                }
+
+                // 2. Xây dựng Query an toàn với Rules
+                // Base constraints
+                const constraints = [
+                    where("groupId", "==", groupId),
+                    where("isHidden", "==", false),
+                    orderBy("createdAt", "desc")
+                ];
+
+                // 🔥 QUAN TRỌNG: Nếu KHÔNG phải thành viên, chỉ được phép query bài Public
+                // Điều này giúp Query khớp hoàn toàn với Rule
+                if (!isMember) {
+                    constraints.push(where("privacy", "==", "public"));
+                }
+
+                const q = query(collection(db, "community_posts"), ...constraints);
+
+                // 3. Subscribe
+                realUnsubscribe = onSnapshot(q, (snapshot) => {
+                    const groupPosts = snapshot.docs.map(doc => {
+                        const data = doc.data();
+                        let timeStr = 'Vừa xong';
+                        if (data.createdAt) {
+                            const date = data.createdAt.toDate();
+                            timeStr = date.toLocaleDateString('vi-VN') + ' ' +
+                                date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                        }
+                        return { id: doc.id, ...data, time: timeStr };
+                    });
+                    if (callback) callback(groupPosts);
+                },
+                    (error) => {
+                        console.error("❌ Error fetching group posts:", error.message);
+                        // Xử lý lỗi index nếu cần
+                        if (error.code === 'failed-precondition') {
+                            console.log("⚠️ Cần tạo Index trên Firebase Console cho query này.");
+                        }
+                        if (callback) callback([]);
+                    }
+                );
+
+            } catch (error) {
+                console.error("❌ Init Group Posts Error:", error);
+                if (callback) callback([]);
+            }
+        };
+
+        init();
+
+        return () => {
+            isUnmounted = true;
+            if (realUnsubscribe) realUnsubscribe();
+        };
     },
 
     // ============================================
-    // 3. ĐĂNG BÀI VIẾT (Hỗ trợ cả Nhóm và Công khai)
+    // CÁC HÀM KHÁC (GIỮ NGUYÊN)
     // ============================================
     addNewPost: async (postData) => {
         try {
@@ -74,18 +155,20 @@ export const useCommunityStore = create((set, get) => ({
                 userAvatar: postData.userAvatar || null,
                 content: postData.content || "",
                 images: postData.images || [],
-                likes: [],        // ✅✅✅ LUÔN KHỞI TẠO LÀ MẢNG RỖNG
-                comments: [],     // ✅✅✅ LUÔN KHỞI TẠO LÀ MẢNG RỖNG
+                likes: [],
+                comments: [],
                 groupName: postData.groupName || null,
                 groupId: postData.groupId || null,
                 location: postData.location || null,
                 privacy: postData.privacy || 'public',
                 isHidden: false,
+                reportCount: 0,
+                reports: [],
                 createdAt: serverTimestamp()
             };
 
             const docRef = await addDoc(collection(db, "community_posts"), newPost);
-            console.log("✅ Đã đăng bài thành công, ID:", docRef.id);
+            console.log("✅ Đã đăng bài:", docRef.id);
             return { success: true, postId: docRef.id };
         } catch (error) {
             console.error("❌ Lỗi đăng bài:", error);
@@ -93,36 +176,66 @@ export const useCommunityStore = create((set, get) => ({
         }
     },
 
-    // ============================================
-    // TOGGLE LIKE
-    // ============================================
-    toggleLikePost: async (postId, userId) => {
+    reportPost: async (postId, reason, reporterId) => {
         try {
             const postRef = doc(db, "community_posts", postId);
             const postDoc = await getDoc(postRef);
 
             if (!postDoc.exists()) {
-                console.error('Post not found');
-                return;
+                return { success: false, error: "Bài viết không tồn tại" };
             }
+
+            const currentReports = postDoc.data().reports || [];
+            const alreadyReported = currentReports.some(r => r.reporterId === reporterId);
+
+            if (alreadyReported) {
+                return { success: false, error: "Bạn đã báo cáo bài viết này rồi" };
+            }
+
+            const newReport = {
+                reporterId: reporterId,
+                reason: reason,
+                timestamp: new Date().toISOString()
+            };
+
+            await updateDoc(postRef, {
+                reports: arrayUnion(newReport),
+                reportCount: increment(1)
+            });
+
+            const updatedDoc = await getDoc(postRef);
+            const reportCount = updatedDoc.data().reportCount || 0;
+
+            if (reportCount >= 5) {
+                await updateDoc(postRef, {
+                    isHidden: true,
+                    hiddenReason: "Vi phạm chính sách (quá nhiều báo cáo)"
+                });
+            }
+
+            return { success: true };
+        } catch (error) {
+            console.error("❌ Lỗi báo cáo:", error);
+            return { success: false, error: error.message };
+        }
+    },
+
+    toggleLikePost: async (postId, userId) => {
+        try {
+            const postRef = doc(db, "community_posts", postId);
+            const postDoc = await getDoc(postRef);
+
+            if (!postDoc.exists()) return;
 
             const currentLikes = postDoc.data().likes || [];
 
             if (currentLikes.includes(userId)) {
-                // Unlike - xóa userId
-                await updateDoc(postRef, {
-                    likes: arrayRemove(userId)
-                });
-                console.log("💔 Đã unlike bài viết:", postId);
+                await updateDoc(postRef, { likes: arrayRemove(userId) });
             } else {
-                // Like - thêm userId
-                await updateDoc(postRef, {
-                    likes: arrayUnion(userId)
-                });
-                console.log("❤️ Đã like bài viết:", postId);
+                await updateDoc(postRef, { likes: arrayUnion(userId) });
             }
 
-            // Cập nhật lại state local
+            // Update local state
             set(state => ({
                 posts: state.posts.map(p => {
                     if (p.id === postId) {
@@ -139,175 +252,63 @@ export const useCommunityStore = create((set, get) => ({
         }
     },
 
-    // ============================================
-    // ADD COMMENT
-    // ============================================
     addCommentToPost: async (postId, commentData) => {
         try {
             const postRef = doc(db, "community_posts", postId);
-
-            // 1. Chỉ cần gửi lên Firebase
             await updateDoc(postRef, { comments: arrayUnion(commentData) });
-
-            // ❌ BỎ PHẦN DƯỚI ĐÂY ĐỂ TRÁNH LẶP
-            // Vì onSnapshot ở fetchPosts sẽ tự động nhận dữ liệu mới từ server về và cập nhật UI.
-            /* 
-            set(state => ({
-                posts: state.posts.map(p => {
-                    if (p.id === postId) {
-                        return { ...p, comments: [...(p.comments || []), commentData] };
-                    }
-                    return p;
-                })
-            }));
-            */
-
-            console.log("✅ Đã thêm comment vào bài:", postId);
         } catch (error) {
             console.error("❌ Lỗi comment:", error);
-            throw error; // Ném lỗi ra để màn hình bên ngoài biết mà xử lý (alert)
+            throw error;
         }
     },
 
-    // ============================================
-    // HIDE POST (User khác)
-    // ============================================
     hidePost: (postId) => {
-        set(state => ({
-            hiddenPosts: [...state.hiddenPosts, postId]
-        }));
-        console.log("🙈 Đã ẩn bài viết:", postId);
+        set(state => ({ hiddenPosts: [...state.hiddenPosts, postId] }));
     },
 
-    // ============================================
-    // DELETE POST (✅ LOGIC HOÀN CHỈNH)
-    // ============================================
     deletePost: async (postId) => {
         try {
             const currentUser = auth.currentUser;
-            if (!currentUser) {
-                console.error("❌ Chưa đăng nhập");
-                return { success: false, error: "Chưa đăng nhập" };
-            }
+            if (!currentUser) return { success: false, error: "Chưa đăng nhập" };
 
-            // 1. Lấy thông tin bài viết từ local state
             const post = get().posts.find(p => p.id === postId);
+            if (!post) return { success: false, error: "Bài viết không tồn tại" };
 
-            if (!post) {
-                console.error("❌ Không tìm thấy bài viết trong state");
-                return { success: false, error: "Bài viết không tồn tại" };
-            }
-
-            console.log("🗑️ Bắt đầu xóa bài viết:", postId);
-            console.log("📝 Thông tin bài viết:", {
-                userId: post.userId,
-                currentUserId: currentUser.uid,
-                groupId: post.groupId,
-                groupName: post.groupName
-            });
-
-            // 2. Kiểm tra quyền (tùy chọn - Firebase Rules sẽ kiểm tra chính xác)
-            const isOwner = post.userId === currentUser.uid;
-            const isInGroup = post.groupId != null;
-
-            console.log("🔐 Kiểm tra quyền:", {
-                isOwner,
-                isInGroup,
-                message: isOwner
-                    ? "Chủ bài viết"
-                    : isInGroup
-                        ? "Admin nhóm (sẽ được Rules kiểm tra)"
-                        : "Không có quyền"
-            });
-
-            // 3. Xóa trên Firestore (Rules sẽ kiểm tra quyền)
-            console.log("🔥 Đang xóa trên Firestore...");
             await deleteDoc(doc(db, "community_posts", postId));
-            console.log("✅ Đã xóa thành công trên Firestore");
 
-            // 4. Xóa khỏi local state của Community
-            set(state => ({
-                posts: state.posts.filter(p => p.id !== postId)
-            }));
-            console.log("✅ Đã xóa khỏi Community local state");
+            set(state => ({ posts: state.posts.filter(p => p.id !== postId) }));
 
-            // 5. Đồng bộ xóa khỏi Group Store (nếu bài viết thuộc nhóm)
             if (post.groupId) {
-                console.log("🔄 Đồng bộ xóa khỏi Group Store:", post.groupName);
-
-                // Import động để tránh circular dependency
                 const { useGroupStore } = require('./groupStore');
-
-                // Gọi action xóa bài viết khỏi nhóm
                 useGroupStore.getState().removePostFromGroup(postId);
-                console.log("✅ Đã đồng bộ xóa khỏi Group Store");
             }
 
-            console.log("🎉 Hoàn tất xóa bài viết:", postId);
             return { success: true };
-
         } catch (error) {
             console.error("❌ Lỗi xóa bài:", error);
-            console.error("❌ Chi tiết lỗi:", {
-                code: error.code,
-                message: error.message,
-                name: error.name
-            });
-
-            // Xử lý lỗi cụ thể
-            let userMessage = "Không thể xóa bài viết";
-
-            if (error.code === 'permission-denied') {
-                userMessage = "Bạn không có quyền xóa bài viết này";
-            } else if (error.code === 'not-found') {
-                userMessage = "Bài viết không tồn tại";
-            } else if (error.code === 'unavailable') {
-                userMessage = "Không thể kết nối đến server. Vui lòng thử lại";
-            }
-
-            return { success: false, error: userMessage };
-        }
-    },
-
-    // ============================================
-    // [NEW] UPDATE POST
-    // ============================================
-    updatePost: async (postId, updateData) => {
-        try {
-            const postRef = doc(db, "community_posts", postId);
-
-            // Chỉ cập nhật các trường thay đổi
-            await updateDoc(postRef, {
-                ...updateData,
-                isEdited: true, // Đánh dấu đã chỉnh sửa
-                updatedAt: serverTimestamp()
-            });
-
-            console.log("✅ Đã cập nhật bài viết:", postId);
-            return { success: true };
-        } catch (error) {
-            console.error("❌ Lỗi cập nhật bài viết:", error);
             return { success: false, error: error.message };
         }
     },
 
-    // ============================================
-    // GET VISIBLE POSTS (Lọc bài ẩn)
-    // ============================================
+    updatePost: async (postId, updateData) => {
+        try {
+            const postRef = doc(db, "community_posts", postId);
+            await updateDoc(postRef, {
+                ...updateData,
+                isEdited: true,
+                updatedAt: serverTimestamp()
+            });
+            return { success: true };
+        } catch (error) {
+            console.error("❌ Lỗi cập nhật:", error);
+            return { success: false, error: error.message };
+        }
+    },
+
     getVisiblePosts: () => {
         const { posts, hiddenPosts } = get();
-        return posts.filter(p => !hiddenPosts.includes(p.id));
+        return posts.filter(p => !hiddenPosts.includes(p.id) && !p.isHidden);
     },
 
-    // ============================================
-    // GENERATE SHARE LINK
-    // ============================================
-    generateShareLink: (postId) => {
-        return Linking.createURL(`post/${postId}`);
-    },
-
-    // ============================================
-    // GET POST BY ID
-    // ============================================
     getPostById: (id) => get().posts.find(p => p.id === id),
 }));

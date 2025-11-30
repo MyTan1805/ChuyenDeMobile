@@ -37,18 +37,17 @@ const PostScreen = ({ navigation, route }) => {
     useFocusEffect(
         useCallback(() => {
             const params = route.params || {};
-            const { isEdit, existingPost, groupId, groupName } = params;
+            // Lấy groupIsPrivate
+            const { isEdit, existingPost, groupId, groupName, groupIsPrivate } = params;
 
             if (isEdit && existingPost) {
-                // Chế độ Sửa: Load dữ liệu cũ
                 setEditingPostId(existingPost.id);
                 setContent(existingPost.content || '');
                 setMediaItems(existingPost.images || []);
-                setPrivacy(existingPost.privacy || 'public');
+                setPrivacy(existingPost.privacy || 'public'); // Giữ nguyên privacy cũ
                 setLocation(existingPost.location || null);
                 setGroupData({ id: existingPost.groupId, name: existingPost.groupName });
             } else {
-                // Chế độ Tạo mới: Reset sạch sẽ
                 setEditingPostId(null);
                 setContent('');
                 setMediaItems([]);
@@ -57,7 +56,8 @@ const PostScreen = ({ navigation, route }) => {
                 // Nếu đăng từ trong nhóm ra thì set sẵn nhóm
                 if (groupId) {
                     setGroupData({ id: groupId, name: groupName });
-                    setPrivacy('groups');
+                    // ✅ NẾU NHÓM KÍN -> BÀI VIẾT LÀ PRIVATE, NGƯỢC LẠI LÀ PUBLIC
+                    setPrivacy(groupIsPrivate ? 'private' : 'public');
                 } else {
                     setGroupData({ id: null, name: null });
                     setPrivacy('public');
