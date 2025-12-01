@@ -21,7 +21,7 @@ import {
 import {
   doc, getDoc, setDoc, updateDoc, deleteDoc,
   collection, query, where, getDocs, increment,
-  arrayUnion, runTransaction, writeBatch,
+  arrayUnion, runTransaction, writeBatch, addDoc,
 } from 'firebase/firestore';
 
 import { encrypt, decrypt } from '../utils/encryption';
@@ -663,8 +663,20 @@ export const useUserStore = create((set, get) => ({
     
     try {
         // LƯU VÀO COLLECTION RIÊNG 'notifications' (Khớp ảnh 2)
-        await addDoc(collection(db, "notifications"), newNoti);
+        const docRef = await addDoc(collection(db, "notifications"), newNoti);
         console.log("✅ Đã lưu thông báo vào Firestore:", newNoti.title);
+
+        // Cập nhật state local ngay lập tức để UI phản hồi nhanh
+        const updatedProfile = { ...currentProfile };
+        updatedProfile.notifications = [ { id: docRef.id, ...newNoti }, ...(updatedProfile.notifications || []) ];
+        set({ userProfile: updatedProfile });
+
+        // Nếu là user khách (anonymous), lưu vào AsyncStorage để khôi phục sau
+        if (user.isAnonymous) {
+          try {
+            await AsyncStorage.setItem(GUEST_DATA_KEY, JSON.stringify(updatedProfile));
+          } catch (e) { /* ignore */ }
+        }
     } catch (e) {
         console.log("Lỗi lưu thông báo:", e);
     }

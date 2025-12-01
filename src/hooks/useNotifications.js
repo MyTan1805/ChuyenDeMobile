@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import { useUserStore } from '../store/userStore';
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -16,6 +17,7 @@ export const useNotifications = () => {
   const notificationListener = useRef();
   const responseListener = useRef();
   const navigation = useNavigation();
+  const { addNotificationToHistory } = useUserStore();
 
   const registerForPushNotifications = async () => {
     const { status: existingStatus } = await Notifications.getPermissionsAsync();
@@ -53,8 +55,19 @@ export const useNotifications = () => {
   useEffect(() => {
     registerForPushNotifications();
 
-    notificationListener.current = Notifications.addNotificationReceivedListener(notification => {
-      // console.log(notification);
+    notificationListener.current = Notifications.addNotificationReceivedListener(async (notification) => {
+      try {
+        const content = notification?.request?.content || {};
+        const title = content.title || '';
+        const body = content.body || '';
+        const data = content.data || {};
+
+        if (addNotificationToHistory) {
+          await addNotificationToHistory({ title, body, data });
+        }
+      } catch (e) {
+        console.log('Error saving incoming notification:', e);
+      }
     });
 
     responseListener.current = Notifications.addNotificationResponseReceivedListener(response => {
@@ -70,8 +83,12 @@ export const useNotifications = () => {
     });
 
     return () => {
-      notificationListener.current && Notifications.removeNotificationSubscription(notificationListener.current);
-      responseListener.current && Notifications.removeNotificationSubscription(responseListener.current);
+      if (notificationListener.current && typeof notificationListener.current.remove === 'function') {
+        notificationListener.current.remove();
+      }
+      if (responseListener.current && typeof responseListener.current.remove === 'function') {
+        responseListener.current.remove();
+      }
     };
   }, []);
 
