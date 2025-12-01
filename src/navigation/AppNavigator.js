@@ -51,9 +51,8 @@ import RecycleDIYScreen from '@/features/community/screens/RecycleDIYScreen';
 import GroupDetailScreen from '@/features/community/screens/GroupDetailScreen';
 import EditGroupScreen from '@/features/community/screens/EditGroupScreen';
 import WasteSearchScreen from '@/features/waste-guide/screens/WasteSearchScreen';
-// Nếu chưa có file GreenLiving thì comment lại, nếu có thì bỏ comment
-// import GreenLivingScreen from '@/features/community/screens/GreenLivingScreen';
-// import GreenTipsListScreen from '@/features/community/screens/GreenTipsListScreen';
+import GreenLivingScreen from '@/features/community/screens/GreenLivingScreen';
+import GreenTipsListScreen from '@/features/community/screens/GreenTipsListScreen';
 
 // 4. GAMIFICATION & PROFILE
 import StoreScreen from '@/features/gamification/screens/StoreScreen';
@@ -84,18 +83,40 @@ const MainTab = createBottomTabNavigator();
 const MainStack = createStackNavigator();
 const VerifyStack = createStackNavigator();
 
-// --- CẤU HÌNH DEEP LINKING ---
+// --- CẤU HÌNH DEEP LINKING (ĐÃ SỬA) ---
 const prefix = Linking.createURL('/');
 const linking = {
   prefixes: [prefix, 'ecomate://', 'https://ecoapp-dc865.firebaseapp.com'],
   config: {
     screens: {
+      // Cấu hình cho AuthNavigator
       AuthFlow: {
         screens: {
           VerifyEmail: { path: 'verify-email', parse: { oobCode: (c) => c, mode: (m) => m } },
         },
       },
-      // Cấu hình link cho MainStack nếu cần
+
+      // Cấu hình cho MainNavigator (Khi đã login)
+      // KHÔNG bọc trong MainStack vì MainNavigator là root khi đã login
+      PostDetail: {
+        path: 'post/:postId',
+        parse: { postId: (id) => id },
+      },
+      ArticleDetail: {
+        path: 'article/:articleId',
+        parse: { articleId: (id) => id },
+      },
+      WasteDetail: {
+        path: 'waste/:wasteId',
+        parse: { wasteId: (id) => id },
+      },
+      AqiDetail: 'aqi',
+
+      // Cấu hình cho VerifyNavigator
+      VerifyEmailCheck: {
+        path: 'verify-email-check',
+        parse: { oobCode: (oobCode) => oobCode, mode: (mode) => mode }
+      }
     },
   },
   getStateFromPath: (path, config) => {
@@ -141,7 +162,6 @@ function CommunityStackNavigator() {
   return (
     <CommunityStack.Navigator screenOptions={{ headerShown: false }}>
       <CommunityStack.Screen name="CommunityMain" component={CommunityScreen} />
-      {/* Các màn hình con đã đưa ra MainStack để ẩn TabBar khi vào */}
     </CommunityStack.Navigator>
   );
 }
@@ -161,17 +181,17 @@ function MainTabNavigator() {
     <MainTab.Navigator tabBar={(props) => <CustomTabBar {...props} />} screenOptions={{ headerShown: false }}>
       <MainTab.Screen name="Trang chủ" component={HomeStackNavigator} />
       <MainTab.Screen name="Cộng đồng" component={CommunityStackNavigator} />
-      
-      {/* Nút Đăng tin giả để mở Modal */}
+
+      {/* Giữ nút giữa ở CustomTabBar nhưng xử lý sự kiện riêng */}
       <MainTab.Screen
         name="CreatePostPlaceholder"
-        component={View}
+        component={View} // Dummy component
         options={{ tabBarLabel: 'Đăng tin' }}
         listeners={({ navigation }) => ({
-            tabPress: (e) => {
-                e.preventDefault(); // Chặn việc chuyển tab
-                navigation.navigate('Đăng tin'); // Mở Modal Đăng tin
-            },
+          tabPress: (e) => {
+            e.preventDefault();
+            navigation.navigate('Đăng tin');
+          },
         })}
       />
 
@@ -188,21 +208,26 @@ function MainNavigator() {
   return (
     <MainStack.Navigator screenOptions={{ headerShown: false }}>
       <MainStack.Screen name="MainTabs" component={MainTabNavigator} />
-      
-      {/* === TÍNH NĂNG CHUNG === */}
       <MainStack.Screen name="Chatbot" component={ChatbotScreen} />
-      <MainStack.Screen name="Notifications" component={NotificationListScreen} /> 
+      <MainStack.Screen name="Notifications" component={NotificationListScreen} />
       <MainStack.Screen name="AqiDetail" component={AqiDetailScreen} />
 
-      {/* === CỘNG ĐỒNG & RÁC THẢI (Đã xóa trùng lặp) === */}
-      <MainStack.Screen name="WasteClassification" component={WasteClassificationScreen} />
       <MainStack.Screen name="WasteSearch" component={WasteSearchScreen} />
-      <MainStack.Screen name="WasteDetail" component={WasteDetailScreen} />
-      <MainStack.Screen name="RecycleDIY" component={RecycleDIYScreen} />
-      <MainStack.Screen name="EcoLibrary" component={EcoLibraryScreen} /> 
-      <MainStack.Screen name="ArticleDetail" component={ArticleDetailScreen} />
+
+      {/* ✅ CÁC MÀN HÌNH KHÁM PHÁ */}
+      <MainStack.Screen name="WasteClassification" component={WasteClassificationScreen} />
+      <MainStack.Screen name="EcoLibrary" component={EcoLibraryScreen} />
       <MainStack.Screen name="QuizCollection" component={QuizCollectionScreen} />
       <MainStack.Screen name="Quiz" component={QuizScreen} />
+      <MainStack.Screen name="GreenLiving" component={GreenLivingScreen} />
+      <MainStack.Screen name="GreenTipsListScreen" component={GreenTipsListScreen} />
+
+      <MainStack.Screen name="PostDetail" component={PostDetailScreen} />
+      <MainStack.Screen name="ArticleDetail" component={ArticleDetailScreen} />
+      <MainStack.Screen name="WasteDetail" component={WasteDetailScreen} />
+      <MainStack.Screen name="RecycleDIY" component={RecycleDIYScreen} />
+
+      {/* === NHÓM COMMUNITY === */}
       <MainStack.Screen name="CreateGroup" component={CreateGroupScreen} />
       <MainStack.Screen name="GroupDetail" component={GroupDetailScreen} />
       <MainStack.Screen name="EditGroup" component={EditGroupScreen} />
@@ -212,7 +237,7 @@ function MainNavigator() {
       {/* <MainStack.Screen name="GreenLiving" component={GreenLivingScreen} /> */}
       {/* <MainStack.Screen name="GreenTipsListScreen" component={GreenTipsListScreen} /> */}
 
-      {/* === BÁO CÁO & MAP === */}
+      {/* === NHÓM REPORT & MAP === */}
       <MainStack.Screen name="CreateReport" component={CreateReportScreen} />
       <MainStack.Screen name="ReportDetail" component={ReportDetailScreen} />
       <MainStack.Screen name="ReportHistory" component={ReportHistoryScreen} />
@@ -222,7 +247,7 @@ function MainNavigator() {
 
       {/* === PROFILE & SETTINGS === */}
       <MainStack.Screen name="EditProfile" component={EditProfileScreen} />
-      <MainStack.Screen name="BadgeCollection" component={BadgeCollectionScreen} /> 
+      <MainStack.Screen name="BadgeCollection" component={BadgeCollectionScreen} />
       <MainStack.Screen name="Settings" component={SettingsScreen} />
       <MainStack.Screen name="AccountManagement" component={AccountManagementScreen} />
       <MainStack.Screen name="ChangePasswordSettings" component={ChangePasswordScreen} />
@@ -255,7 +280,7 @@ export default function AppNavigator() {
   useEffect(() => {
     const unsubscribe = checkAuthState();
     return () => { if (unsubscribe) unsubscribe(); };
-  }, []); 
+  }, []);
 
   if (isLoading) {
     return (

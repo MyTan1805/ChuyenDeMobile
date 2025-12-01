@@ -10,6 +10,7 @@ import { useUserStore } from '@/store/userStore';
 import { useCommunityStore } from '@/store/communityStore';
 import { useNavigation } from '@react-navigation/native';
 import { Video, ResizeMode } from 'expo-av';
+import { shareContent } from '@/utils/shareUtils';
 
 const CommunityPostCard = ({ post }) => {
     if (!post || !post.id) return null;
@@ -79,6 +80,14 @@ const CommunityPostCard = ({ post }) => {
     const handleReport = () => {
         setModalVisible(false);
         setReportModalVisible(true);
+    };
+
+    const handleShare = () => {
+        shareContent({
+            title: `Bài viết của ${post.userName}`,
+            message: post.content,
+            path: `post/${post.id}` // Deep link
+        });
     };
 
     const submitReport = async () => {
@@ -285,7 +294,7 @@ const CommunityPostCard = ({ post }) => {
                     </Text>
                 </TouchableOpacity>
 
-                <TouchableOpacity style={styles.actionButton}>
+                <TouchableOpacity style={styles.actionButton} onPress={handleShare}>
                     <Ionicons name="share-social-outline" size={22} color="#555" />
                     <Text style={styles.actionText}>Chia sẻ</Text>
                 </TouchableOpacity>
