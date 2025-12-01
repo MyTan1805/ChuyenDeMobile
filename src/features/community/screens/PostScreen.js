@@ -1,3 +1,5 @@
+// src/features/community/screens/PostScreen.js
+
 import React, { useState, useCallback } from 'react';
 import {
     View, Text, StyleSheet, TextInput, TouchableOpacity, Image,
@@ -14,7 +16,7 @@ import { Video, ResizeMode } from 'expo-av';
 import { auth } from '@/config/firebaseConfig';
 import CustomHeader from '@/components/CustomHeader';
 import { serverTimestamp } from 'firebase/firestore';
-import { useFocusEffect } from '@react-navigation/native'; // ✅ Import quan trọng
+import { useFocusEffect } from '@react-navigation/native';
 
 const PostScreen = ({ navigation, route }) => {
     const { userProfile, uploadMedia } = useUserStore();
@@ -29,43 +31,47 @@ const PostScreen = ({ navigation, route }) => {
     const [loading, setLoading] = useState(false);
     const [location, setLocation] = useState(null);
 
-    // Biến tạm để lưu thông tin edit (nếu có)
+    // State cho loại bài viết (Post thường vs Tip)
+    const [postType, setPostType] = useState('post'); // 'post' | 'tip'
+
     const [editingPostId, setEditingPostId] = useState(null);
     const [groupData, setGroupData] = useState({ id: null, name: null });
 
-    // ✅ LOGIC RESET FORM QUAN TRỌNG
     useFocusEffect(
         useCallback(() => {
             const params = route.params || {};
-            // Lấy groupIsPrivate
-            const { isEdit, existingPost, groupId, groupName, groupIsPrivate } = params;
+            const { isEdit, existingPost, groupId, groupName, groupIsPrivate, isTip, fromCommunity } = params;
 
             if (isEdit && existingPost) {
                 setEditingPostId(existingPost.id);
                 setContent(existingPost.content || '');
                 setMediaItems(existingPost.images || []);
-                setPrivacy(existingPost.privacy || 'public'); // Giữ nguyên privacy cũ
+                setPrivacy(existingPost.privacy || 'public');
                 setLocation(existingPost.location || null);
                 setGroupData({ id: existingPost.groupId, name: existingPost.groupName });
+                setPostType(existingPost.type || 'post');
             } else {
+                // Reset form khi tạo mới
                 setEditingPostId(null);
-                setContent('');
-                setMediaItems([]);
-                setLocation(null);
+                // Giữ lại content/media nếu user lỡ thoát ra vào lại (tùy chọn, ở đây reset cho sạch)
+                // setContent(''); 
+                // setMediaItems([]);
 
-                // Nếu đăng từ trong nhóm ra thì set sẵn nhóm
                 if (groupId) {
+                    // Đăng vào nhóm cụ thể
                     setGroupData({ id: groupId, name: groupName });
-                    // ✅ NẾU NHÓM KÍN -> BÀI VIẾT LÀ PRIVATE, NGƯỢC LẠI LÀ PUBLIC
                     setPrivacy(groupIsPrivate ? 'private' : 'public');
+                    setPostType('post'); // Trong nhóm thì mặc định là post
                 } else {
+                    // Đăng từ Tab Bar hoặc Sống Xanh
                     setGroupData({ id: null, name: null });
                     setPrivacy('public');
+
+                    // Nếu ấn từ Sống Xanh (isTip=true) thì set type là tip
+                    // Nếu ấn từ Tab Bar thì mặc định post, nhưng cho phép chọn
+                    setPostType(isTip ? 'tip' : 'post');
                 }
             }
-
-            // Cleanup function (Optional)
-            return () => { };
         }, [route.params])
     );
 
@@ -74,13 +80,13 @@ const PostScreen = ({ navigation, route }) => {
             mediaTypes: ImagePicker.MediaTypeOptions.All,
             allowsMultipleSelection: true,
             selectionLimit: 4,
-            quality: 0.7, // Giảm chất lượng chút để upload nhanh hơn
+            quality: 0.7,
         });
 
         if (!result.canceled) {
             const newItems = result.assets.map(asset => ({
                 uri: asset.uri,
-                type: asset.type // 'image' hoặc 'video'
+                type: asset.type
             }));
             setMediaItems([...mediaItems, ...newItems].slice(0, 4));
         }
@@ -120,14 +126,10 @@ const PostScreen = ({ navigation, route }) => {
 
         try {
             const finalMediaList = [];
-
-            // 1. Upload File
             for (const item of mediaItems) {
-                // Nếu ảnh đã có link (ảnh cũ), giữ nguyên
                 if (item.uri.startsWith('http')) {
                     finalMediaList.push(item);
                 } else {
-                    // Upload ảnh mới
                     const uploadRes = await uploadMedia(item.uri, item.type);
                     if (uploadRes.success) {
                         finalMediaList.push({ uri: uploadRes.url, type: uploadRes.type });
@@ -137,31 +139,43 @@ const PostScreen = ({ navigation, route }) => {
                 }
             }
 
-            // 2. Submit
+            // Logic xác định Group Name và Type
+            const isTipMode = postType === 'tip';
+            const finalGroupName = groupData.name || (isTipMode ? 'Sống Xanh' : null);
+            const finalType = isTipMode ? 'tip' : 'post';
+
             if (editingPostId) {
-                // UPDATE
                 const updateData = {
                     content: content.trim(),
                     images: finalMediaList,
                     privacy: privacy,
-                    location: location
+                    groupName: finalGroupName,
+                    groupId: groupData.id || null,
+                    location: location,
+                    type: finalType,
+                    isGreenLiving: isTipMode
                 };
                 const result = await updatePost(editingPostId, updateData);
                 if (result.success) navigation.goBack();
                 else Alert.alert("Lỗi", result.error);
 
             } else {
-                // CREATE NEW
                 const newPost = {
+                    userId: auth.currentUser.uid,
                     userName: userProfile?.displayName || 'Người dùng',
                     userAvatar: userProfile?.photoURL || null,
                     content: content.trim(),
                     images: finalMediaList,
                     privacy: privacy,
-                    groupName: groupData.name || null,
+                    groupName: finalGroupName,
                     groupId: groupData.id || null,
                     location: location,
-                    createdAt: serverTimestamp()
+                    type: finalType,
+                    isHidden: false,
+                    reportCount: 0,
+                    reports: [],
+                    createdAt: serverTimestamp(),
+                    isGreenLiving: isTipMode
                 };
 
                 const result = await addNewPost(newPost);
@@ -192,9 +206,13 @@ const PostScreen = ({ navigation, route }) => {
         <View style={styles.safeArea}>
             <StatusBar barStyle="dark-content" backgroundColor="white" />
             <CustomHeader
-                title={editingPostId ? "Chỉnh sửa bài viết" : (groupData.name ? `Đăng vào ${groupData.name}` : "Tạo bài viết")}
+                title={
+                    editingPostId ? "Chỉnh sửa bài viết" : "Tạo bài viết mới"
+                }
+                // FIX ISSUE 2: Luôn hiện nút Close (X) để đúng chuẩn Modal
                 showBackButton={false}
-                onBackPress={() => navigation.goBack()}
+                showCloseButton={true}
+                onClosePress={() => navigation.goBack()}
                 style={{ zIndex: 1 }}
             />
 
@@ -212,7 +230,27 @@ const PostScreen = ({ navigation, route }) => {
             <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.container}>
                 <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
 
-                    {/* User Info Section */}
+                    {/* FIX ISSUE 3: TYPE SELECTOR (Chỉ hiện khi không ở trong Group) */}
+                    {!groupData.id && (
+                        <View style={styles.typeSelectorContainer}>
+                            <TouchableOpacity
+                                style={[styles.typeButton, postType === 'post' && styles.activeTypeButton]}
+                                onPress={() => setPostType('post')}
+                            >
+                                <Ionicons name="earth" size={16} color={postType === 'post' ? '#fff' : '#666'} />
+                                <Text style={[styles.typeText, postType === 'post' && styles.activeTypeText]}>Cộng đồng</Text>
+                            </TouchableOpacity>
+
+                            <TouchableOpacity
+                                style={[styles.typeButton, postType === 'tip' && styles.activeTypeButton]}
+                                onPress={() => setPostType('tip')}
+                            >
+                                <Ionicons name="leaf" size={16} color={postType === 'tip' ? '#fff' : '#666'} />
+                                <Text style={[styles.typeText, postType === 'tip' && styles.activeTypeText]}>Mẹo Sống Xanh</Text>
+                            </TouchableOpacity>
+                        </View>
+                    )}
+
                     <View style={styles.userSection}>
                         <Image source={{ uri: userProfile?.photoURL || 'https://i.pravatar.cc/150?img=3' }} style={styles.avatar} />
                         <View style={styles.userInfo}>
@@ -220,7 +258,7 @@ const PostScreen = ({ navigation, route }) => {
                             <View style={styles.badgesRow}>
                                 <View style={styles.privacyBadge}>
                                     <Ionicons name={groupData.id ? "people" : "earth"} size={12} color="#666" />
-                                    <Text style={styles.privacyText}> {groupData.id ? "Thành viên" : "Công khai"}</Text>
+                                    <Text style={styles.privacyText}> {groupData.id ? groupData.name : "Công khai"}</Text>
                                 </View>
                                 {location && (
                                     <View style={styles.locationBadge}>
@@ -234,7 +272,7 @@ const PostScreen = ({ navigation, route }) => {
 
                     <TextInput
                         style={styles.textInput}
-                        placeholder="Bạn đang nghĩ gì?"
+                        placeholder={postType === 'tip' ? "Chia sẻ mẹo sống xanh của bạn..." : "Bạn đang nghĩ gì?"}
                         placeholderTextColor="#999"
                         multiline
                         value={content}
@@ -242,7 +280,6 @@ const PostScreen = ({ navigation, route }) => {
                         textAlignVertical="top"
                     />
 
-                    {/* Media Grid */}
                     {mediaItems.length > 0 && (
                         <View style={styles.imagesGrid}>
                             {mediaItems.map((item, index) => (
@@ -261,7 +298,6 @@ const PostScreen = ({ navigation, route }) => {
                     )}
                 </ScrollView>
 
-                {/* Toolbar */}
                 <View style={styles.toolbarContainer}>
                     <Text style={styles.toolbarTitle}>Thêm vào bài viết</Text>
                     <View style={styles.gridToolbar}>
@@ -297,6 +333,14 @@ const styles = StyleSheet.create({
     postButtonText: { color: '#fff', fontFamily: 'Nunito-Bold', fontSize: 15 },
     container: { flex: 1 },
     scrollContent: { padding: 20, paddingBottom: 100 },
+
+    // Style cho bộ chọn loại bài viết
+    typeSelectorContainer: { flexDirection: 'row', marginBottom: 20, backgroundColor: '#F0F2F5', padding: 4, borderRadius: 25 },
+    typeButton: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 8, borderRadius: 20 },
+    activeTypeButton: { backgroundColor: '#2F847C' },
+    typeText: { marginLeft: 6, fontSize: 14, fontFamily: 'Nunito-Bold', color: '#666' },
+    activeTypeText: { color: '#fff' },
+
     userSection: { flexDirection: 'row', alignItems: 'center', marginBottom: 15 },
     avatar: { width: 50, height: 50, borderRadius: 25, marginRight: 12, backgroundColor: '#eee' },
     userInfo: { flex: 1 },
@@ -311,7 +355,13 @@ const styles = StyleSheet.create({
     imageWrapper: { width: '48%', aspectRatio: 1, borderRadius: 12, overflow: 'hidden', backgroundColor: '#000', position: 'relative' },
     previewImage: { width: '100%', height: '100%' },
     removeBtn: { position: 'absolute', top: 5, right: 5, backgroundColor: 'rgba(0,0,0,0.5)', borderRadius: 15 },
-    toolbarContainer: { borderTopWidth: 1, borderTopColor: '#f0f0f0', padding: 16, backgroundColor: '#fff' },
+    toolbarContainer: {
+        borderTopWidth: 1,
+        borderTopColor: '#f0f0f0',
+        padding: 16,
+        backgroundColor: '#fff',
+        paddingBottom: 40 + (Platform.OS === 'ios' ? 30 : 0),
+    },
     toolbarTitle: { fontFamily: 'Nunito-Bold', fontSize: 15, color: '#333', marginBottom: 12 },
     gridToolbar: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', gap: 12 },
     gridItem: { width: '48%', flexDirection: 'row', alignItems: 'center', backgroundColor: '#F9F9F9', paddingVertical: 12, borderRadius: 12, justifyContent: 'center', gap: 8 },

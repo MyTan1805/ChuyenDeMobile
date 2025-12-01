@@ -51,6 +51,8 @@ import PostDetailScreen from '@/features/community/screens/PostDetailScreen';
 import CreateGroupScreen from '@/features/community/screens/CreateGroupScreen';
 import GroupDetailScreen from '@/features/community/screens/GroupDetailScreen';
 import EditGroupScreen from '@/features/community/screens/EditGroupScreen';
+import GreenLivingScreen from '@/features/community/screens/GreenLivingScreen';
+import GreenTipsListScreen from '@/features/community/screens/GreenTipsListScreen';
 
 // 4. GAMIFICATION & PROFILE
 import StoreScreen from '@/features/gamification/screens/StoreScreen';
@@ -167,6 +169,8 @@ function CommunityStackNavigator() {
       <CommunityStack.Screen name="ArticleDetail" component={ArticleDetailScreen} />
       <CommunityStack.Screen name="QuizCollection" component={QuizCollectionScreen} />
       <CommunityStack.Screen name="Quiz" component={QuizScreen} />
+      <CommunityStack.Screen name="GreenLiving" component={GreenLivingScreen} />
+      <CommunityStack.Screen name="GreenTipsListScreen" component={GreenTipsListScreen} />
     </CommunityStack.Navigator>
   );
 }
@@ -186,7 +190,17 @@ function MainTabNavigator() {
     <MainTab.Navigator tabBar={(props) => <CustomTabBar {...props} />} screenOptions={{ headerShown: false }}>
       <MainTab.Screen name="Trang chủ" component={HomeStackNavigator} />
       <MainTab.Screen name="Cộng đồng" component={CommunityStackNavigator} />
-      <MainTab.Screen name="Đăng tin" component={PostScreen} />
+
+      {/* ❌ XÓA DÒNG DƯỚI ĐÂY TRONG TAB ĐỂ TRÁNH XUNG ĐỘT */}
+      {/* <MainTab.Screen name="Đăng tin" component={PostScreen} /> */}
+
+      {/* Giữ nút giữa ở CustomTabBar nhưng xử lý sự kiện riêng */}
+      <MainTab.Screen
+        name="CreatePostPlaceholder"
+        component={View} // Dummy component
+        options={{ tabBarLabel: 'Đăng tin' }} // Để CustomTabBar vẫn render nút
+      />
+
       <MainTab.Screen name="Cửa hàng" component={StoreScreen} />
       <MainTab.Screen name="Hồ sơ" component={ProfileScreen} />
     </MainTab.Navigator>
@@ -236,14 +250,10 @@ function MainNavigator() {
         name="Đăng tin"
         component={PostScreen}
         options={{
-          presentation: 'modal',
-
-          gestureEnabled: true,
-
-          // 3. (Tuỳ chọn) Nếu muốn hiệu ứng trong suốt mờ nền phía sau giống iOS 13+
-          // cardStyle: { backgroundColor: 'transparent' }, 
-
-          headerShown: false
+          presentation: 'modal', // Hiệu ứng trượt từ dưới lên
+          gestureEnabled: true,  // Cho phép kéo xuống để đóng
+          headerShown: false,
+          cardOverlayEnabled: true, // Làm mờ nền phía sau (cho iOS)
         }}
       />
     </MainStack.Navigator>

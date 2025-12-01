@@ -21,7 +21,7 @@ import {
 import {
   doc, getDoc, setDoc, updateDoc, deleteDoc,
   collection, query, where, getDocs, increment,
-  arrayUnion, runTransaction, writeBatch // Thêm writeBatch
+  arrayUnion, runTransaction, writeBatch,
 } from 'firebase/firestore';
 
 import { encrypt, decrypt } from '../utils/encryption';
@@ -249,13 +249,16 @@ export const useUserStore = create((set, get) => ({
     const user = auth.currentUser;
     if (!user) return { success: false };
 
+    // Cập nhật state local ngay lập tức để UI mượt
     const newProfile = { ...get().userProfile, ...data };
     set({ userProfile: newProfile });
 
+    // Mã hóa dữ liệu nhạy cảm trước khi lưu
     const dataToSave = { ...data };
     if (dataToSave.phoneNumber) dataToSave.phoneNumber = encrypt(dataToSave.phoneNumber);
     if (dataToSave.location) dataToSave.location = encrypt(dataToSave.location);
 
+    // Trường hợp là khách (Guest)
     if (user.isAnonymous) {
       const profileToStore = { ...newProfile, ...dataToSave };
       await AsyncStorage.setItem(GUEST_DATA_KEY, JSON.stringify(profileToStore));
@@ -263,10 +266,39 @@ export const useUserStore = create((set, get) => ({
     }
 
     try {
-      const docRef = doc(db, "users", user.uid);
-      await updateDoc(docRef, dataToSave);
+      const batch = writeBatch(db); // Khởi tạo Batch
+
+      // 1. Cập nhật bảng 'users'
+      const userRef = doc(db, "users", user.uid);
+      batch.update(userRef, dataToSave);
+
+      // 2. Nếu có thay đổi ảnh đại diện hoặc tên, cập nhật luôn các bài viết cũ (community_posts)
+      if (data.photoURL || data.displayName) {
+        console.log("🔄 Đang đồng bộ thông tin sang các bài viết cũ...");
+
+        const postsRef = collection(db, "community_posts");
+        // Tìm tất cả bài viết của user này
+        const q = query(postsRef, where("userId", "==", user.uid));
+        const querySnapshot = await getDocs(q);
+
+        querySnapshot.forEach((doc) => {
+          const updateObj = {};
+          if (data.photoURL) updateObj.userAvatar = data.photoURL;
+          if (data.displayName) updateObj.userName = data.displayName;
+
+          batch.update(doc.ref, updateObj);
+        });
+      }
+
+      // 3. Thực thi tất cả lệnh cập nhật cùng lúc
+      await batch.commit();
+      console.log("✅ Đã cập nhật profile và đồng bộ bài viết.");
+
       return { success: true };
-    } catch (error) { return { success: false, error }; }
+    } catch (error) {
+      console.error("Lỗi cập nhật profile:", error);
+      return { success: false, error };
+    }
   },
 
   updateUserSettings: async (settingsData) => {

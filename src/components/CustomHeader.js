@@ -23,9 +23,15 @@ const CustomHeader = ({
 
     const handleBackPress = () => {
         if (onBackPress) {
+            // Nếu có hàm xử lý riêng được truyền vào thì dùng nó
             onBackPress();
-        } else {
+        } else if (navigation.canGoBack()) {
+            // ✅ KIỂM TRA: Chỉ goBack nếu lịch sử tồn tại
             navigation.goBack();
+        } else {
+            // (Tùy chọn) Nếu không thể quay lại, đưa về trang chủ để tránh kẹt
+            // navigation.navigate('MainTabs'); 
+            console.warn("Không thể quay lại: Đang ở màn hình gốc.");
         }
     };
 
