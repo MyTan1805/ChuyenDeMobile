@@ -31,9 +31,14 @@ const AdminDashboardScreen = ({ navigation }) => {
       <View style={styles.menuContainer}>
         {renderMenuOption('Duyệt Báo Cáo Vi Phạm', 'assignment-turned-in', '#E67E22', 'AdminReportList')}
 
-        {renderMenuOption('Tạo Quiz Mới', 'quiz', '#9B59B6', 'CreateQuiz')}
+        {/* 2. [MỚI] Phân tích dữ liệu */}
+        {renderMenuOption('Phân Tích & Thống Kê', 'analytics', '#27AE60', 'Analytics')}
 
+        {/* 3. Quản lý người dùng */}
         {renderMenuOption('Quản Lý Người Dùng', 'people', '#3498DB', 'UserManagement')}
+
+        {/* 4. Tạo Quiz */}
+        {renderMenuOption('Tạo Quiz Mới', 'quiz', '#9B59B6', 'CreateQuiz')}
       </View>
     </ScrollView>
   );
@@ -44,6 +49,7 @@ const styles = StyleSheet.create({
   header: { padding: 20, backgroundColor: '#fff', marginBottom: 10 },
   welcomeText: { fontSize: 24, fontWeight: 'bold', color: '#2C3E50' },
   subText: { fontSize: 14, color: '#7F8C8D', marginTop: 5 },
+  
   menuContainer: { padding: 15 },
   optionCard: {
     flexDirection: 'row', alignItems: 'center',
