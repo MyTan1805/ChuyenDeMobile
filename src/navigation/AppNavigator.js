@@ -271,11 +271,6 @@ function MainNavigator() {
       <MainStack.Screen name="TermsOfService" component={TermsScreen} />
       <MainStack.Screen name="PrivacyPolicy" component={PrivacyScreen} />
 
-      {/* Cấu hình Modal cho Đăng tin */}
-      <MainStack.Screen name="CreateGroup" component={CreateGroupScreen} />
-      <MainStack.Screen name="GroupDetail" component={GroupDetailScreen} />
-      <MainStack.Screen name="EditGroup" component={EditGroupScreen} />
-
       <MainStack.Screen
         name="Đăng tin"
         component={PostScreen}
