@@ -1,6 +1,5 @@
 import React, { useEffect } from 'react';
 import { View, ActivityIndicator } from 'react-native';
-// 1. Thêm import getStateFromPath ở đây
 import { NavigationContainer, getStateFromPath } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
@@ -24,6 +23,7 @@ import { useUserStore } from '@/store/userStore';
 import { useNotifications } from '@/hooks/useNotifications';
 
 // ==================== IMPORT MÀN HÌNH ====================
+
 // 1. AUTH 
 import WelcomeScreen from '@/features/auth/screens/WelcomeScreen';
 import LoginScreen from '@/features/auth/screens/LoginScreen';
@@ -36,7 +36,7 @@ import HomeScreen from '@/features/aqi/screens/HomeScreen';
 import AqiDetailScreen from '@/features/aqi/screens/AqiDetailScreen';
 import ChatbotScreen from '@/features/chatbot/screens/ChatbotScreen';
 
-// 3. COMMUNITY & WASTE GUIDE (Của Tân & Tiền)
+// 3. COMMUNITY & WASTE GUIDE
 import CommunityScreen from '@/features/community/screens/CommunityScreen';
 import WasteClassificationScreen from '@/features/community/screens/WasteClassificationScreen';
 import WasteDetailScreen from '@/features/community/screens/WasteDetailScreen';
@@ -50,9 +50,10 @@ import CreateGroupScreen from '@/features/community/screens/CreateGroupScreen';
 import RecycleDIYScreen from '@/features/community/screens/RecycleDIYScreen';
 import GroupDetailScreen from '@/features/community/screens/GroupDetailScreen';
 import EditGroupScreen from '@/features/community/screens/EditGroupScreen';
-import WasteSearchScreen from '@/features/waste-guide/screens/WasteSearchScreen'; // Đã sửa import đúng
-import GreenLivingScreen from '@/features/community/screens/GreenLivingScreen';
-import GreenTipsListScreen from '@/features/community/screens/GreenTipsListScreen';
+import WasteSearchScreen from '@/features/waste-guide/screens/WasteSearchScreen';
+// Nếu chưa có file GreenLiving thì comment lại, nếu có thì bỏ comment
+// import GreenLivingScreen from '@/features/community/screens/GreenLivingScreen';
+// import GreenTipsListScreen from '@/features/community/screens/GreenTipsListScreen';
 
 // 4. GAMIFICATION & PROFILE
 import StoreScreen from '@/features/gamification/screens/StoreScreen';
@@ -63,14 +64,14 @@ import BadgeCollectionScreen from '@/features/gamification/screens/BadgeCollecti
 // 5. NOTIFICATION
 import NotificationListScreen from '@/features/notifications/screens/NotificationListScreen';
 
-// 6. REPORT & MAP (Của Bảo)
+// 6. REPORT & MAP
 import CreateReportScreen from '@/features/reports/screens/CreateReportScreen';
 import ReportDetailScreen from '@/features/reports/screens/ReportDetailScreen';
 import EnvironmentalMapScreen from '@/features/map/screens/EnvironmentalMapScreen';
-import AnalyticsScreen from '@/features/analytics/screens/AnalyticsScreen'; // Nếu có folder analytics
+import AnalyticsScreen from '@/features/analytics/screens/AnalyticsScreen';
 
-// 7. ADMIN (Của Bảo)
-import AdminNavigator from '@/navigation/AdminNavigator'; // Đảm bảo file này tồn tại
+// 7. ADMIN
+import AdminNavigator from '@/navigation/AdminNavigator';
 
 // ----- COMPONENT -----
 import CustomTabBar from '@/components/CustomTabBar';
@@ -94,44 +95,14 @@ const linking = {
           VerifyEmail: { path: 'verify-email', parse: { oobCode: (c) => c, mode: (m) => m } },
         },
       },
-      MainStack: {
-        screens: {
-          PostDetail: {
-            path: 'post/:postId',
-            parse: { postId: (id) => id },
-          },
-          ArticleDetail: {
-            path: 'article/:articleId',
-            parse: { articleId: (id) => id },
-          },
-          WasteDetail: {
-            path: 'waste/:wasteId',
-            parse: { wasteId: (id) => id },
-          },
-          AqiDetail: 'aqi',
-        }
-      },
-      VerifyEmailCheck: { path: 'verify-email-check', parse: { oobCode: (oobCode) => oobCode, mode: (mode) => mode } }
+      // Cấu hình link cho MainStack nếu cần
     },
   },
-  // 2. Sửa hàm getStateFromPath
   getStateFromPath: (path, config) => {
     const url = Linking.parse(path);
-
-    // Xử lý logic custom cho email verification
     if (url.queryParams?.mode === 'verifyEmail') {
-      return {
-        routes: [{
-          name: 'VerifyEmailCheck',
-          params: {
-            oobCode: url.queryParams.oobCode,
-            type: 'emailVerification'
-          }
-        }]
-      };
+      return { routes: [{ name: 'VerifyEmailCheck', params: { oobCode: url.queryParams.oobCode, type: 'emailVerification' } }] };
     }
-
-    // Sử dụng hàm getStateFromPath được import từ @react-navigation/native làm mặc định
     return getStateFromPath(path, config);
   },
 };
@@ -156,7 +127,7 @@ function AuthNavigator() {
   );
 }
 
-// --- HOME STACK ---
+// --- HOME STACK (Chỉ chứa màn hình chính của Tab Home) ---
 function HomeStackNavigator() {
   return (
     <HomeStack.Navigator screenOptions={{ headerShown: false }}>
@@ -165,16 +136,12 @@ function HomeStackNavigator() {
   );
 }
 
-// --- COMMUNITY STACK ---
+// --- COMMUNITY STACK (Chỉ chứa màn hình chính của Tab Community) ---
 function CommunityStackNavigator() {
   return (
     <CommunityStack.Navigator screenOptions={{ headerShown: false }}>
       <CommunityStack.Screen name="CommunityMain" component={CommunityScreen} />
-      <CommunityStack.Screen name="WasteClassification" component={WasteClassificationScreen} />
-      <CommunityStack.Screen name="EcoLibrary" component={EcoLibraryScreen} />
-      {/* <CommunityStack.Screen name="ArticleDetail" component={ArticleDetailScreen} /> */}
-      <CommunityStack.Screen name="QuizCollection" component={QuizCollectionScreen} />
-      <CommunityStack.Screen name="Quiz" component={QuizScreen} />
+      {/* Các màn hình con đã đưa ra MainStack để ẩn TabBar khi vào */}
     </CommunityStack.Navigator>
   );
 }
@@ -194,18 +161,21 @@ function MainTabNavigator() {
     <MainTab.Navigator tabBar={(props) => <CustomTabBar {...props} />} screenOptions={{ headerShown: false }}>
       <MainTab.Screen name="Trang chủ" component={HomeStackNavigator} />
       <MainTab.Screen name="Cộng đồng" component={CommunityStackNavigator} />
-
-      {/* ❌ XÓA DÒNG DƯỚI ĐÂY TRONG TAB ĐỂ TRÁNH XUNG ĐỘT */}
-      {/* <MainTab.Screen name="Đăng tin" component={PostScreen} /> */}
-
-      {/* Giữ nút giữa ở CustomTabBar nhưng xử lý sự kiện riêng */}
+      
+      {/* Nút Đăng tin giả để mở Modal */}
       <MainTab.Screen
         name="CreatePostPlaceholder"
-        component={View} // Dummy component
-        options={{ tabBarLabel: 'Đăng tin' }} // Để CustomTabBar vẫn render nút
+        component={View}
+        options={{ tabBarLabel: 'Đăng tin' }}
+        listeners={({ navigation }) => ({
+            tabPress: (e) => {
+                e.preventDefault(); // Chặn việc chuyển tab
+                navigation.navigate('Đăng tin'); // Mở Modal Đăng tin
+            },
+        })}
       />
 
-      <MainTab.Screen name="Cửa hàng" component={StoreScreen} />
+      <MainTab.Screen name="Cửa hàng" component={StoreScreen} options={{ headerShown: true, headerTitle: "Cửa hàng xanh" }} />
       <MainTab.Screen name="Hồ sơ" component={ProfileScreen} />
     </MainTab.Navigator>
   );
@@ -213,50 +183,44 @@ function MainTabNavigator() {
 
 // --- ROOT MAIN NAVIGATOR (MERGE ALL) ---
 function MainNavigator() {
-  useNotifications(); // Kích hoạt nhận thông báo
+  useNotifications();
 
   return (
     <MainStack.Navigator screenOptions={{ headerShown: false }}>
       <MainStack.Screen name="MainTabs" component={MainTabNavigator} />
       
+      {/* === TÍNH NĂNG CHUNG === */}
       <MainStack.Screen name="Chatbot" component={ChatbotScreen} />
       <MainStack.Screen name="Notifications" component={NotificationListScreen} /> 
       <MainStack.Screen name="AqiDetail" component={AqiDetailScreen} />
 
+      {/* === CỘNG ĐỒNG & RÁC THẢI (Đã xóa trùng lặp) === */}
       <MainStack.Screen name="WasteClassification" component={WasteClassificationScreen} />
       <MainStack.Screen name="WasteSearch" component={WasteSearchScreen} />
-
-      {/* ✅ THÊM CÁC MÀN HÌNH KHÁM PHÁ VÀO ĐÂY */}
-      <MainStack.Screen name="WasteClassification" component={WasteClassificationScreen} />
-      <MainStack.Screen name="EcoLibrary" component={EcoLibraryScreen} />
-      <MainStack.Screen name="QuizCollection" component={QuizCollectionScreen} />
-      <MainStack.Screen name="Quiz" component={QuizScreen} />
-      <MainStack.Screen name="GreenLiving" component={GreenLivingScreen} />
-      <MainStack.Screen name="GreenTipsListScreen" component={GreenTipsListScreen} />
-
-      {/* Các màn hình khác giữ nguyên */}
-      <MainStack.Screen name="PostDetail" component={PostDetailScreen} />
-      {/* <MainStack.Screen name="ArticleDetail" component={ArticleDetailScreen} /> */}
       <MainStack.Screen name="WasteDetail" component={WasteDetailScreen} />
       <MainStack.Screen name="RecycleDIY" component={RecycleDIYScreen} />
-
-      {/* === NHÓM COMMUNITY (VY & TIỀN) === */}
       <MainStack.Screen name="EcoLibrary" component={EcoLibraryScreen} /> 
-      <CommunityStack.Screen name="ArticleDetail" component={ArticleDetailScreen} />
+      <MainStack.Screen name="ArticleDetail" component={ArticleDetailScreen} />
       <MainStack.Screen name="QuizCollection" component={QuizCollectionScreen} />
       <MainStack.Screen name="Quiz" component={QuizScreen} />
       <MainStack.Screen name="CreateGroup" component={CreateGroupScreen} />
       <MainStack.Screen name="GroupDetail" component={GroupDetailScreen} />
       <MainStack.Screen name="EditGroup" component={EditGroupScreen} />
+      <MainStack.Screen name="PostDetail" component={PostDetailScreen} />
+      
+      {/* Nếu có file GreenLiving thì mở comment */}
+      {/* <MainStack.Screen name="GreenLiving" component={GreenLivingScreen} /> */}
+      {/* <MainStack.Screen name="GreenTipsListScreen" component={GreenTipsListScreen} /> */}
 
-      {/* === NHÓM REPORT & MAP (BẢO) === */}
+      {/* === BÁO CÁO & MAP === */}
       <MainStack.Screen name="CreateReport" component={CreateReportScreen} />
       <MainStack.Screen name="ReportDetail" component={ReportDetailScreen} />
+      <MainStack.Screen name="ReportHistory" component={ReportHistoryScreen} />
       <MainStack.Screen name="EnvironmentalMap" component={EnvironmentalMapScreen} />
       <MainStack.Screen name="Analytics" component={AnalyticsScreen} />
       <MainStack.Screen name="AdminPortal" component={AdminNavigator} />
 
-      {/* === NHÓM PROFILE & SETTINGS === */}
+      {/* === PROFILE & SETTINGS === */}
       <MainStack.Screen name="EditProfile" component={EditProfileScreen} />
       <MainStack.Screen name="BadgeCollection" component={BadgeCollectionScreen} /> 
       <MainStack.Screen name="Settings" component={SettingsScreen} />
@@ -265,20 +229,18 @@ function MainNavigator() {
       <MainStack.Screen name="NotificationSettings" component={NotificationSettingsScreen} />
       <MainStack.Screen name="AQISettings" component={AQISettingsScreen} />
       <MainStack.Screen name="PrivacyLocation" component={PrivacyLocationScreen} />
-      <MainStack.Screen name="ReportHistory" component={ReportHistoryScreen} />
       <MainStack.Screen name="ChatbotHistory" component={ChatbotHistoryScreen} />
       <MainStack.Screen name="AboutApp" component={AboutScreen} />
       <MainStack.Screen name="TermsOfService" component={TermsScreen} />
       <MainStack.Screen name="PrivacyPolicy" component={PrivacyScreen} />
 
+      {/* === MODAL === */}
       <MainStack.Screen
         name="Đăng tin"
         component={PostScreen}
         options={{
           presentation: 'modal',
-          gestureEnabled: true,
           headerShown: false,
-          cardOverlayEnabled: true,
         }}
       />
     </MainStack.Navigator>
@@ -286,7 +248,6 @@ function MainNavigator() {
 }
 
 export default function AppNavigator() {
-  // ✅ FIX INFINITE LOOP
   const user = useUserStore((state) => state.user);
   const isLoading = useUserStore((state) => state.isLoading);
   const checkAuthState = useUserStore((state) => state.checkAuthState);
