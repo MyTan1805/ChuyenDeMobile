@@ -396,9 +396,71 @@ export const useUserStore = create((set, get) => ({
   loginWithGoogle: async (idToken) => {
     try {
       const credential = GoogleAuthProvider.credential(idToken);
+      
       const result = await signInWithCredential(auth, credential);
-      return { success: true, user: result.user };
-    } catch (error) { return { success: false, error }; }
+      
+      if (result.user) {
+        return { success: true, user: result.user };
+      }
+    } catch (error) {
+      console.error("Google Login Error:", error);
+      return { success: false, error };
+    }
+  },
+
+  loginWithGoogleDirect: async (googleUser) => {
+    set({ isLoading: true });
+    try {
+      console.log("🚀 Bắt đầu xử lý login tà đạo:", googleUser.email);
+
+      // 1. Dùng email làm ID document trong Firestore (cho dễ tìm)
+      const userRef = doc(db, "users", googleUser.email);
+      const docSnap = await getDoc(userRef);
+
+      let profileData;
+
+      if (docSnap.exists()) {
+        // User cũ: Lấy data về
+        profileData = docSnap.data();
+        console.log("✅ User cũ đã quay lại:", profileData.displayName);
+      } else {
+        // User mới: Tạo data mặc định + Info Google
+        profileData = getDefaultUserData(googleUser.name);
+        profileData.email = googleUser.email;
+        profileData.photoURL = googleUser.picture;
+        profileData.ggId = googleUser.id; // Lưu ID Google để tham chiếu sau này
+        
+        await setDoc(userRef, profileData);
+        console.log("🎉 User mới đã được tạo!");
+      }
+
+      // 2. Lưu Session vào máy (để F5 app vẫn còn đăng nhập)
+      // Lưu ý: Ta lưu object này vào user state để App coi như đã login
+      const sessionUser = {
+        uid: googleUser.email, // Hack: Dùng email làm UID giả
+        email: googleUser.email,
+        displayName: googleUser.name,
+        photoURL: googleUser.picture,
+        isAnonymous: false,
+        providerData: [{ providerId: 'google.com' }] 
+      };
+
+      await AsyncStorage.setItem("user_session_direct", JSON.stringify(sessionUser));
+
+      // 3. Cập nhật State -> App tự chuyển màn hình
+      set({ 
+        user: sessionUser, 
+        userProfile: profileData, 
+        isLoading: false 
+      });
+
+      return { success: true };
+
+    } catch (error) {
+      console.error("❌ Lỗi login tà đạo:", error);
+      set({ isLoading: false });
+      return { success: false, error: error.message };
+    }
   },
 
   resetUserData: async () => {

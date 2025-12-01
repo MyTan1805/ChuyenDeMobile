@@ -1,58 +1,31 @@
 import React, { useEffect, useState } from "react";
 import {
-  View,
-  ImageBackground,
-  Text,
-  StyleSheet,
-  SafeAreaView,
-  ScrollView,
-  TextInput,
-  TouchableOpacity,
-  Image,
-  ActivityIndicator,
-  Alert,
-  KeyboardAvoidingView,
-  Platform,
+  View, ImageBackground, Text, StyleSheet, SafeAreaView, ScrollView,
+  TextInput, TouchableOpacity, Image, ActivityIndicator, Alert,
+  KeyboardAvoidingView, Platform,
 } from "react-native";
-
 import { Svg, Path, Circle } from "react-native-svg";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import * as Linking from "expo-linking";
 import * as WebBrowser from "expo-web-browser";
-
-import { ResponseType, makeRedirectUri } from "expo-auth-session";
-
-import * as Facebook from "expo-auth-session/providers/facebook";
 import * as Google from "expo-auth-session/providers/google";
-
-import {
-  FacebookAuthProvider,
-  GoogleAuthProvider,
-  signInWithCredential,
-} from "firebase/auth";
-
+import { GoogleAuthProvider, signInWithCredential } from "firebase/auth";
 import { auth } from "@/config/firebaseConfig";
 import { useUserStore } from "@/store/userStore";
+import { makeRedirectUri } from 'expo-auth-session';
 
 WebBrowser.maybeCompleteAuthSession();
 
-const CustomTextInput = ({
-  placeholder,
-  icon,
-  secureTextEntry = false,
-  value,
-  onChangeText,
-}) => (
+const CustomTextInput = ({ placeholder, icon, secureTextEntry = false, value, onChangeText }) => (
   <View style={styles.inputContainer}>
     <View style={styles.icon}>{icon}</View>
     <TextInput
-      style={styles.input}
-      placeholder={placeholder}
+      style={styles.input} 
+      placeholder={placeholder} 
       placeholderTextColor="#888"
-      secureTextEntry={secureTextEntry}
-      value={value}
-      onChangeText={onChangeText}
+      secureTextEntry={secureTextEntry} 
+      value={value} 
+      onChangeText={onChangeText} 
       autoCapitalize="none"
     />
   </View>
@@ -64,7 +37,64 @@ export default function LoginScreen({ navigation }) {
   const [loading, setLoading] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
 
-  const { login, loginGuest, handleSocialLogin } = useUserStore();
+  const { login, loginGuest } = useUserStore();
+
+ const redirectUri = makeRedirectUri({
+  scheme: 'ecomate', // Thay bằng scheme của bạn
+  useProxy: false
+});
+
+const [request, response, promptAsync] = Google.useAuthRequest({
+  webClientId: "982272940577-flak0p8ehmcm6dphhkohtvp7u3q6om5c.apps.googleusercontent.com",
+  iosClientId: "982272940577-b1pghar1amret407nno3ums1t6ve4shh.apps.googleusercontent.com",
+  redirectUri: redirectUri
+});
+
+// Debug: xem redirect URI
+useEffect(() => {
+  console.log("📱 Redirect URI:", redirectUri);
+}, []);
+
+  useEffect(() => {
+    console.log("📱 Request config:", request?.redirectUri);
+    
+    if (response?.type === "success") {
+      console.log("✅ Google login success");
+      console.log("Response params:", response.params);
+      
+      // Lấy ID token từ response
+      const { id_token, authentication } = response.params;
+      const idToken = id_token || authentication?.idToken;
+      
+      if (idToken) {
+        handleFirebaseGoogleLogin(idToken);
+      } else {
+        console.error("❌ No ID token found in response");
+        Alert.alert("Lỗi", "Không nhận được ID token từ Google");
+      }
+    } else if (response?.type === "error") {
+      console.error("❌ Google Error:", response.error);
+      Alert.alert("Lỗi Google", response.error?.message || "Đăng nhập thất bại");
+    } else if (response?.type === "cancel") {
+      console.log("⚠️ User cancelled Google login");
+    }
+  }, [response]);
+
+  const handleFirebaseGoogleLogin = async (idToken) => {
+    setLoading(true);
+    try {
+      console.log("🔐 Signing in with Firebase...");
+      const credential = GoogleAuthProvider.credential(idToken);
+      const result = await signInWithCredential(auth, credential);
+      console.log("✅ Firebase login success:", result.user.email);
+      Alert.alert("Thành công", `Chào mừng ${result.user.email}!`);
+    } catch (error) {
+      console.error("❌ Firebase Login Error:", error);
+      Alert.alert("Lỗi", error.message || "Không thể đăng nhập. Vui lòng thử lại.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
     const loadCredentials = async () => {
@@ -72,134 +102,69 @@ export default function LoginScreen({ navigation }) {
         const savedEmail = await AsyncStorage.getItem("saved_email");
         const savedPassword = await AsyncStorage.getItem("saved_password");
         if (savedEmail && savedPassword) {
-          setEmail(savedEmail);
-          setPassword(savedPassword);
+          setEmail(savedEmail); 
+          setPassword(savedPassword); 
           setRememberMe(true);
         }
       } catch (error) {
-        console.log("Lỗi tải thông tin đăng nhập:", error);
+        console.error("Load credentials error:", error);
       }
     };
     loadCredentials();
   }, []);
 
-
-  const redirectUri = makeRedirectUri({
-    scheme: 'ecomate',  
-    path: 'auth'     
-  });
-
-  console.log("---------------------------------------------------");
-  console.log("LINK ĐANG DÙNG:", redirectUri);
-  console.log("---------------------------------------------------");
-
-  const [fbRequest, fbResponse, fbPromptAsync] = Facebook.useAuthRequest({
-    clientId: "1528691631678762",
-    responseType: ResponseType.Token,
-    redirectUri: redirectUri,
-    scopes: ['public_profile', 'email'],
-  });
-
-  useEffect(() => {
-    if (fbResponse?.type === "success") {
-      const { access_token } = fbResponse.params;
-      const credential = FacebookAuthProvider.credential(access_token);
-      handleFirebaseSocialLogin(credential);
-    } else if (fbResponse?.type === "error") {
-      Alert.alert("Lỗi Facebook", "Đăng nhập Facebook không thành công.");
-      console.log("FB Error:", fbResponse.error);
-    }
-  }, [fbResponse]);
-
-  const [gRequest, gResponse, gPromptAsync] = Google.useIdTokenAuthRequest({
-    iosClientId: "982272940577-b1pghar1amret407nno3ums1t6ve4shh.apps.googleusercontent.com",
-    androidClientId: "982272940577-p0vi3v54rrqqtslfmr3ar3l9hh2tp2u1.apps.googleusercontent.com",
-    webClientId: "982272940577-flak0p8ehmcm6dphhkohtvp7u3q6om5c.apps.googleusercontent.com",
-    redirectUri: redirectUri,
-  });
-
-  useEffect(() => {
-    if (gResponse?.type === "success") {
-      const { id_token } = gResponse.params;
-      const credential = GoogleAuthProvider.credential(id_token);
-      handleFirebaseSocialLogin(credential);
-    }
-  }, [gResponse]);
-
-  const handleFirebaseSocialLogin = async (credential) => {
-    setLoading(true);
-    try {
-      const userCredential = await signInWithCredential(auth, credential);
-      if (handleSocialLogin) {
-        await handleSocialLogin(userCredential.user);
-      }
-    } catch (error) {
-      console.error("Firebase Login Error:", error);
-      Alert.alert("Đăng nhập thất bại", error.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const handleLogin = async () => {
-    if (!email || !password) {
-      Alert.alert("Lỗi", "Vui lòng nhập email và mật khẩu.");
-      return;
+    if (!email || !password) { 
+      Alert.alert("Lỗi", "Vui lòng nhập email và mật khẩu."); 
+      return; 
     }
     setLoading(true);
     try {
       const result = await login(email, password);
-
       if (result.success) {
         if (rememberMe) {
-          await AsyncStorage.setItem("saved_email", email);
+          await AsyncStorage.setItem("saved_email", email); 
           await AsyncStorage.setItem("saved_password", password);
         } else {
-          await AsyncStorage.removeItem("saved_email");
+          await AsyncStorage.removeItem("saved_email"); 
           await AsyncStorage.removeItem("saved_password");
         }
       } else {
-        let msg = "Email hoặc mật khẩu không đúng.";
-        if (result.error?.code === "auth/user-not-found" || result.error?.code === "auth/wrong-password") {
-          msg = "Email hoặc mật khẩu không chính xác.";
-        } else if (result.error?.code === "auth/invalid-email") {
-          msg = "Email không hợp lệ.";
-        }
-        Alert.alert("Đăng nhập thất bại", msg);
+        Alert.alert("Thất bại", "Email hoặc mật khẩu không đúng.");
       }
-    } catch (e) {
-      Alert.alert("Lỗi", "Đã xảy ra lỗi không mong muốn.");
-    } finally {
-      setLoading(false);
+    } catch (e) { 
+      Alert.alert("Lỗi", "Đã xảy ra lỗi kết nối."); 
+    } finally { 
+      setLoading(false); 
     }
   };
 
   const handleGuestLogin = async () => {
     setLoading(true);
-    try {
-      const result = await loginGuest();
-      if (!result.success) {
-        Alert.alert("Lỗi", "Không thể đăng nhập khách.");
-      }
-    } catch {
-      Alert.alert("Lỗi", "Đã xảy ra lỗi kết nối.");
-    } finally {
-      setLoading(false);
-    }
+    await loginGuest();
+    setLoading(false);
   };
 
-  const toggleRememberMe = () => setRememberMe(!rememberMe);
+  const handleGoogleLogin = () => {
+    console.log("🔘 Google button pressed");
+    if (!request) {
+      console.log("⚠️ Request not ready yet");
+      Alert.alert("Vui lòng đợi", "Đang chuẩn bị đăng nhập...");
+      return;
+    }
+    promptAsync();
+  };
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <KeyboardAvoidingView
-        style={{ flex: 1 }}
+      <KeyboardAvoidingView 
+        style={{ flex: 1 }} 
         behavior={Platform.OS === "ios" ? "padding" : "height"}
       >
         <ScrollView contentContainerStyle={styles.scrollView}>
-          <ImageBackground
-            source={require("@/assets/images/header.jpg")}
-            resizeMode="cover"
+          <ImageBackground 
+            source={require("@/assets/images/header.jpg")} 
+            resizeMode="cover" 
             style={styles.headerBackground}
           >
             <Text style={styles.headerTitle}>ECOMATE</Text>
@@ -208,9 +173,9 @@ export default function LoginScreen({ navigation }) {
           <View style={styles.formContainer}>
             <Text style={styles.title}>Đăng nhập</Text>
 
-            <CustomTextInput
-              placeholder="Nhập email"
-              value={email}
+            <CustomTextInput 
+              placeholder="Nhập email" 
+              value={email} 
               onChangeText={setEmail}
               icon={
                 <Svg width="20" height="16" viewBox="0 0 20 16" fill="none">
@@ -218,11 +183,11 @@ export default function LoginScreen({ navigation }) {
                 </Svg>
               }
             />
-
-            <CustomTextInput
-              placeholder="Nhập mật khẩu"
-              value={password}
-              onChangeText={setPassword}
+            
+            <CustomTextInput 
+              placeholder="Nhập mật khẩu" 
+              value={password} 
+              onChangeText={setPassword} 
               secureTextEntry
               icon={
                 <Svg width="16" height="21" viewBox="0 0 16 21" fill="none">
@@ -232,39 +197,70 @@ export default function LoginScreen({ navigation }) {
             />
 
             <View style={styles.optionsContainer}>
-              <TouchableOpacity onPress={toggleRememberMe} style={styles.rememberMe}>
+              <TouchableOpacity 
+                onPress={() => setRememberMe(!rememberMe)} 
+                style={styles.rememberMe}
+              >
                 <Svg width="16" height="16" viewBox="0 0 12 12" fill="none">
                   <Circle cx="6" cy="6" r="6" fill={rememberMe ? "#2F847C" : "#D9D9D9"} />
-                  {rememberMe && <Path d="M3 6L5 8L9 4" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />}
+                  {rememberMe && (
+                    <Path 
+                      d="M3 6L5 8L9 4" 
+                      stroke="white" 
+                      strokeWidth="1.5" 
+                      strokeLinecap="round" 
+                      strokeLinejoin="round" 
+                    />
+                  )}
                 </Svg>
-                <Text style={[styles.optionsText, rememberMe && { color: "#2F847C", fontFamily: "Nunito-Bold" }]}>Nhớ mật khẩu</Text>
+                <Text style={[
+                  styles.optionsText, 
+                  rememberMe && { color: "#2F847C", fontFamily: "Nunito-Bold" }
+                ]}>
+                  Nhớ mật khẩu
+                </Text>
               </TouchableOpacity>
-
+              
               <TouchableOpacity onPress={() => navigation.navigate("ForgotPassword")}>
                 <Text style={[styles.optionsText, styles.link]}>Quên mật khẩu?</Text>
               </TouchableOpacity>
             </View>
 
-            <TouchableOpacity style={styles.button} onPress={handleLogin} disabled={loading}>
-              {loading ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.buttonText}>Đăng nhập</Text>}
+            <TouchableOpacity 
+              style={styles.button} 
+              onPress={handleLogin} 
+              disabled={loading}
+            >
+              {loading ? (
+                <ActivityIndicator color="#FFFFFF" />
+              ) : (
+                <Text style={styles.buttonText}>Đăng nhập</Text>
+              )}
             </TouchableOpacity>
 
             <Text style={styles.orText}>Hoặc</Text>
 
             <View style={styles.socialContainer}>
-              <TouchableOpacity
-                style={[styles.socialButton, (!gRequest || loading) && { opacity: 0.5 }]}
-                onPress={() => gPromptAsync()}
-                disabled={!gRequest || loading}
+              <TouchableOpacity 
+                style={[
+                  styles.socialButton, 
+                  (!request || loading) && { opacity: 0.5 }
+                ]}
+                onPress={handleGoogleLogin}
+                disabled={!request || loading}
               >
-                <Image source={{ uri: "https://img.icons8.com/color/48/000000/google-logo.png" }} style={styles.socialIcon} resizeMode="contain" />
+                {loading ? (
+                  <ActivityIndicator size="small" color="#4285F4" />
+                ) : (
+                  <Image 
+                    source={{ uri: "https://img.icons8.com/color/48/000000/google-logo.png" }} 
+                    style={styles.socialIcon} 
+                    resizeMode="contain" 
+                  />
+                )}
               </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[styles.socialButton, (!fbRequest || loading) && { opacity: 0.5 }]}
-                onPress={() => fbPromptAsync()}
-                disabled={!fbRequest || loading}
-              >
+              
+              <TouchableOpacity style={styles.socialButton}>
                 <Ionicons name="logo-facebook" size={40} color="#1877F2" />
               </TouchableOpacity>
             </View>
@@ -272,12 +268,20 @@ export default function LoginScreen({ navigation }) {
             <View style={styles.linkContainer}>
               <Text style={styles.bottomText}>{"Chưa có tài khoản? "}</Text>
               <TouchableOpacity onPress={() => navigation.navigate("Register")}>
-                <Text style={[styles.bottomText, styles.link, { color: "#46e49aff" }]}>Đăng kí</Text>
+                <Text style={[styles.bottomText, styles.link, { color: "#46e49aff" }]}>
+                  Đăng kí
+                </Text>
               </TouchableOpacity>
             </View>
 
-            <TouchableOpacity style={{ marginTop: 10, padding: 5 }} onPress={handleGuestLogin} disabled={loading}>
-              <Text style={[styles.bottomText, styles.link]}>Tiếp tục với vai trò là khách</Text>
+            <TouchableOpacity 
+              style={{ marginTop: 10, padding: 5 }} 
+              onPress={handleGuestLogin} 
+              disabled={loading}
+            >
+              <Text style={[styles.bottomText, styles.link]}>
+                Tiếp tục với vai trò là khách
+              </Text>
             </TouchableOpacity>
           </View>
         </ScrollView>
@@ -289,23 +293,116 @@ export default function LoginScreen({ navigation }) {
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: "#fff" },
   scrollView: { flexGrow: 1 },
-  headerBackground: { width: "100%", height: 306, alignItems: "center", justifyContent: "center", borderBottomRightRadius: 180, overflow: "hidden" },
-  headerTitle: { fontFamily: "LilitaOne-Regular", fontSize: 60, color: "#fff", marginTop: 40 },
-  formContainer: { flex: 1, alignItems: "center", paddingHorizontal: 33, paddingTop: 30, paddingBottom: 40, backgroundColor: "#fff" },
-  title: { fontFamily: "Inter-Bold", fontSize: 35, color: "#000", marginBottom: 30 },
-  inputContainer: { flexDirection: "row", alignItems: "center", backgroundColor: "#EEEEEE", borderRadius: 30, width: "100%", height: 49, marginBottom: 19, paddingHorizontal: 19 },
+  headerBackground: { 
+    width: "100%", 
+    height: 280, 
+    alignItems: "center", 
+    justifyContent: "center", 
+    borderBottomRightRadius: 180, 
+    overflow: "hidden" 
+  },
+  headerTitle: { 
+    fontFamily: "LilitaOne-Regular", 
+    fontSize: 60, 
+    color: "#fff", 
+    marginTop: 40 
+  },
+  formContainer: { 
+    flex: 1, 
+    alignItems: "center", 
+    paddingHorizontal: 33, 
+    paddingTop: 30, 
+    paddingBottom: 40, 
+    backgroundColor: "#fff" 
+  },
+  title: { 
+    fontFamily: "Inter-Bold", 
+    fontSize: 35, 
+    color: "#000", 
+    marginBottom: 30 
+  },
+  inputContainer: { 
+    flexDirection: "row", 
+    alignItems: "center", 
+    backgroundColor: "#EEEEEE", 
+    borderRadius: 30, 
+    width: "100%", 
+    height: 49, 
+    marginBottom: 19, 
+    paddingHorizontal: 19 
+  },
   icon: { marginRight: 10 },
-  input: { flex: 1, height: "100%", fontFamily: "Nunito-Regular", fontSize: 18, color: "#000" },
-  optionsContainer: { flexDirection: "row", justifyContent: "space-between", width: "100%", marginBottom: 30, paddingHorizontal: 8 },
-  rememberMe: { flexDirection: "row", alignItems: "center", padding: 4 },
-  optionsText: { fontFamily: "Nunito-Regular", fontSize: 15, color: "#000", marginLeft: 6 },
-  link: { fontFamily: "Nunito-Bold", textDecorationLine: "underline" },
-  button: { backgroundColor: "#2F847C", borderRadius: 30, paddingVertical: 15, width: "100%", alignItems: "center", elevation: 5, marginBottom: 20 },
-  buttonText: { color: "#FFFFFF", fontSize: 20, fontFamily: "Nunito-Bold" },
-  orText: { fontFamily: "Nunito-Bold", fontSize: 15, color: "#000", textDecorationLine: "underline", marginBottom: 20 },
-  socialContainer: { flexDirection: "row", justifyContent: "center", width: "100%", marginBottom: 20, alignItems: "center" },
-  socialButton: { marginHorizontal: 20, padding: 10 },
-  socialIcon: { width: 40, height: 40 },
-  linkContainer: { flexDirection: "row" },
-  bottomText: { fontFamily: "Nunito-Regular", fontSize: 15, color: "#000" },
+  input: { 
+    flex: 1, 
+    height: "100%", 
+    fontFamily: "Nunito-Regular", 
+    fontSize: 18, 
+    color: "#000" 
+  },
+  optionsContainer: { 
+    flexDirection: "row", 
+    justifyContent: "space-between", 
+    width: "100%", 
+    marginBottom: 30, 
+    paddingHorizontal: 8 
+  },
+  rememberMe: { 
+    flexDirection: "row", 
+    alignItems: "center", 
+    padding: 4 
+  },
+  optionsText: { 
+    fontFamily: "Nunito-Regular", 
+    fontSize: 15, 
+    color: "#000", 
+    marginLeft: 6 
+  },
+  link: { 
+    fontFamily: "Nunito-Bold", 
+    textDecorationLine: "underline" 
+  },
+  button: { 
+    backgroundColor: "#2F847C", 
+    borderRadius: 30, 
+    paddingVertical: 15, 
+    width: "100%", 
+    alignItems: "center", 
+    elevation: 5, 
+    marginBottom: 20 
+  },
+  buttonText: { 
+    color: "#FFFFFF", 
+    fontSize: 20, 
+    fontFamily: "Nunito-Bold" 
+  },
+  orText: { 
+    fontFamily: "Nunito-Bold", 
+    fontSize: 15, 
+    color: "#000", 
+    textDecorationLine: "underline", 
+    marginBottom: 20 
+  },
+  socialContainer: { 
+    flexDirection: "row", 
+    justifyContent: "center", 
+    width: "100%", 
+    marginBottom: 20, 
+    alignItems: "center" 
+  },
+  socialButton: { 
+    marginHorizontal: 20, 
+    padding: 10 
+  },
+  socialIcon: { 
+    width: 40, 
+    height: 40 
+  },
+  linkContainer: { 
+    flexDirection: "row" 
+  },
+  bottomText: { 
+    fontFamily: "Nunito-Regular", 
+    fontSize: 15, 
+    color: "#000" 
+  },
 });

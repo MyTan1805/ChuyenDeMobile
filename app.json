@@ -1,8 +1,8 @@
 {
   "expo": {
-    "scheme": "ecomate",
-    "name": "ChuyenDeMobile",
+    "name": "EcoMate",
     "slug": "ChuyenDeMobile",
+    "scheme": "ecomate",
     "owner": "purrfectstorm",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -16,9 +16,6 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.tan.chuyendemobile",
-      "associatedDomains": [
-        "applinks:ecoapp-dc865.firebaseapp.com"
-      ],
       "googleServicesFile": "./GoogleService-Info.plist",
       "infoPlist": {
         "NSCameraUsageDescription": "Ứng dụng cần truy cập camera để chụp ảnh phân loại rác thải.",
@@ -27,26 +24,6 @@
     },
     "android": {
       "package": "com.tan.chuyendemobile",
-      "intentFilters": [
-        {
-          "action": "VIEW",
-          "autoVerify": true,
-          "data": [
-            {
-              "scheme": "https",
-              "host": "ecoapp-dc865.firebaseapp.com",
-              "pathPrefix": "/"
-            },
-            {
-              "scheme": "ecomate"
-            }
-          ],
-          "category": [
-            "BROWSABLE",
-            "DEFAULT"
-          ]
-        }
-      ],
       "adaptiveIcon": {
         "foregroundImage": "./src/assets/images/adaptive-icon.png",
         "backgroundColor": "#ffffff"
