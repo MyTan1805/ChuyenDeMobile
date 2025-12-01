@@ -51,6 +51,8 @@ import RecycleDIYScreen from '@/features/community/screens/RecycleDIYScreen';
 import GroupDetailScreen from '@/features/community/screens/GroupDetailScreen';
 import EditGroupScreen from '@/features/community/screens/EditGroupScreen';
 import WasteSearchScreen from '@/features/waste-guide/screens/WasteSearchScreen'; // Đã sửa import đúng
+import GreenLivingScreen from '@/features/community/screens/GreenLivingScreen';
+import GreenTipsListScreen from '@/features/community/screens/GreenTipsListScreen';
 
 // 4. GAMIFICATION & PROFILE
 import StoreScreen from '@/features/gamification/screens/StoreScreen';
@@ -192,7 +194,17 @@ function MainTabNavigator() {
     <MainTab.Navigator tabBar={(props) => <CustomTabBar {...props} />} screenOptions={{ headerShown: false }}>
       <MainTab.Screen name="Trang chủ" component={HomeStackNavigator} />
       <MainTab.Screen name="Cộng đồng" component={CommunityStackNavigator} />
-      <MainTab.Screen name="Đăng tin" component={PostScreen} />
+
+      {/* ❌ XÓA DÒNG DƯỚI ĐÂY TRONG TAB ĐỂ TRÁNH XUNG ĐỘT */}
+      {/* <MainTab.Screen name="Đăng tin" component={PostScreen} /> */}
+
+      {/* Giữ nút giữa ở CustomTabBar nhưng xử lý sự kiện riêng */}
+      <MainTab.Screen
+        name="CreatePostPlaceholder"
+        component={View} // Dummy component
+        options={{ tabBarLabel: 'Đăng tin' }} // Để CustomTabBar vẫn render nút
+      />
+
       <MainTab.Screen name="Cửa hàng" component={StoreScreen} />
       <MainTab.Screen name="Hồ sơ" component={ProfileScreen} />
     </MainTab.Navigator>
@@ -214,6 +226,15 @@ function MainNavigator() {
       <MainStack.Screen name="WasteClassification" component={WasteClassificationScreen} />
       <MainStack.Screen name="WasteSearch" component={WasteSearchScreen} />
 
+      {/* ✅ THÊM CÁC MÀN HÌNH KHÁM PHÁ VÀO ĐÂY */}
+      <MainStack.Screen name="WasteClassification" component={WasteClassificationScreen} />
+      <MainStack.Screen name="EcoLibrary" component={EcoLibraryScreen} />
+      <MainStack.Screen name="QuizCollection" component={QuizCollectionScreen} />
+      <MainStack.Screen name="Quiz" component={QuizScreen} />
+      <MainStack.Screen name="GreenLiving" component={GreenLivingScreen} />
+      <MainStack.Screen name="GreenTipsListScreen" component={GreenTipsListScreen} />
+
+      {/* Các màn hình khác giữ nguyên */}
       <MainStack.Screen name="PostDetail" component={PostDetailScreen} />
       {/* <MainStack.Screen name="ArticleDetail" component={ArticleDetailScreen} /> */}
       <MainStack.Screen name="WasteDetail" component={WasteDetailScreen} />
@@ -251,18 +272,18 @@ function MainNavigator() {
       <MainStack.Screen name="PrivacyPolicy" component={PrivacyScreen} />
 
       {/* Cấu hình Modal cho Đăng tin */}
+      <MainStack.Screen name="CreateGroup" component={CreateGroupScreen} />
+      <MainStack.Screen name="GroupDetail" component={GroupDetailScreen} />
+      <MainStack.Screen name="EditGroup" component={EditGroupScreen} />
+
       <MainStack.Screen
         name="Đăng tin"
         component={PostScreen}
         options={{
           presentation: 'modal',
-
           gestureEnabled: true,
-
-          // 3. (Tuỳ chọn) Nếu muốn hiệu ứng trong suốt mờ nền phía sau giống iOS 13+
-          // cardStyle: { backgroundColor: 'transparent' }, 
-
-          headerShown: false
+          headerShown: false,
+          cardOverlayEnabled: true,
         }}
       />
     </MainStack.Navigator>

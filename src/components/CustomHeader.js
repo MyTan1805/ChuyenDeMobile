@@ -18,8 +18,75 @@ const CustomHeader = ({
     const navigation = useNavigation();
 
     const handleBackPress = () => {
-        if (onBackPress) onBackPress();
-        else navigation.goBack();
+        if (onBackPress) {
+            // Nếu có hàm xử lý riêng được truyền vào thì dùng nó
+            onBackPress();
+        } else if (navigation.canGoBack()) {
+            // ✅ KIỂM TRA: Chỉ goBack nếu lịch sử tồn tại
+            navigation.goBack();
+        } else {
+            // (Tùy chọn) Nếu không thể quay lại, đưa về trang chủ để tránh kẹt
+            // navigation.navigate('MainTabs'); 
+            console.warn("Không thể quay lại: Đang ở màn hình gốc.");
+        }
+    };
+
+    const handleClosePress = () => {
+        if (onClosePress) {
+            onClosePress();
+        } else {
+            navigation.goBack();
+        }
+    };
+
+    const renderLeft = () => {
+        if (showBackButton) {
+            return (
+                <TouchableOpacity onPress={handleBackPress} style={styles.iconButton}>
+                    <Ionicons name="arrow-back" size={28} color="#333" />
+                </TouchableOpacity>
+            );
+        }
+        if (showCloseButton) {
+            return (
+                <TouchableOpacity onPress={handleClosePress} style={styles.iconButton}>
+                    <Ionicons name="close" size={30} color="#333" />
+                </TouchableOpacity>
+            );
+        }
+        if (showMenuButton) {
+            return (
+                <TouchableOpacity onPress={onMenuPress} style={styles.iconButton}>
+                    <Ionicons name="menu" size={32} color="#333" />
+                </TouchableOpacity>
+            );
+        }
+        return <View style={styles.placeholder} />;
+    };
+
+    const renderCenter = () => {
+        if (useLogo) {
+            return <Text style={styles.logo}>EcoMate</Text>;
+        }
+        return <Text style={styles.title} numberOfLines={1}>{title}</Text>;
+    };
+
+    const renderRight = () => {
+        return (
+            <View style={styles.rightContainer}>
+                {showNotificationButton && (
+                    <TouchableOpacity onPress={onNotificationPress} style={styles.iconButton}>
+                        <Ionicons name="notifications-outline" size={26} color="#333" />
+                    </TouchableOpacity>
+                )}
+                {showSettingsButton && (
+                    <TouchableOpacity onPress={onSettingsPress} style={[styles.iconButton, { marginLeft: 10 }]}>
+                        <Ionicons name={rightIconName} size={26} color="#333" />
+                    </TouchableOpacity>
+                )}
+                {!showNotificationButton && !showSettingsButton && <View style={styles.placeholder} />}
+            </View>
+        );
     };
 
     return (

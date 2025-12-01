@@ -10,7 +10,7 @@ const CustomTabBar = ({ state, descriptors, navigation }) => {
     'Cửa hàng': 'cart-outline',
     'Hồ sơ': 'person-circle-outline',
   };
-  
+
 
   const focusedIconMapping = {
     'Trang chủ': 'home',
@@ -29,6 +29,11 @@ const CustomTabBar = ({ state, descriptors, navigation }) => {
 
         const onPress = () => {
           const event = navigation.emit({ type: 'tabPress', target: route.key, canPreventDefault: true });
+          if (label === 'Đăng tin') {
+            // Điều hướng sang màn hình Modal nằm ở Stack ngoài
+            navigation.navigate('Đăng tin', { isTip: false });
+            return;
+          }
           if (!isFocused && !event.defaultPrevented) {
             navigation.navigate(route.name);
           }

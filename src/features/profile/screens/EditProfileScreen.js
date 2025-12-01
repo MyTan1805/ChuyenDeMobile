@@ -50,40 +50,43 @@ const EditProfileScreen = () => {
     };
 
     const handleSave = async () => {
-        if (uploading) return; // Ngăn bấm nhiều lần
+        if (uploading) return;
         setUploading(true);
 
         try {
-            // 1. Upload ảnh nếu là ảnh mới (local file)
-            let avatarUploadSuccess = true;
-            // Kiểm tra kỹ điều kiện này
+            // 1. Logic Upload ảnh
+            let newPhotoURL = userProfile?.photoURL; // Mặc định là ảnh cũ
+
+            // Kiểm tra nếu là ảnh mới từ thư viện (có prefix file://)
             if (imageUri && imageUri !== userProfile?.photoURL && imageUri.startsWith('file://')) {
-                console.log("Đang upload ảnh từ:", imageUri); // Log kiểm tra
                 const result = await uploadAvatar(imageUri);
-                if (!result.success) {
-                    avatarUploadSuccess = false;
+                if (result.success) {
+                    newPhotoURL = result.url; // Lấy URL mới từ Cloudinary/Firebase Storage
+                } else {
                     Alert.alert("Lỗi", "Không thể tải ảnh lên: " + JSON.stringify(result.error));
+                    setUploading(false);
+                    return; // Dừng nếu upload lỗi
                 }
             }
 
-            // 2. Cập nhật thông tin text
+            // 2. Cập nhật thông tin (THÊM photoURL VÀO ĐÂY)
             const updateData = {
                 displayName: name,
                 location: area,
                 phoneNumber: phone,
+                photoURL: newPhotoURL // <--- QUAN TRỌNG: Cập nhật link ảnh mới
             };
 
             const result = await updateUserProfile(updateData);
 
-            if (result.success && avatarUploadSuccess) {
+            if (result.success) {
                 Alert.alert("Thành công", "Đã cập nhật hồ sơ!");
                 navigation.goBack();
-            } else if (!avatarUploadSuccess) {
-                // Đã alert lỗi ở trên
             } else {
                 Alert.alert("Lỗi", "Cập nhật thông tin thất bại.");
             }
         } catch (e) {
+            console.error(e);
             Alert.alert("Lỗi", "Đã xảy ra lỗi không mong muốn.");
         } finally {
             setUploading(false);

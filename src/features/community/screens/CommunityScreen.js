@@ -39,7 +39,7 @@ const CATEGORIES = [
     { id: 'waste', title: 'Phân Loại', subtitle: 'Rác thải', icon: 'recycle', iconLib: 'MaterialCommunityIcons', screen: 'WasteClassification', color: '#E8F5E9' },
     { id: 'library', title: 'Thư Viện', subtitle: 'Kiến thức', icon: 'book-open-page-variant', iconLib: 'MaterialCommunityIcons', screen: 'EcoLibrary', color: '#E3F2FD' },
     { id: 'quiz', title: 'Thử Thách', subtitle: 'Đố vui', icon: 'brain', iconLib: 'MaterialCommunityIcons', screen: 'QuizCollection', color: '#FFF3E0' },
-    { id: 'green', title: 'Sống Xanh', subtitle: 'Lifestyle', icon: 'leaf', iconLib: 'Ionicons', screen: null, color: '#F3E5F5' },
+    { id: 'green', title: 'Sống Xanh', subtitle: 'Lifestyle', icon: 'leaf', iconLib: 'Ionicons', screen: 'GreenLiving', color: '#F3E5F5' },
 ];
 
 const CommunityScreen = () => {
