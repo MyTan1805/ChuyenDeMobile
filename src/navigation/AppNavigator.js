@@ -196,7 +196,7 @@ function MainTabNavigator() {
         })}
       />
 
-      <MainTab.Screen name="Cửa hàng" component={StoreScreen} options={{ headerShown: true, headerTitle: "Cửa hàng xanh" }} />
+      <MainTab.Screen name="Cửa hàng" component={StoreScreen}/>
       <MainTab.Screen name="Hồ sơ" component={ProfileScreen} />
     </MainTab.Navigator>
   );
