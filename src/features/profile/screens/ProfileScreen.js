@@ -50,55 +50,116 @@ const ProfileScreen = () => {
         return () => { unsub1(); unsub2(); };
     }, []);
 
-    const handleExportPersonalPDF = async () => {
-        setLoadingPdf(true);
-        try {
-            const currentUser = auth?.currentUser;
-            if (!currentUser) return;
-            const q = query(collection(db, 'reports'), where('userId', '==', currentUser.uid), orderBy('createdAt', 'desc'));
-            const snapshot = await getDocs(q);
-            const reports = snapshot.docs.map(doc => doc.data());
+    // ==================== XUẤT PDF CÁ NHÂN ====================
+const handleExportPersonalPDF = async () => {
+    if (!currentUser) return;
+    
+    setLoadingPdf(true);
+    try {
+        // Lấy 3 thông tin cần thiết
+        const recycleCount = userProfile?.stats?.recycleCount || 0;
+        const points = userProfile?.stats?.points || 0;
+        const reportCount = realReportCount;
 
-            if (reports.length === 0) {
-                Alert.alert("Thông báo", "Bạn chưa có báo cáo nào để xuất.");
-                setLoadingPdf(false);
-                return;
-            }
+        const html = `
+            <html>
+            <head>
+                <style>
+                    body { 
+                        font-family: Helvetica, Arial, sans-serif; 
+                        padding: 40px; 
+                    }
+                    h2 { 
+                        text-align: center; 
+                        color: #2F847C; 
+                        margin-bottom: 30px;
+                    }
+                    .user-info { 
+                        margin: 20px 0; 
+                        padding: 15px; 
+                        background-color: #f5f5f5; 
+                        border-radius: 8px; 
+                    }
+                    .user-info p { 
+                        margin: 5px 0; 
+                    }
+                    .stats-table {
+                        width: 100%;
+                        margin-top: 30px;
+                        border-collapse: collapse;
+                    }
+                    .stats-table td {
+                        padding: 15px;
+                        border-bottom: 1px solid #ddd;
+                        font-size: 16px;
+                    }
+                    .stats-table td:first-child {
+                        color: #666;
+                        width: 60%;
+                    }
+                    .stats-table td:last-child {
+                        font-weight: bold;
+                        color: #2F847C;
+                        font-size: 20px;
+                        text-align: right;
+                    }
+                    .footer { 
+                        margin-top: 40px; 
+                        text-align: center; 
+                        font-size: 11px; 
+                        color: #888; 
+                    }
+                </style>
+            </head>
+            <body>
+                <h2>BÁO CÁO CÁ NHÂN - ECOMATE</h2>
+                
+                <div class="user-info">
+                    <p><strong>Người dùng:</strong> ${userProfile?.displayName || 'Thành viên Ecomate'}</p>
+                    <p><strong>Ngày xuất:</strong> ${new Date().toLocaleDateString('vi-VN')}</p>
+                </div>
 
-            let rows = reports.map((item, idx) => {
-                let dateStr = 'N/A';
-                if (item.createdAt?.seconds) {
-                    dateStr = new Date(item.createdAt.seconds * 1000).toLocaleDateString('vi-VN');
-                }
-                const statusText = item.status === 'approved' ? 'Đã duyệt' : item.status === 'rejected' ? 'Từ chối' : 'Chờ duyệt';
-                return `<tr><td style="text-align:center">${idx + 1}</td><td>${item.violationType}</td><td>${dateStr}</td><td style="text-align:center">${statusText}</td></tr>`;
-            }).join('');
-
-            const html = `
-                <html><body>
-                <h2 style="text-align:center;color:#2F847C">BÁO CÁO CÁ NHÂN - ECOMATE</h2>
-                <p><strong>Người dùng:</strong> ${userProfile?.displayName}</p>
-                <table border="1" style="width:100%;border-collapse:collapse;padding:5px;">
-                    <tr style="background-color:#eee;"><th>STT</th><th>Loại vi phạm</th><th>Ngày gửi</th><th>Trạng thái</th></tr>
-                    ${rows}
+                <table class="stats-table">
+                    <tr>
+                        <td>Số lần phân loại rác</td>
+                        <td>${recycleCount} lần</td>
+                    </tr>
+                    <tr>
+                        <td>Số báo cáo đã gửi</td>
+                        <td>${reportCount} báo cáo</td>
+                    </tr>
+                    <tr>
+                        <td>Điểm thưởng</td>
+                        <td>${points} điểm</td>
+                    </tr>
                 </table>
-                </body></html>
-            `;
-            const { uri } = await Print.printToFileAsync({ html });
-            await Sharing.shareAsync(uri, { UTI: '.pdf', mimeType: 'application/pdf' });
-        } catch (e) { Alert.alert("Lỗi", e.message); } finally { setLoadingPdf(false); }
-    };
 
-    if (!userProfile) {
-         return (
-            <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
-                <ActivityIndicator size="large" color="#2F847C" />
-            </View>
-        );
+                <div class="footer">
+                    <p>Cảm ơn bạn đã chung tay vì một môi trường xanh - sạch - đẹp.</p>
+                    <p>© 2024 Ecomate - Ứng dụng bảo vệ môi trường</p>
+                </div>
+            </body>
+            </html>
+        `;
+
+        const { uri } = await Print.printToFileAsync({ html });
+        await Sharing.shareAsync(uri, { 
+            UTI: '.pdf', 
+            mimeType: 'application/pdf' 
+        });
+    } catch (error) {
+        console.error("Error exporting PDF:", error);
+        Alert.alert("Lỗi", "Không thể xuất PDF: " + error.message);
+    } finally {
+        setLoadingPdf(false);
     }
-
-    const stats = userProfile.stats || {};
-    const quizResults = userProfile.quizResults || {};
+};
+    // ==================== RENDER UI ====================
+    const displayData = userProfile || { 
+        displayName: "...", 
+        location: "...", 
+        photoURL: null 
+    };
     
     const displayStats = {
         ...stats,
