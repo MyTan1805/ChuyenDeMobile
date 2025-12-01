@@ -98,104 +98,109 @@ const ProfileScreen = () => {
     }, []);
 
     // ==================== XUẤT PDF CÁ NHÂN ====================
-    const handleExportPersonalPDF = async () => {
-        if (!currentUser) return;
-        
-        setLoadingPdf(true);
-        try {
-            const q = query(
-                collection(db, 'reports'), 
-                where('userId', '==', currentUser.uid), 
-                orderBy('createdAt', 'desc')
-            );
-            const snapshot = await getDocs(q);
-            const reports = snapshot.docs.map(doc => doc.data());
+const handleExportPersonalPDF = async () => {
+    if (!currentUser) return;
+    
+    setLoadingPdf(true);
+    try {
+        // Lấy 3 thông tin cần thiết
+        const recycleCount = userProfile?.stats?.recycleCount || 0;
+        const points = userProfile?.stats?.points || 0;
+        const reportCount = realReportCount;
 
-            if (reports.length === 0) {
-                Alert.alert("Thông báo", "Bạn chưa có báo cáo nào để xuất.");
-                setLoadingPdf(false);
-                return;
-            }
-
-            // Format rows cho table HTML
-            let rows = reports.map((item, idx) => {
-                let dateStr = 'N/A';
-                if (item.createdAt?.seconds) {
-                    dateStr = new Date(item.createdAt.seconds * 1000).toLocaleDateString('vi-VN');
-                }
+        const html = `
+            <html>
+            <head>
+                <style>
+                    body { 
+                        font-family: Helvetica, Arial, sans-serif; 
+                        padding: 40px; 
+                    }
+                    h2 { 
+                        text-align: center; 
+                        color: #2F847C; 
+                        margin-bottom: 30px;
+                    }
+                    .user-info { 
+                        margin: 20px 0; 
+                        padding: 15px; 
+                        background-color: #f5f5f5; 
+                        border-radius: 8px; 
+                    }
+                    .user-info p { 
+                        margin: 5px 0; 
+                    }
+                    .stats-table {
+                        width: 100%;
+                        margin-top: 30px;
+                        border-collapse: collapse;
+                    }
+                    .stats-table td {
+                        padding: 15px;
+                        border-bottom: 1px solid #ddd;
+                        font-size: 16px;
+                    }
+                    .stats-table td:first-child {
+                        color: #666;
+                        width: 60%;
+                    }
+                    .stats-table td:last-child {
+                        font-weight: bold;
+                        color: #2F847C;
+                        font-size: 20px;
+                        text-align: right;
+                    }
+                    .footer { 
+                        margin-top: 40px; 
+                        text-align: center; 
+                        font-size: 11px; 
+                        color: #888; 
+                    }
+                </style>
+            </head>
+            <body>
+                <h2>BÁO CÁO CÁ NHÂN - ECOMATE</h2>
                 
-                const statusText = item.status === 'approved' ? 'Đã duyệt' 
-                                 : item.status === 'rejected' ? 'Từ chối' 
-                                 : 'Chờ duyệt';
-                const statusColor = item.status === 'approved' ? 'green' 
-                                  : item.status === 'rejected' ? 'red' 
-                                  : 'orange';
+                <div class="user-info">
+                    <p><strong>Người dùng:</strong> ${userProfile?.displayName || 'Thành viên Ecomate'}</p>
+                    <p><strong>Ngày xuất:</strong> ${new Date().toLocaleDateString('vi-VN')}</p>
+                </div>
 
-                return `
+                <table class="stats-table">
                     <tr>
-                        <td style="text-align:center">${idx + 1}</td>
-                        <td>${item.violationType || 'N/A'}</td>
-                        <td>${item.location?.address || 'N/A'}</td>
-                        <td style="text-align:center">${dateStr}</td>
-                        <td style="text-align:center; color:${statusColor}">${statusText}</td>
+                        <td>Số lần phân loại rác</td>
+                        <td>${recycleCount} lần</td>
                     </tr>
-                `;
-            }).join('');
+                    <tr>
+                        <td>Số báo cáo đã gửi</td>
+                        <td>${reportCount} báo cáo</td>
+                    </tr>
+                    <tr>
+                        <td>Điểm thưởng</td>
+                        <td>${points} điểm</td>
+                    </tr>
+                </table>
 
-            const html = `
-                <html>
-                <head>
-                    <style>
-                        body { font-family: Helvetica, Arial, sans-serif; padding: 20px; }
-                        h2 { text-align: center; color: #2F847C; }
-                        .user-info { margin: 20px 0; padding: 15px; background-color: #f5f5f5; border-radius: 8px; }
-                        .user-info p { margin: 5px 0; }
-                        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-                        th, td { border: 1px solid #ddd; padding: 10px; font-size: 12px; }
-                        th { background-color: #2F847C; color: white; font-weight: bold; }
-                        tr:nth-child(even) { background-color: #f9f9f9; }
-                        .footer { margin-top: 40px; text-align: center; font-size: 11px; color: #888; }
-                    </style>
-                </head>
-                <body>
-                    <h2>BÁO CÁO CÁ NHÂN - ECOMATE</h2>
-                    <div class="user-info">
-                        <p><strong>Người dùng:</strong> ${userProfile?.displayName || 'Thành viên Ecomate'}</p>
-                        <p><strong>User ID:</strong> ${currentUser.uid}</p>
-                        <p><strong>Ngày xuất báo cáo:</strong> ${new Date().toLocaleDateString('vi-VN')}</p>
-                        <p><strong>Tổng số báo cáo:</strong> ${reports.length}</p>
-                    </div>
-                    <table>
-                        <tr>
-                            <th>STT</th>
-                            <th>Loại vi phạm</th>
-                            <th>Địa điểm</th>
-                            <th>Ngày gửi</th>
-                            <th>Trạng thái</th>
-                        </tr>
-                        ${rows}
-                    </table>
-                    <div class="footer">
-                        <p>Cảm ơn bạn đã chung tay vì một môi trường xanh - sạch - đẹp.</p>
-                        <p>© 2024 Ecomate - Ứng dụng bảo vệ môi trường</p>
-                    </div>
-                </body>
-                </html>
-            `;
+                <div class="footer">
+                    <p>Cảm ơn bạn đã chung tay vì một môi trường xanh - sạch - đẹp.</p>
+                    <p>© 2024 Ecomate - Ứng dụng bảo vệ môi trường</p>
+                </div>
+            </body>
+            </html>
+        `;
 
-            const { uri } = await Print.printToFileAsync({ html });
-            await Sharing.shareAsync(uri, { 
-                UTI: '.pdf', 
-                mimeType: 'application/pdf' 
-            });
-        } catch (error) {
-            console.error("Error exporting PDF:", error);
-            Alert.alert("Lỗi", "Không thể xuất PDF: " + error.message);
-        } finally {
-            setLoadingPdf(false);
-        }
-    };
-
+        const { uri } = await Print.printToFileAsync({ html });
+        await Sharing.shareAsync(uri, { 
+            UTI: '.pdf', 
+            mimeType: 'application/pdf' 
+        });
+    } catch (error) {
+        console.error("Error exporting PDF:", error);
+        Alert.alert("Lỗi", "Không thể xuất PDF: " + error.message);
+    } finally {
+        setLoadingPdf(false);
+    }
+};
     // ==================== RENDER UI ====================
     const displayData = userProfile || { 
         displayName: "...", 
