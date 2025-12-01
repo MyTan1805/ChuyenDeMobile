@@ -164,13 +164,6 @@ function CommunityStackNavigator() {
   return (
     <CommunityStack.Navigator screenOptions={{ headerShown: false }}>
       <CommunityStack.Screen name="CommunityMain" component={CommunityScreen} />
-      <CommunityStack.Screen name="WasteClassification" component={WasteClassificationScreen} />
-      <CommunityStack.Screen name="EcoLibrary" component={EcoLibraryScreen} />
-      <CommunityStack.Screen name="ArticleDetail" component={ArticleDetailScreen} />
-      <CommunityStack.Screen name="QuizCollection" component={QuizCollectionScreen} />
-      <CommunityStack.Screen name="Quiz" component={QuizScreen} />
-      <CommunityStack.Screen name="GreenLiving" component={GreenLivingScreen} />
-      <CommunityStack.Screen name="GreenTipsListScreen" component={GreenTipsListScreen} />
     </CommunityStack.Navigator>
   );
 }
@@ -214,12 +207,22 @@ function MainNavigator() {
     <MainStack.Navigator screenOptions={{ headerShown: false }}>
       <MainStack.Screen name="MainTabs" component={MainTabNavigator} />
 
+      {/* Các màn hình hiện tại */}
       <MainStack.Screen name="Chatbot" component={ChatbotScreen} />
       <MainStack.Screen name="EditProfile" component={EditProfileScreen} />
       <MainStack.Screen name="AqiDetail" component={AqiDetailScreen} />
       <MainStack.Screen name="Notifications" component={NotificationListScreen} />
       <MainStack.Screen name="WasteSearch" component={WasteSearchScreen} />
 
+      {/* ✅ THÊM CÁC MÀN HÌNH KHÁM PHÁ VÀO ĐÂY */}
+      <MainStack.Screen name="WasteClassification" component={WasteClassificationScreen} />
+      <MainStack.Screen name="EcoLibrary" component={EcoLibraryScreen} />
+      <MainStack.Screen name="QuizCollection" component={QuizCollectionScreen} />
+      <MainStack.Screen name="Quiz" component={QuizScreen} />
+      <MainStack.Screen name="GreenLiving" component={GreenLivingScreen} />
+      <MainStack.Screen name="GreenTipsListScreen" component={GreenTipsListScreen} />
+
+      {/* Các màn hình khác giữ nguyên */}
       <MainStack.Screen name="PostDetail" component={PostDetailScreen} />
       <MainStack.Screen name="ArticleDetail" component={ArticleDetailScreen} />
       <MainStack.Screen name="WasteDetail" component={WasteDetailScreen} />
@@ -245,15 +248,14 @@ function MainNavigator() {
       <MainStack.Screen name="GroupDetail" component={GroupDetailScreen} />
       <MainStack.Screen name="EditGroup" component={EditGroupScreen} />
 
-      {/* Cấu hình Modal cho Đăng tin */}
       <MainStack.Screen
         name="Đăng tin"
         component={PostScreen}
         options={{
-          presentation: 'modal', // Hiệu ứng trượt từ dưới lên
-          gestureEnabled: true,  // Cho phép kéo xuống để đóng
+          presentation: 'modal',
+          gestureEnabled: true,
           headerShown: false,
-          cardOverlayEnabled: true, // Làm mờ nền phía sau (cho iOS)
+          cardOverlayEnabled: true,
         }}
       />
     </MainStack.Navigator>
