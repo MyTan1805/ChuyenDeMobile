@@ -4,10 +4,10 @@ import { TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 // Import các màn hình Admin
-import AdminDashboardScreen from '../admin/screens/AdminDashboardScreen';
-import AdminReportListScreen from '../admin/screens/AdminReportListScreen';
-import CreateQuizScreen from '../admin/screens/CreateQuizScreen';
-import UserManagementScreen from '../admin/screens/UserManagementScreen';
+import AdminDashboardScreen from '@/features/admin/screens/AdminDashboardScreen';
+import AdminReportListScreen from '@/features/admin/screens/AdminReportListScreen';
+import CreateQuizScreen from '@/features/admin/screens/CreateQuizScreen';
+import UserManagementScreen from '@/features/admin/screens/UserManagementScreen';
 
 // Tái sử dụng màn hình
 import ReportDetailScreen from '../features/reports/screens/ReportDetailScreen';
