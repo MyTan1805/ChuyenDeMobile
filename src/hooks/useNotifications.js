@@ -11,8 +11,8 @@ Notifications.setNotificationHandler({
   }),
 });
 
+// ✅ QUAN TRỌNG: Phải có chữ export const ở đây
 export const useNotifications = () => {
-  const [notification, setNotification] = useState(false);
   const notificationListener = useRef();
   const responseListener = useRef();
   const navigation = useNavigation();
@@ -36,7 +36,6 @@ export const useNotifications = () => {
     }
   };
 
-  // Hàm gửi thông báo ngay
   const sendAlert = async (title, body, data = {}) => {
     await Notifications.scheduleNotificationAsync({
       content: { title, body, data, sound: true },
@@ -44,7 +43,6 @@ export const useNotifications = () => {
     });
   };
 
-  // Hàm hẹn giờ (cho lịch rác)
   const scheduleReminder = async (title, body, seconds) => {
     await Notifications.scheduleNotificationAsync({
       content: { title, body, sound: true },
@@ -55,25 +53,25 @@ export const useNotifications = () => {
   useEffect(() => {
     registerForPushNotifications();
 
-    // 1. Nhận thông báo khi App mở
     notificationListener.current = Notifications.addNotificationReceivedListener(notification => {
-      setNotification(notification);
+      // console.log(notification);
     });
 
-    // 2. Xử lý khi bấm vào thông báo
     responseListener.current = Notifications.addNotificationResponseReceivedListener(response => {
       const data = response.notification.request.content.data;
       if (data?.screen) {
-        navigation.navigate(data.screen, data.params);
-      } else if (data?.type === 'weather') {
-         navigation.navigate('AqiDetail'); // Nhảy sang chi tiết AQI
-      }
+        // Logic điều hướng thông minh
+        if (data.params) {
+            navigation.navigate(data.screen, data.params);
+        } else {
+            navigation.navigate(data.screen);
+        }
+      } 
     });
 
-    // Clean up chuẩn (Sửa lỗi crash)
     return () => {
-      notificationListener.current?.remove();
-      responseListener.current?.remove();
+      notificationListener.current && Notifications.removeNotificationSubscription(notificationListener.current);
+      responseListener.current && Notifications.removeNotificationSubscription(responseListener.current);
     };
   }, []);
 

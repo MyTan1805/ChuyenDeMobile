@@ -40,6 +40,7 @@ const getDefaultUserData = (displayName) => ({
   aqiSettings: { isEnabled: true, threshold: "150" },
   notificationSettings: { weather: false, trash: false, campaign: false, community: false },
   createdAt: new Date().toISOString(),
+  notifications: [],
   stats: {
     points: 0,
     highScore: 0,
@@ -645,6 +646,29 @@ export const useUserStore = create((set, get) => ({
   },
 
   // --- NOTIFICATION ---
+  addNotificationToHistory: async (notiData) => {
+    const user = auth.currentUser;
+    if (!user) return;
+
+    const newNoti = {
+      userId: user.uid, // Quan trọng để query lại
+      createdAt: new Date().toISOString(),
+      isRead: false,
+      ...notiData
+    };
+
+    // Cập nhật UI tạm thời
+    const currentProfile = get().userProfile;
+    // (Optional: Bạn có thể bỏ qua bước update local này nếu muốn load lại từ server)
+    
+    try {
+        // LƯU VÀO COLLECTION RIÊNG 'notifications' (Khớp ảnh 2)
+        await addDoc(collection(db, "notifications"), newNoti);
+        console.log("✅ Đã lưu thông báo vào Firestore:", newNoti.title);
+    } catch (e) {
+        console.log("Lỗi lưu thông báo:", e);
+    }
+  },
   triggerDynamicNotification: async (type) => {
     const { userProfile, getRealtimeAQI, getLatestCampaign, countActiveEvents, getTrashSchedule } = get();
     const userThreshold = parseInt(userProfile?.aqiSettings?.threshold || "150");
@@ -680,6 +704,12 @@ export const useUserStore = create((set, get) => ({
       await Notifications.scheduleNotificationAsync({
         content: { title: content.title, body: content.body, sound: true, data: content.data || {} },
         trigger: null,
+      });
+      await get().addNotificationToHistory({
+          type: type,
+          title: content.title,
+          body: content.body,
+          data: content.data
       });
     }
   },

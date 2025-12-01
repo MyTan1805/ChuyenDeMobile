@@ -1,14 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { 
   View, Text, StyleSheet, ScrollView, TouchableOpacity, 
-  RefreshControl, StatusBar, Alert, Linking 
+  RefreshControl, StatusBar, ActivityIndicator 
 } from 'react-native';
 import * as Location from 'expo-location';
 
+// --- STORES & HOOKS ---
 import { useAqiStore } from '../../../store/aqiStore'; 
 import { useNotifications } from '../../../hooks/useNotifications'; 
 import { useUserStore } from '@/store/userStore'; 
-import { fetchAqiDataByCoords, fetchAqiHistory } from '../api/aqiApi'; // Import fetchHistory
+
+// --- COMPONENTS ---
+import { fetchAqiDataByCoords, fetchAqiHistory } from '../api/aqiApi'; 
 import AqiSummaryCard from '../components/AqiSummaryCard';
 import UrgentAlerts from '../components/UrgentAlerts';
 import AppShortcuts from '../components/AppShortcuts';
@@ -19,69 +22,22 @@ import CustomHeader from '../../../components/CustomHeader';
 
 const HomeScreen = ({ navigation }) => {
   const [aqiData, setAqiData] = useState(null);
-  const [chartData, setChartData] = useState(null); 
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [locationName, setLocationName] = useState("Đang định vị...");
   const [modalVisible, setModalVisible] = useState(false);
+  
+  // ✅ THÊM STATE CHO BIỂU ĐỒ
+  const [chartData, setChartData] = useState(null);
 
   const threshold = useAqiStore((state) => state.threshold);
+  
+  // ✅ LẤY USER PROFILE ĐỂ CHECK LOCATION SETTING
+  const { addNotificationToHistory, userProfile } = useUserStore();
+
   const { sendAlert } = useNotifications();
-  const userProfile = useUserStore((state) => state.userProfile);
 
-  const checkAndAlert = (data) => {
-    if (!data) return;
-    const pm25 = data.components.pm2_5;
-    if (pm25 > threshold) {
-      sendAlert("⚠️ Cảnh báo chất lượng không khí!", `Chỉ số PM2.5 là ${pm25.toFixed(1)}, vượt quá ngưỡng an toàn.`);
-    }
-  };
-
-  const loadData = async () => {
-    setLoading(true);
-    try {
-      let { status } = await Location.requestForegroundPermissionsAsync();
-      
-      if (status !== 'granted') {
-        Alert.alert("Cần quyền vị trí", "Vui lòng cấp quyền để xem AQI tại nơi bạn ở.");
-        setLocationName("TP.HCM (Mặc định)");
-        const defaultCoords = { latitude: 10.762, longitude: 106.660 };
-        const data = await fetchAqiDataByCoords(defaultCoords.latitude, defaultCoords.longitude);
-        setAqiData(data);
-        await loadChartHistory(defaultCoords.latitude, defaultCoords.longitude);
-        setLoading(false);
-        setRefreshing(false);
-        return;
-      }
-
-      let location = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-      
-      let address = await Location.reverseGeocodeAsync(location.coords);
-      if(address.length > 0) {
-        setLocationName(`${address[0].subAdminArea || ''}, ${address[0].region || ''}`);
-      } else {
-        setLocationName("Vị trí của bạn");
-      }
-
-      const data = await fetchAqiDataByCoords(location.coords.latitude, location.coords.longitude);
-      setAqiData(data);
-      
-      checkAndAlert(data);
-
-      await loadChartHistory(location.coords.latitude, location.coords.longitude);
-
-    } catch (error) {
-      console.error("Lỗi lấy vị trí/API:", error);
-      setLocationName("Lỗi định vị");
-      const defaultCoords = { latitude: 10.762, longitude: 106.660 };
-      const data = await fetchAqiDataByCoords(defaultCoords.latitude, defaultCoords.longitude);
-      setAqiData(data);
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  };
-
+  // 1. Hàm lấy lịch sử cho biểu đồ
   const loadChartHistory = async (lat, lon) => {
       try {
           const end = Math.floor(Date.now() / 1000);
@@ -91,6 +47,7 @@ const HomeScreen = ({ navigation }) => {
           if (history && history.list) {
               const labels = [];
               const dataPoints = [];
+              // Lấy mẫu mỗi 4 tiếng 1 điểm
               const step = 4; 
               for (let i = 0; i < history.list.length; i += step) {
                   const item = history.list[i];
@@ -98,6 +55,7 @@ const HomeScreen = ({ navigation }) => {
                   labels.push(`${date.getHours()}h`);
                   dataPoints.push(item.components.pm2_5);
               }
+              // Lấy 6 điểm cuối cùng để vẽ cho đẹp
               setChartData({
                   labels: labels.slice(-6), 
                   datasets: [{ data: dataPoints.slice(-6) }]
@@ -108,6 +66,65 @@ const HomeScreen = ({ navigation }) => {
       }
   };
 
+  // 2. Check & Alert logic
+  const checkAndAlert = async (data) => {
+    if (!data) return;
+    const pm25 = data.components.pm2_5;
+    
+    if (pm25 > threshold) {
+      const title = "⚠️ Cảnh báo chất lượng không khí!";
+      const body = `Chỉ số PM2.5 là ${pm25.toFixed(1)}, vượt quá ngưỡng an toàn (${threshold}).`;
+      const dataPayload = { screen: 'AqiDetail' };
+
+      await sendAlert(title, body, dataPayload);
+
+      if (addNotificationToHistory) {
+        await addNotificationToHistory({
+            type: 'weather', 
+            title: title,
+            body: body,
+            data: dataPayload
+        });
+      }
+    }
+  };
+
+  // 3. Main Load Data
+  const loadData = async () => {
+    setLoading(true);
+    try {
+      let { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        setLocationName("Cần quyền vị trí");
+        setLoading(false);
+        return;
+      }
+
+      let location = await Location.getCurrentPositionAsync({});
+      let address = await Location.reverseGeocodeAsync(location.coords);
+      
+      if(address.length > 0) {
+        setLocationName(`${address[0].subAdminArea || ''}, ${address[0].region || ''}`);
+      }
+
+      const data = await fetchAqiDataByCoords(location.coords.latitude, location.coords.longitude);
+      setAqiData(data);
+
+      // Gọi load chart luôn khi có toạ độ
+      loadChartHistory(location.coords.latitude, location.coords.longitude);
+
+      checkAndAlert(data); 
+
+    } catch (error) {
+      console.error("Lỗi trang chủ:", error);
+      setLocationName("Không thể lấy dữ liệu");
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
+
+  // Chạy khi mở app hoặc khi setting vị trí thay đổi
   useEffect(() => {
     loadData();
   }, [userProfile?.isLocationShared]);
@@ -126,6 +143,9 @@ const HomeScreen = ({ navigation }) => {
         showNotificationButton={true}
         onNotificationPress={() => navigation.navigate('Notifications')} 
       />
+      
+      {/* Modal cài đặt ngưỡng (Ẩn) */}
+      <AqiSettingsModal visible={modalVisible} onClose={() => setModalVisible(false)} />
 
       <ScrollView 
         showsVerticalScrollIndicator={false}
@@ -139,6 +159,11 @@ const HomeScreen = ({ navigation }) => {
             onPress={() => navigation.navigate('AqiDetail', { aqiData: aqiData, locationName: locationName })}
           >
             <AqiSummaryCard aqiData={aqiData} locationName={locationName} loading={loading} />
+          </TouchableOpacity>
+          
+          {/* Nút chỉnh ngưỡng nhanh */}
+          <TouchableOpacity style={{alignSelf:'flex-end', padding:5}} onPress={() => setModalVisible(true)}>
+              <Text style={{color:'#666', fontSize:12}}>⚙️ Ngưỡng: {threshold}</Text>
           </TouchableOpacity>
         </View>
 
@@ -156,7 +181,10 @@ const HomeScreen = ({ navigation }) => {
           {chartData ? (
               <AqiLineChart data={chartData} /> 
           ) : (
-              <Text style={{textAlign:'center', color:'#999', padding: 20}}>Đang tải biểu đồ...</Text>
+              <View style={{height: 200, justifyContent:'center', alignItems:'center'}}>
+                  <ActivityIndicator size="small" color="#2F847C"/>
+                  <Text style={{color:'#999', marginTop:10}}>Đang tải biểu đồ...</Text>
+              </View>
           )}
         </View>
 

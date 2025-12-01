@@ -47,10 +47,15 @@ const CommunityScreen = () => {
     const [activeTab, setActiveTab] = useState('feed');
     const [dailyTip, setDailyTip] = useState(null);
     const [loadingTip, setLoadingTip] = useState(true);
+    const [searchText, setSearchText] = useState('');
 
-    const { fetchGroups, allGroups } = useGroupStore();
+    const { fetchGroups, allGroups, getMyGroups  } = useGroupStore();
     const { userProfile } = useUserStore();
     const { fetchPosts, posts, hiddenPosts } = useCommunityStore();
+
+    const allPosts = useMemo(() => {
+        return posts.filter(p => p && p.id && !hiddenPosts.includes(p.id));
+    }, [posts, hiddenPosts]);
 
     // ✅ FIX 5: Lọc bài viết cẩn thận hơn để tránh crash list
     const visiblePosts = useMemo(() => {
@@ -86,6 +91,36 @@ const CommunityScreen = () => {
         return () => unsubscribe();
     }, []);
 
+    const myGroups = getMyGroups();
+
+    // 2. LOGIC LỌC DỮ LIỆU (SEARCH FILTER)
+    const getFilteredData = () => {
+        // Nếu chưa nhập gì -> Trả về full danh sách
+        if (!searchText || searchText.trim() === '') {
+            return activeTab === 'feed' ? allPosts : displayGroups;
+        }
+
+        const query = searchText.toLowerCase().trim();
+
+        if (activeTab === 'feed') {
+            // Lọc bài viết
+            return allPosts.filter(post => {
+                const content = (post.content || '').toLowerCase();
+                const name = (post.userName || '').toLowerCase();
+                return content.includes(query) || name.includes(query);
+            });
+        } else {
+            // Lọc nhóm
+            // displayGroups là allGroups (do bạn gán ở trên)
+            return displayGroups.filter(group => {
+                const groupName = (group.name || '').toLowerCase();
+                return groupName.includes(query);
+            });
+        }
+    };
+
+    const filteredData = getFilteredData();
+
     const renderHeader = () => (
         <View style={styles.headerContainer}>
             <View style={styles.headerTopRow}>
@@ -107,6 +142,8 @@ const CommunityScreen = () => {
                     style={styles.searchInput}
                     placeholder="Tìm kiếm bài viết, nhóm..."
                     placeholderTextColor="#999"
+                    value={searchText}
+                    onChangeText={setSearchText}
                 />
             </View>
         </View>
@@ -272,25 +309,50 @@ const CommunityScreen = () => {
         </TouchableOpacity>
     );
 
+    const renderScrollableHeader = () => (
+        <View style={styles.headerWrapper}>
+            {/* Đã đưa renderHeader() ra ngoài */}
+            {renderDailyTip()}
+            {renderCategories()}
+            {renderTabs()}
+            <View style={styles.actionSection}>
+                {activeTab === 'feed' ? renderCreatePost() : renderCreateGroupBtn()}
+            </View>
+        </View>
+    );
+
     return (
         <View style={styles.container}>
             <StatusBar barStyle="dark-content" backgroundColor={THEME.bg} />
             <SafeAreaView style={{ flex: 1 }}>
+                
+                {/* ✅ 1. ĐƯA THANH TÌM KIẾM RA NGOÀI (Cố định ở trên) */}
+                <View style={{ backgroundColor: THEME.bg, zIndex: 10 }}>
+                    {renderHeader()}
+                </View>
+
+                {/* ✅ 2. DANH SÁCH BÊN DƯỚI */}
                 <FlatList
-                    data={activeTab === 'feed' ? visiblePosts : displayGroups}
+                    data={filteredData} 
                     keyExtractor={item => item.id}
                     renderItem={activeTab === 'feed'
-                        ? ({ item }) => <View style={{ marginBottom: 16, paddingHorizontal: 20 }}><CommunityPostCard post={item} /></View>
+                        ? ({ item }) => <CommunityPostCard post={item} />
                         : renderGroupItem
                     }
-                    ListHeaderComponent={ListHeader}
+                    // Header của list chỉ còn các phần nội dung
+                    ListHeaderComponent={renderScrollableHeader} 
                     contentContainerStyle={styles.listContent}
                     showsVerticalScrollIndicator={false}
+                    keyboardShouldPersistTaps="handled" // Giúp bấm vào list không bị ẩn bàn phím ngay
+                    keyboardDismissMode="on-drag" // Kéo list xuống thì ẩn bàn phím
                     ListEmptyComponent={
                         <View style={styles.emptyContainer}>
                             <MaterialCommunityIcons name="leaf-off" size={48} color="#ccc" />
                             <Text style={styles.emptyText}>
-                                {activeTab === 'feed' ? 'Chưa có bài viết nào.' : 'Chưa có nhóm nào.'}
+                                {searchText 
+                                    ? `Không tìm thấy "${searchText}"` 
+                                    : (activeTab === 'feed' ? 'Chưa có bài viết nào.' : 'Chưa có nhóm nào.')
+                                }
                             </Text>
                         </View>
                     }

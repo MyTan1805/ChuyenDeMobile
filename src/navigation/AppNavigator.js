@@ -12,7 +12,7 @@ import ChangePasswordScreen from '@/features/settings/screens/ChangePasswordScre
 import NotificationSettingsScreen from '@/features/settings/screens/NotificationSettingsScreen';
 import AQISettingsScreen from '@/features/settings/screens/AQISettingsScreen';
 import PrivacyLocationScreen from '@/features/settings/screens/PrivacyLocationScreen';
-import ReportHistoryScreen from '@/features/settings/screens/ReportHistoryScreen';
+import ReportHistoryScreen from '@/features/reports/screens/ReportsHistoryScreen';
 import ChatbotHistoryScreen from '@/features/settings/screens/ChatbotHistoryScreen';
 import AboutScreen from '@/features/settings/screens/AboutScreen';
 import TermsScreen from '@/features/settings/screens/TermsScreen';
@@ -21,6 +21,7 @@ import PrivacyScreen from '@/features/settings/screens/PrivacyScreen';
 // ----- QUẢN LÝ TRẠNG THÁI -----
 import { useUserStore } from '@/store/userStore';
 import { useNotifications } from '@/hooks/useNotifications';
+import { useSystemNotifications } from '@/hooks/useSystemNotifications';
 
 // ==================== IMPORT MÀN HÌNH ====================
 
@@ -203,7 +204,8 @@ function MainTabNavigator() {
 
 // --- ROOT MAIN NAVIGATOR (MERGE ALL) ---
 function MainNavigator() {
-  useNotifications();
+  useNotifications(); 
+  useSystemNotifications(); 
 
   return (
     <MainStack.Navigator screenOptions={{ headerShown: false }}>
@@ -231,7 +233,6 @@ function MainNavigator() {
       <MainStack.Screen name="CreateGroup" component={CreateGroupScreen} />
       <MainStack.Screen name="GroupDetail" component={GroupDetailScreen} />
       <MainStack.Screen name="EditGroup" component={EditGroupScreen} />
-      <MainStack.Screen name="PostDetail" component={PostDetailScreen} />
       
       {/* Nếu có file GreenLiving thì mở comment */}
       {/* <MainStack.Screen name="GreenLiving" component={GreenLivingScreen} /> */}

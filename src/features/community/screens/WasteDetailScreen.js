@@ -1,13 +1,10 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, Image, TouchableOpacity, ImageBackground, ActivityIndicator } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, ScrollView, Image, TouchableOpacity, ImageBackground } from 'react-native';
 import CustomHeader from '@/components/CustomHeader';
 import CategorySelector from '@/components/CategorySelector';
 import { Ionicons } from '@expo/vector-icons';
 
-import { shareContent } from '@/utils/shareUtils'; 
-import { database } from '@/config/firebaseConfig';
-import { ref, get } from 'firebase/database';
-
+// --- KHO ẢNH MINH HỌA ---
 const CATEGORY_ILLUSTRATIONS = {
     'huuco': 'https://img.freepik.com/free-vector/organic-waste-recycling-concept-illustration_114360-8968.jpg', 
     'nhua': 'https://img.freepik.com/free-vector/plastic-pollution-concept-illustration_114360-14156.jpg', 
@@ -20,67 +17,32 @@ const CATEGORY_ILLUSTRATIONS = {
 };
 
 const WasteDetailScreen = ({ route, navigation }) => {
-    const { selectedCategory, wasteId, allCategories: initialCats } = route.params || {};
+    const { selectedCategory, allCategories = [] } = route.params;
+    const [currentItem, setCurrentItem] = useState(selectedCategory);
 
-    const [currentItem, setCurrentItem] = useState(selectedCategory || null);
-    const [allCategories, setAllCategories] = useState(initialCats || []);
-    const [loading, setLoading] = useState(!selectedCategory);  
-
-    useEffect(() => {
-        const fetchData = async () => {
-            if (!currentItem && wasteId) {
-                try {
-                    const snapshot = await get(ref(database, 'waste_categories'));
-                    if (snapshot.exists()) {
-                        const data = snapshot.val();
-                        const arr = Object.keys(data).map(k => ({ id: k, ...data[k] }));
-                        setAllCategories(arr);
-                        const found = arr.find(i => i.id === wasteId || i.name === wasteId);
-                        if (found) setCurrentItem(found);
-                    }
-                } catch (e) { console.error(e); }
-                setLoading(false);
-            }
-        };
-        fetchData();
-    }, [wasteId]);
+    const categoryNames = allCategories.length > 0 ? allCategories.map(cat => cat.name) : [];
 
     const handleSelectCategory = (name) => {
         const found = allCategories.find(cat => cat.name === name);
         if (found) setCurrentItem(found);
     };
 
-    const handleShare = () => {
-        if (!currentItem) return;
-        if (typeof shareContent === 'function') {
-            shareContent({
-                title: `Phân loại rác: ${currentItem.name || currentItem.itemName}`,
-                message: `♻️ Cách xử lý rác "${currentItem.name || currentItem.itemName}" đúng cách!`,
-                path: `waste/${currentItem.id || currentItem.name}`
-            });
-        } else {
-            alert("Chức năng chia sẻ đang cập nhật.");
-        }
-    };
-
     const getDisplayImage = () => {
-        if (currentItem?.image && (currentItem.image.startsWith('file://') || currentItem.image.startsWith('content://'))) {
+        if (currentItem.image && (currentItem.image.startsWith('file://') || currentItem.image.startsWith('content://'))) {
             return currentItem.image;
         }
-        const catId = (currentItem?.name || currentItem?.itemName || '').toLowerCase().trim();
-        const dbItem = allCategories.find(cat => cat.id === catId || cat.name === currentItem?.name);
+        const catId = (currentItem.name || currentItem.itemName || '').toLowerCase().trim();
+        const dbItem = allCategories.find(cat => cat.id === catId || cat.name === currentItem.name);
         if (dbItem && dbItem.image) return dbItem.image;
         return CATEGORY_ILLUSTRATIONS[catId] || CATEGORY_ILLUSTRATIONS['default'];
     };
-
-    if (loading) return <ActivityIndicator size="large" style={{ marginTop: 50 }} color="#2F847C" />;
-    if (!currentItem) return null;
 
     const displayData = {
         title: currentItem.title || currentItem.itemName || currentItem.name,
         image: getDisplayImage(),
         steps: currentItem.steps || null, 
         rawInstructions: currentItem.instructions || null, 
+        // Dữ liệu locations từ Firebase (đã có trong object currentItem)
         locations: currentItem.locations || [] 
     };
 
@@ -97,36 +59,55 @@ const WasteDetailScreen = ({ route, navigation }) => {
                 </View>
                 <Text style={styles.stepTitle}>{title || `Bước ${number}`}</Text>
             </View>
-            <Text style={styles.stepContent}>{content ? content.trim() : ''}</Text>
+            <Text style={styles.stepContent}>{content.trim()}</Text>
         </View>
     );
 
+    // Component hiển thị địa điểm (Có nút chỉ đường đơn giản)
     const LocationItem = ({ item }) => (
-        <TouchableOpacity style={styles.locationCard} activeOpacity={0.7}>
+        <TouchableOpacity 
+            style={styles.locationCard} 
+            activeOpacity={0.7}
+            // ✅ THÊM SỰ KIỆN NÀY
+            onPress={() => {
+                navigation.navigate('EnvironmentalMap', { 
+                    initialFilter: currentItem.id || 'all',
+                    initialPoints: [item] // Chỉ truyền đúng 1 điểm này để bản đồ focus vào nó
+                });
+            }}
+        >
             <View style={styles.locationLeft}>
-                <Ionicons name="location" size={24} color="#D32F2F" style={{ marginRight: 12 }} />
-                <View>
+                <View style={styles.locIconBg}>
+                    <Ionicons name="location" size={24} color="#D32F2F" />
+                </View>
+                <View style={{flex: 1}}>
                     <Text style={styles.locationName}>{item.name}</Text>
-                    <Text style={styles.locationDistance}>{item.distance}</Text>
+                    <Text style={styles.locationAddress} numberOfLines={2}>{item.address || "Địa chỉ đang cập nhật"}</Text>
                 </View>
             </View>
-            <Ionicons name="chevron-forward" size={20} color="#555" />
+            <View style={styles.directionBtn}>
+                 <Ionicons name="navigate-circle-outline" size={28} color="#2F847C" />
+            </View>
         </TouchableOpacity>
     );
 
     const aiSteps = displayData.rawInstructions ? parseAiInstructions(displayData.rawInstructions) : [];
-    const categoryNames = allCategories.map(c => c.name);
+
+    // HÀM MỞ BẢN ĐỒ (Truyền filter sang EnvironmentalMap)
+    const handleOpenMap = () => {
+        // Xác định loại rác để filter bản đồ
+        // Ví dụ: currentItem.id là 'dientu' -> filter là 'e_waste' (cần map lại ID nếu chưa khớp)
+        const filterId = currentItem.id || 'all'; 
+        
+        navigation.navigate('EnvironmentalMap', { 
+            initialFilter: filterId, // Truyền filter sang
+            initialPoints: displayData.locations // Truyền luôn danh sách điểm này sang để bản đồ ưu tiên hiển thị
+        });
+    };
 
     return (
         <View style={styles.container}>
-            <CustomHeader 
-                title={displayData.title} 
-                showBackButton={true} 
-                showNotificationButton={false}  
-                showSettingsButton={true}  
-                onSettingsPress={handleShare}  
-                rightIconName="share-social-outline"
-            />
+            <CustomHeader title={displayData.title} showBackButton={true} />
 
             {categoryNames.length > 0 && (
                 <View style={styles.selectorContainer}>
@@ -139,11 +120,7 @@ const WasteDetailScreen = ({ route, navigation }) => {
             )}
 
             <ScrollView contentContainerStyle={styles.scrollContent}>
-                <Image 
-                    source={{ uri: displayData.image }} 
-                    style={styles.heroImage}
-                    resizeMode={currentItem.image && currentItem.image.startsWith('file') ? "cover" : "contain"} 
-                />
+                <Image source={{ uri: displayData.image }} style={styles.heroImage} resizeMode={currentItem.image && currentItem.image.startsWith('file') ? "cover" : "contain"} />
 
                 <View style={styles.contentContainer}>
                     <Text style={styles.sectionHeader}>Hướng dẫn xử lý</Text>
@@ -156,12 +133,7 @@ const WasteDetailScreen = ({ route, navigation }) => {
                         </>
                     ) : aiSteps.length > 0 ? (
                         aiSteps.map((stepContent, index) => (
-                            <InstructionStep 
-                                key={index} 
-                                number={index + 1} 
-                                title={`Bước ${index + 1}`} 
-                                content={stepContent} 
-                            />
+                            <InstructionStep key={index} number={index + 1} title={`Bước ${index + 1}`} content={stepContent} />
                         ))
                     ) : (
                         <Text style={styles.emptyText}>Chưa có hướng dẫn cụ thể.</Text>
@@ -176,11 +148,16 @@ const WasteDetailScreen = ({ route, navigation }) => {
                         >
                             <View style={styles.mapOverlay}>
                                 <View style={styles.mapTextContainer}>
-                                    <Text style={styles.mapTitle}>Điểm thu gom</Text>
-                                    <Text style={styles.mapSubtitle}>{displayData.locations.length} điểm gần nhất</Text>
+                                    <Text style={styles.mapTitle}>Điểm thu gom gần nhất</Text>
+                                    <Text style={styles.mapSubtitle}>
+                                        {displayData.locations.length > 0 
+                                            ? `Tìm thấy ${displayData.locations.length} điểm` 
+                                            : "Chưa có dữ liệu điểm thu gom"}
+                                    </Text>
                                 </View>
-                                <TouchableOpacity style={styles.mapButton} activeOpacity={0.8}>
-                                    <Text style={styles.mapButtonText}>Mở bản đồ</Text>
+                                {/* ✅ NÚT MỞ BẢN ĐỒ */}
+                                <TouchableOpacity style={styles.mapButton} activeOpacity={0.8} onPress={handleOpenMap}>
+                                    <Text style={styles.mapButtonText}>Mở bản đồ lớn</Text>
                                 </TouchableOpacity>
                             </View>
                         </ImageBackground>
@@ -193,7 +170,7 @@ const WasteDetailScreen = ({ route, navigation }) => {
                             <LocationItem key={index} item={loc} />
                         ))
                     ) : (
-                        <Text style={styles.emptyText}>Chưa có dữ liệu điểm thu gom.</Text>
+                        <Text style={styles.emptyText}>Hiện chưa có thông tin điểm thu gom cho loại rác này.</Text>
                     )}
                 </View>
             </ScrollView>
@@ -207,40 +184,30 @@ const styles = StyleSheet.create({
     scrollContent: { paddingBottom: 40 },
     heroImage: { width: '100%', height: 250, marginBottom: 20, backgroundColor: '#fff' },
     contentContainer: { paddingHorizontal: 16 },
-    
-    stepCard: {
-        backgroundColor: '#fff', borderRadius: 16, padding: 16, marginBottom: 16,
-        elevation: 2, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 2,
-    },
+    stepCard: { backgroundColor: '#fff', borderRadius: 16, padding: 16, marginBottom: 16, elevation: 2, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 2 },
     stepHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
-    stepNumberBadge: {
-        width: 28, height: 28, borderRadius: 14, backgroundColor: '#2F847C',
-        justifyContent: 'center', alignItems: 'center', marginRight: 10
-    },
+    stepNumberBadge: { width: 28, height: 28, borderRadius: 14, backgroundColor: '#2F847C', justifyContent: 'center', alignItems: 'center', marginRight: 10 },
     stepNumberText: { color: '#fff', fontFamily: 'Nunito-Bold', fontSize: 14 },
     stepTitle: { fontSize: 16, fontFamily: 'Nunito-Bold', color: '#2F847C' },
     stepContent: { fontSize: 15, fontFamily: 'Nunito-Regular', color: '#444', lineHeight: 24, paddingLeft: 38 },
-    
-    mapSection: {
-        marginTop: 10, marginBottom: 20, borderRadius: 16, overflow: 'hidden',
-        height: 150, backgroundColor: '#ccc',
-    },
+    mapSection: { marginTop: 10, marginBottom: 20, borderRadius: 16, overflow: 'hidden', height: 150, backgroundColor: '#ccc' },
     mapBackground: { width: '100%', height: '100%', flex: 1, justifyContent: 'flex-end' },
-    mapOverlay: { 
-        padding: 16, backgroundColor: 'rgba(0,0,0,0.4)', 
-        height: '100%', justifyContent: 'space-between', flexDirection: 'row', alignItems: 'flex-end'
-    },
-    mapTextContainer: { marginBottom: 5 },
+    mapOverlay: { padding: 16, backgroundColor: 'rgba(0,0,0,0.5)', height: '100%', justifyContent: 'space-between', flexDirection: 'row', alignItems: 'flex-end' },
+    mapTextContainer: { marginBottom: 5, flex: 1 },
     mapTitle: { color: 'white', fontSize: 18, fontFamily: 'Nunito-Bold' },
     mapSubtitle: { color: '#eee', fontSize: 13, fontFamily: 'Nunito-Regular' },
     mapButton: { backgroundColor: 'white', borderRadius: 20, paddingVertical: 8, paddingHorizontal: 15 },
     mapButtonText: { color: '#333', fontSize: 14, fontFamily: 'Nunito-Bold' },
-    
     sectionHeader: { fontSize: 18, fontFamily: 'Nunito-Bold', color: '#000', marginBottom: 15, marginTop: 10 },
-    locationCard: { backgroundColor: '#fff', borderRadius: 12, padding: 16, marginBottom: 12, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', elevation: 1 },
+    
+    // Location Item Style mới
+    locationCard: { backgroundColor: '#fff', borderRadius: 12, padding: 12, marginBottom: 12, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', elevation: 1 },
     locationLeft: { flexDirection: 'row', alignItems: 'center', flex: 1 },
-    locationName: { fontSize: 16, fontFamily: 'Nunito-Bold', color: '#333', marginBottom: 4 },
-    locationDistance: { fontSize: 13, fontFamily: 'Nunito-Regular', color: '#666' },
+    locIconBg: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#FFEBEE', justifyContent: 'center', alignItems: 'center', marginRight: 12 },
+    locationName: { fontSize: 15, fontFamily: 'Nunito-Bold', color: '#333', marginBottom: 2 },
+    locationAddress: { fontSize: 12, fontFamily: 'Nunito-Regular', color: '#666' },
+    directionBtn: { padding: 5 },
+    
     emptyText: { fontStyle: 'italic', color: '#888', textAlign: 'center', marginTop: 10, marginBottom: 20 }
 });
 
