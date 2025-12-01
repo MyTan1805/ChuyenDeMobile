@@ -1,59 +1,38 @@
 import React, { useEffect, useState } from "react";
 import {
-  View,
-  ImageBackground,
-  Text,
-  StyleSheet,
-  SafeAreaView,
-  ScrollView,
-  TextInput,
-  TouchableOpacity,
-  Image,
-  ActivityIndicator,
-  Alert,
-  KeyboardAvoidingView,
-  Platform,
+  View, ImageBackground, Text, StyleSheet, SafeAreaView, ScrollView,
+  TextInput, TouchableOpacity, Image, ActivityIndicator, Alert,
+  KeyboardAvoidingView, Platform, Modal
 } from "react-native";
 
 import { Svg, Path, Circle } from "react-native-svg";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import * as Linking from "expo-linking";
+
+// --- THƯ VIỆN QUAN TRỌNG ---
+import { WebView } from 'react-native-webview';
+
 import * as WebBrowser from "expo-web-browser";
-
-import { ResponseType, makeRedirectUri } from "expo-auth-session";
-
+import { makeRedirectUri, ResponseType } from "expo-auth-session";
 import * as Facebook from "expo-auth-session/providers/facebook";
-import * as Google from "expo-auth-session/providers/google";
 
+// --- FIREBASE IMPORTS ---
 import {
   FacebookAuthProvider,
   GoogleAuthProvider,
-  signInWithCredential,
+  signInWithCredential
 } from "firebase/auth";
-
 import { auth } from "@/config/firebaseConfig";
 import { useUserStore } from "@/store/userStore";
 
 WebBrowser.maybeCompleteAuthSession();
 
-const CustomTextInput = ({
-  placeholder,
-  icon,
-  secureTextEntry = false,
-  value,
-  onChangeText,
-}) => (
+const CustomTextInput = ({ placeholder, icon, secureTextEntry = false, value, onChangeText }) => (
   <View style={styles.inputContainer}>
     <View style={styles.icon}>{icon}</View>
     <TextInput
-      style={styles.input}
-      placeholder={placeholder}
-      placeholderTextColor="#888"
-      secureTextEntry={secureTextEntry}
-      value={value}
-      onChangeText={onChangeText}
-      autoCapitalize="none"
+      style={styles.input} placeholder={placeholder} placeholderTextColor="#888"
+      secureTextEntry={secureTextEntry} value={value} onChangeText={onChangeText} autoCapitalize="none"
     />
   </View>
 );
@@ -63,41 +42,93 @@ export default function LoginScreen({ navigation }) {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
+  const [showGoogleModal, setShowGoogleModal] = useState(false);
 
   const { login, loginGuest, handleSocialLogin } = useUserStore();
 
-  useEffect(() => {
-    const loadCredentials = async () => {
-      try {
-        const savedEmail = await AsyncStorage.getItem("saved_email");
-        const savedPassword = await AsyncStorage.getItem("saved_password");
-        if (savedEmail && savedPassword) {
-          setEmail(savedEmail);
-          setPassword(savedPassword);
-          setRememberMe(true);
-        }
-      } catch (error) {
-        console.log("Lỗi tải thông tin đăng nhập:", error);
+  // ======================================================================
+  // ⚙️ CẤU HÌNH WEBVIEW & XỬ LÝ ĐĂNG NHẬP
+  // ======================================================================
+
+  const FAKE_USER_AGENT = "Mozilla/5.0 (Linux; Android 13; SM-S908B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/112.0.0.0 Mobile Safari/537.36";
+
+  const INJECTED_JS = `
+    try {
+      Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
+    } catch (e) {}
+    true;
+  `;
+
+  // ID Web Application của bạn
+  const CLIENT_ID = "982272940577-flak0p8ehmcm6dphhkohtvp7u3q6om5c.apps.googleusercontent.com";
+  const REDIRECT_URI = "https://www.google.com";
+
+  const googleAuthUrl = `https://accounts.google.com/o/oauth2/v2/auth` +
+    `?client_id=${CLIENT_ID}` +
+    `&redirect_uri=${encodeURIComponent(REDIRECT_URI)}` +
+    `&response_type=token` +
+    `&scope=${encodeURIComponent("openid profile email")}`;
+
+  const handleGoogleNavigationStateChange = async (navState) => {
+    const { url } = navState;
+    // Bắt Token khi Google redirect
+    if (url.includes("access_token=") && (url.includes("google.com") || url.includes("googleapis.com"))) {
+      setShowGoogleModal(false);
+      setLoading(true);
+
+      const tokenPart = url.split("#")[1] || url.split("?")[1];
+      let accessToken = null;
+      if (tokenPart) {
+        tokenPart.split("&").forEach(part => {
+          const [key, value] = part.split("=");
+          if (key === "access_token") accessToken = value;
+        });
       }
-    };
-    loadCredentials();
-  }, []);
 
+      if (accessToken) {
+        await handleGoogleLoginSuccess(accessToken);
+      } else {
+        setLoading(false);
+        Alert.alert("Lỗi", "Không lấy được token Google.");
+      }
+    }
+  };
 
-  const redirectUri = makeRedirectUri({
-    scheme: 'ecomate',  
-    path: 'auth'     
-  });
+  // 🔥 HÀM XỬ LÝ ĐĂNG NHẬP GOOGLE 🔥
+  const handleGoogleLoginSuccess = async (token) => {
+    try {
+      console.log("Token received, logging in...");
 
-  console.log("---------------------------------------------------");
-  console.log("LINK ĐANG DÙNG:", redirectUri);
-  console.log("---------------------------------------------------");
+      // Dùng Token đăng nhập thẳng vào Firebase
+      const credential = GoogleAuthProvider.credential(null, token);
+      const userCredential = await signInWithCredential(auth, credential);
 
+      console.log("✅ Firebase Google Login Success:", userCredential.user.displayName);
+
+      // Cập nhật Store (nếu cần xử lý thêm logic user)
+      if (handleSocialLogin) {
+        await handleSocialLogin(userCredential.user);
+      }
+
+      // ⚠️ QUAN TRỌNG: KHÔNG GỌI navigateToHome() Ở ĐÂY.
+      // AppNavigator sẽ tự động phát hiện user mới và chuyển màn hình.
+
+    } catch (firebaseError) {
+      console.log("⚠️ Firebase Login Error:", firebaseError);
+      Alert.alert("Lỗi", "Đăng nhập Google thất bại: " + firebaseError.message);
+    } finally {
+      // Chỉ tắt loading nếu có lỗi, nếu thành công thì component sẽ unmount
+      setLoading(false);
+    }
+  };
+
+  // ======================================================================
+  // LOGIC CŨ (FACEBOOK, LOGIN,...)
+  // ======================================================================
+
+  const fbRedirectUri = makeRedirectUri({ scheme: 'ecomate', path: 'auth' });
   const [fbRequest, fbResponse, fbPromptAsync] = Facebook.useAuthRequest({
-    clientId: "1528691631678762",
-    responseType: ResponseType.Token,
-    redirectUri: redirectUri,
-    scopes: ['public_profile', 'email'],
+    clientId: "1528691631678762", responseType: ResponseType.Token, redirectUri: fbRedirectUri, scopes: ['public_profile', 'email'],
   });
 
   useEffect(() => {
@@ -105,71 +136,44 @@ export default function LoginScreen({ navigation }) {
       const { access_token } = fbResponse.params;
       const credential = FacebookAuthProvider.credential(access_token);
       handleFirebaseSocialLogin(credential);
-    } else if (fbResponse?.type === "error") {
-      Alert.alert("Lỗi Facebook", "Đăng nhập Facebook không thành công.");
-      console.log("FB Error:", fbResponse.error);
     }
   }, [fbResponse]);
-
-  const [gRequest, gResponse, gPromptAsync] = Google.useIdTokenAuthRequest({
-    iosClientId: "982272940577-b1pghar1amret407nno3ums1t6ve4shh.apps.googleusercontent.com",
-    androidClientId: "982272940577-p0vi3v54rrqqtslfmr3ar3l9hh2tp2u1.apps.googleusercontent.com",
-    webClientId: "982272940577-flak0p8ehmcm6dphhkohtvp7u3q6om5c.apps.googleusercontent.com",
-    redirectUri: redirectUri,
-  });
-
-  useEffect(() => {
-    if (gResponse?.type === "success") {
-      const { id_token } = gResponse.params;
-      const credential = GoogleAuthProvider.credential(id_token);
-      handleFirebaseSocialLogin(credential);
-    }
-  }, [gResponse]);
 
   const handleFirebaseSocialLogin = async (credential) => {
     setLoading(true);
     try {
       const userCredential = await signInWithCredential(auth, credential);
-      if (handleSocialLogin) {
-        await handleSocialLogin(userCredential.user);
-      }
-    } catch (error) {
-      console.error("Firebase Login Error:", error);
-      Alert.alert("Đăng nhập thất bại", error.message);
-    } finally {
-      setLoading(false);
-    }
+      if (handleSocialLogin) await handleSocialLogin(userCredential.user);
+      // Không cần navigate thủ công
+    } catch (error) { Alert.alert("Đăng nhập thất bại", error.message); setLoading(false); }
   };
 
+  useEffect(() => {
+    const loadCredentials = async () => {
+      try {
+        const savedEmail = await AsyncStorage.getItem("saved_email");
+        const savedPassword = await AsyncStorage.getItem("saved_password");
+        if (savedEmail && savedPassword) { setEmail(savedEmail); setPassword(savedPassword); setRememberMe(true); }
+      } catch (error) { }
+    };
+    loadCredentials();
+  }, []);
+
   const handleLogin = async () => {
-    if (!email || !password) {
-      Alert.alert("Lỗi", "Vui lòng nhập email và mật khẩu.");
-      return;
-    }
+    if (!email || !password) { Alert.alert("Lỗi", "Vui lòng nhập email và mật khẩu."); return; }
     setLoading(true);
     try {
       const result = await login(email, password);
-
       if (result.success) {
-        if (rememberMe) {
-          await AsyncStorage.setItem("saved_email", email);
-          await AsyncStorage.setItem("saved_password", password);
-        } else {
-          await AsyncStorage.removeItem("saved_email");
-          await AsyncStorage.removeItem("saved_password");
-        }
+        if (rememberMe) { await AsyncStorage.setItem("saved_email", email); await AsyncStorage.setItem("saved_password", password); }
+        else { await AsyncStorage.removeItem("saved_email"); await AsyncStorage.removeItem("saved_password"); }
+        // AppNavigator tự chuyển màn hình khi login thành công
       } else {
-        let msg = "Email hoặc mật khẩu không đúng.";
-        if (result.error?.code === "auth/user-not-found" || result.error?.code === "auth/wrong-password") {
-          msg = "Email hoặc mật khẩu không chính xác.";
-        } else if (result.error?.code === "auth/invalid-email") {
-          msg = "Email không hợp lệ.";
-        }
-        Alert.alert("Đăng nhập thất bại", msg);
+        Alert.alert("Đăng nhập thất bại", "Thông tin không chính xác.");
+        setLoading(false);
       }
     } catch (e) {
-      Alert.alert("Lỗi", "Đã xảy ra lỗi không mong muốn.");
-    } finally {
+      Alert.alert("Lỗi", "Đã xảy ra lỗi.");
       setLoading(false);
     }
   };
@@ -180,66 +184,43 @@ export default function LoginScreen({ navigation }) {
       const result = await loginGuest();
       if (!result.success) {
         Alert.alert("Lỗi", "Không thể đăng nhập khách.");
+        setLoading(false);
       }
+      // Nếu success, AppNavigator tự chuyển
     } catch {
       Alert.alert("Lỗi", "Đã xảy ra lỗi kết nối.");
-    } finally {
       setLoading(false);
     }
   };
 
-  const toggleRememberMe = () => setRememberMe(!rememberMe);
-
   return (
     <SafeAreaView style={styles.safeArea}>
-      <KeyboardAvoidingView
-        style={{ flex: 1 }}
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
-      >
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : "height"}>
         <ScrollView contentContainerStyle={styles.scrollView}>
-          <ImageBackground
-            source={require("@/assets/images/header.jpg")}
-            resizeMode="cover"
-            style={styles.headerBackground}
-          >
+          <ImageBackground source={require("@/assets/images/header.jpg")} resizeMode="cover" style={styles.headerBackground}>
             <Text style={styles.headerTitle}>ECOMATE</Text>
           </ImageBackground>
 
           <View style={styles.formContainer}>
             <Text style={styles.title}>Đăng nhập</Text>
 
-            <CustomTextInput
-              placeholder="Nhập email"
-              value={email}
-              onChangeText={setEmail}
-              icon={
-                <Svg width="20" height="16" viewBox="0 0 20 16" fill="none">
-                  <Path d="M20 2C20 0.9 19.1 0 18 0H2C0.9 0 0 0.9 0 2V14C0 15.1 0.9 16 2 16H18C19.1 16 20 15.1 20 14V2ZM18 2L10 7L2 2H18ZM18 14H2V4L10 9L18 4V14Z" fill="black" />
-                </Svg>
-              }
+            <CustomTextInput placeholder="Nhập email" value={email} onChangeText={setEmail}
+              icon={<Svg width="20" height="16" viewBox="0 0 20 16" fill="none"><Path d="M20 2C20 0.9 19.1 0 18 0H2C0.9 0 0 0.9 0 2V14C0 15.1 0.9 16 2 16H18C19.1 16 20 15.1 20 14V2ZM18 2L10 7L2 2H18ZM18 14H2V4L10 9L18 4V14Z" fill="black" /></Svg>}
             />
-
-            <CustomTextInput
-              placeholder="Nhập mật khẩu"
-              value={password}
-              onChangeText={setPassword}
-              secureTextEntry
-              icon={
-                <Svg width="16" height="21" viewBox="0 0 16 21" fill="none">
-                  <Path d="M8 16C8.53043 16 9.03914 15.7893 9.41421 15.4142C9.78929 15.0391 10 14.5304 10 14C10 13.4696 9.78929 12.9609 9.41421 12.5858C9.03914 12.2107 8.53043 12 8 12C7.46957 12 6.96086 12.2107 6.58579 12.5858C6.21071 12.9609 6 13.4696 6 14C6 14.5304 6.21071 15.0391 6.58579 15.4142C6.96086 15.7893 7.46957 16 8 16ZM14 7C14.5304 7 15.0391 7.21071 15.4142 7.58579C15.7893 7.96086 16 8.46957 16 9V19C16 19.5304 15.7893 20.0391 15.4142 20.4142C15.0391 20.7893 14.5304 21 14 21H2C1.46957 21 0.960859 20.7893 0.585786 20.4142C0.210714 20.0391 0 19.5304 0 19V9C0 8.46957 0.210714 7.96086 0.585786 7.58579C0.960859 7.21071 1.46957 7 2 7H3V5C3 3.67392 3.52678 2.40215 4.46447 1.46447C5.40215 0.526784 6.67392 0 8 0C8.65661 0 9.30679 0.129329 9.91342 0.380602C10.52 0.631876 11.0712 1.00017 11.5355 1.46447C11.9998 1.92876 12.3681 2.47995 12.6194 3.08658C12.8707 3.69321 13 4.34339 13 5V7H14ZM8 2C7.20435 2 6.44129 2.31607 5.87868 2.87868C5.31607 3.44129 5 4.20435 5 5V7H11V5C11 4.20435 10.6839 3.44129 10.1213 2.87868C9.55871 2.31607 8.79565 2 8 2Z" fill="black" />
-                </Svg>
+            <CustomTextInput placeholder="Nhập mật khẩu" value={password} onChangeText={setPassword} secureTextEntry
+              icon={<Svg width="16" height="21" viewBox="0 0 16 21" fill="none"><Path d="M8 16C8.53043 16 9.03914 15.7893 9.41421 15.4142C9.78929 15.0391 10 14.5304 10 14C10 13.4696 9.78929 12.9609 9.41421 12.5858C9.03914 12.2107 8.53043 12 8 12C7.46957 12 6.96086 12.2107 6.58579 12.5858C6.21071 12.9609 6 13.4696 6 14C6 14.5304 6.21071 15.0391 6.58579 15.4142C6.96086 15.7893 7.46957 16 8 16ZM14 7C14.5304 7 15.0391 7.21071 15.4142 7.58579C15.7893 7.96086 16 8.46957 16 9V19C16 19.5304 15.7893 20.0391 15.4142 20.4142C15.0391 20.7893 14.5304 21 14 21H2C1.46957 21 0.960859 20.7893 0.585786 20.4142C0.210714 20.0391 0 19.5304 0 19V9C0 8.46957 0.210714 7.96086 0.585786 7.58579C0.960859 7.21071 1.46957 7 2 7H3V5C3 3.67392 3.52678 2.40215 4.46447 1.46447C5.40215 0.526784 6.67392 0 8 0C8.65661 0 9.30679 0.129329 9.91342 0.380602C10.52 0.631876 11.0712 1.00017 11.5355 1.46447C11.9998 1.92876 12.3681 2.47995 12.6194 3.08658C12.8707 3.69321 13 4.34339 13 5V7H14ZM8 2C7.20435 2 6.44129 2.31607 5.87868 2.87868C5.31607 3.44129 5 4.20435 5 5V7H11V5C11 4.20435 10.6839 3.44129 10.1213 2.87868C9.55871 2.31607 8.79565 2 8 2Z" fill="black" />
+              </Svg>
               }
             />
 
             <View style={styles.optionsContainer}>
-              <TouchableOpacity onPress={toggleRememberMe} style={styles.rememberMe}>
+              <TouchableOpacity onPress={() => setRememberMe(!rememberMe)} style={styles.rememberMe}>
                 <Svg width="16" height="16" viewBox="0 0 12 12" fill="none">
                   <Circle cx="6" cy="6" r="6" fill={rememberMe ? "#2F847C" : "#D9D9D9"} />
                   {rememberMe && <Path d="M3 6L5 8L9 4" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />}
                 </Svg>
                 <Text style={[styles.optionsText, rememberMe && { color: "#2F847C", fontFamily: "Nunito-Bold" }]}>Nhớ mật khẩu</Text>
               </TouchableOpacity>
-
               <TouchableOpacity onPress={() => navigation.navigate("ForgotPassword")}>
                 <Text style={[styles.optionsText, styles.link]}>Quên mật khẩu?</Text>
               </TouchableOpacity>
@@ -252,19 +233,10 @@ export default function LoginScreen({ navigation }) {
             <Text style={styles.orText}>Hoặc</Text>
 
             <View style={styles.socialContainer}>
-              <TouchableOpacity
-                style={[styles.socialButton, (!gRequest || loading) && { opacity: 0.5 }]}
-                onPress={() => gPromptAsync()}
-                disabled={!gRequest || loading}
-              >
+              <TouchableOpacity style={[styles.socialButton, loading && { opacity: 0.5 }]} onPress={() => setShowGoogleModal(true)} disabled={loading}>
                 <Image source={{ uri: "https://img.icons8.com/color/48/000000/google-logo.png" }} style={styles.socialIcon} resizeMode="contain" />
               </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[styles.socialButton, (!fbRequest || loading) && { opacity: 0.5 }]}
-                onPress={() => fbPromptAsync()}
-                disabled={!fbRequest || loading}
-              >
+              <TouchableOpacity style={styles.socialButton} onPress={() => fbPromptAsync()} disabled={!fbRequest || loading}>
                 <Ionicons name="logo-facebook" size={40} color="#1877F2" />
               </TouchableOpacity>
             </View>
@@ -275,13 +247,30 @@ export default function LoginScreen({ navigation }) {
                 <Text style={[styles.bottomText, styles.link, { color: "#46e49aff" }]}>Đăng kí</Text>
               </TouchableOpacity>
             </View>
-
             <TouchableOpacity style={{ marginTop: 10, padding: 5 }} onPress={handleGuestLogin} disabled={loading}>
               <Text style={[styles.bottomText, styles.link]}>Tiếp tục với vai trò là khách</Text>
             </TouchableOpacity>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
+
+      <Modal visible={showGoogleModal} animationType="slide" onRequestClose={() => setShowGoogleModal(false)}>
+        <SafeAreaView style={{ flex: 1, backgroundColor: '#fff' }}>
+          <View style={{ padding: 15, borderBottomWidth: 1, borderColor: '#eee', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+            <Text style={{ fontSize: 16, fontFamily: 'Nunito-Bold', color: '#555' }}>Đăng nhập Google</Text>
+            <TouchableOpacity onPress={() => setShowGoogleModal(false)}><Text style={{ fontSize: 16, color: 'red', fontFamily: "Nunito-Bold" }}>Đóng</Text></TouchableOpacity>
+          </View>
+          <WebView
+            source={{ uri: googleAuthUrl }}
+            userAgent={FAKE_USER_AGENT}
+            injectedJavaScriptBeforeContentLoaded={INJECTED_JS}
+            incognito={true}
+            onNavigationStateChange={handleGoogleNavigationStateChange}
+            startInLoadingState
+            renderLoading={() => <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, justifyContent: 'center', alignItems: 'center' }}><ActivityIndicator size="large" color="#2F847C" /></View>}
+          />
+        </SafeAreaView>
+      </Modal>
     </SafeAreaView>
   );
 }
