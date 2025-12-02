@@ -1,8 +1,10 @@
-import { useState, useEffect, useRef } from 'react';
+// src/hooks/useNotifications.js   ← SỬA LẠI NHƯ SAU (QUAN TRỌNG)
+
+import { useEffect, useRef } from 'react';
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import { useUserStore } from '../store/userStore';
+import { useUserStore } from '../store/userStore'; // ← DÙNG HOOK LẠI, AN TOÀN
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -12,14 +14,15 @@ Notifications.setNotificationHandler({
   }),
 });
 
-// ✅ QUAN TRỌNG: Phải có chữ export const ở đây
 export const useNotifications = () => {
+  const navigation = useNavigation();
+  const { addNotificationToHistory } = useUserStore(); // ← Hook hợp lệ ở đây
+
   const notificationListener = useRef();
   const responseListener = useRef();
-  const navigation = useNavigation();
-  const { addNotificationToHistory } = useUserStore();
 
   const registerForPushNotifications = async () => {
+    // ... giữ nguyên code cũ
     const { status: existingStatus } = await Notifications.getPermissionsAsync();
     let finalStatus = existingStatus;
     if (existingStatus !== 'granted') {
@@ -29,7 +32,7 @@ export const useNotifications = () => {
     if (finalStatus !== 'granted') return;
 
     if (Platform.OS === 'android') {
-      Notifications.setNotificationChannelAsync('default', {
+      await Notifications.setNotificationChannelAsync('default', {
         name: 'default',
         importance: Notifications.AndroidImportance.MAX,
         vibrationPattern: [0, 250, 250, 250],
@@ -38,6 +41,7 @@ export const useNotifications = () => {
     }
   };
 
+  // Giữ lại 2 hàm này để các nơi khác dùng
   const sendAlert = async (title, body, data = {}) => {
     await Notifications.scheduleNotificationAsync({
       content: { title, body, data, sound: true },
@@ -45,10 +49,10 @@ export const useNotifications = () => {
     });
   };
 
-  const scheduleReminder = async (title, body, seconds) => {
+  const scheduleReminder = async (title, body, seconds = 5) => {
     await Notifications.scheduleNotificationAsync({
       content: { title, body, sound: true },
-      trigger: { seconds: seconds },
+      trigger: { seconds },
     });
   };
 
@@ -56,41 +60,36 @@ export const useNotifications = () => {
     registerForPushNotifications();
 
     notificationListener.current = Notifications.addNotificationReceivedListener(async (notification) => {
-      try {
-        const content = notification?.request?.content || {};
-        const title = content.title || '';
-        const body = content.body || '';
-        const data = content.data || {};
-
-        if (addNotificationToHistory) {
-          await addNotificationToHistory({ title, body, data });
-        }
-      } catch (e) {
-        console.log('Error saving incoming notification:', e);
+      const content = notification.request.content;
+      if (addNotificationToHistory) {
+        await addNotificationToHistory({
+          title: content.title || 'Thông báo',
+          body: content.body || '',
+          data: content.data || {},
+          type: 'system',
+          createdAt: new Date().toISOString(),
+          isRead: false,
+        });
       }
     });
 
-    responseListener.current = Notifications.addNotificationResponseReceivedListener(response => {
+    responseListener.current = Notifications.addNotificationResponseReceivedListener((response) => {
       const data = response.notification.request.content.data;
       if (data?.screen) {
-        // Logic điều hướng thông minh
         if (data.params) {
-            navigation.navigate(data.screen, data.params);
+          navigation.navigate(data.screen, data.params);
         } else {
-            navigation.navigate(data.screen);
+          navigation.navigate(data.screen);
         }
-      } 
+      }
     });
 
     return () => {
-      if (notificationListener.current && typeof notificationListener.current.remove === 'function') {
-        notificationListener.current.remove();
-      }
-      if (responseListener.current && typeof responseListener.current.remove === 'function') {
-        responseListener.current.remove();
-      }
+      notificationListener.current?.remove();
+      responseListener.current?.remove();
     };
-  }, []);
+  }, [navigation, addNotificationToHistory]); // ← Thêm dependency
 
+  // QUAN TRỌNG: Return cả 2 hàm
   return { sendAlert, scheduleReminder };
 };

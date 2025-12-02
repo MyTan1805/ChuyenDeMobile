@@ -773,5 +773,7 @@ export const useUserStore = create((set, get) => ({
       return { success: false, error: error.message };
     }
   },
+  
 }));
 
+export const userStore = useUserStore;

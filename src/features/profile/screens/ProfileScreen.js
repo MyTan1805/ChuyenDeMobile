@@ -27,6 +27,7 @@ const renderAchievedBadgeSmall = (item) => (
     </View>
 );
 
+
 const ProfileScreen = () => {
     const navigation = useNavigation();
     const { user, userProfile, logout, fetchUserProfile } = useUserStore();
@@ -35,6 +36,74 @@ const ProfileScreen = () => {
     const [realReportCount, setRealReportCount] = useState(0);
     const [communityTotal, setCommunityTotal] = useState(0);
     const [loadingPdf, setLoadingPdf] = useState(false);
+
+    const [communityChartData, setCommunityChartData] = useState([
+    { label: 'T1', report: 0, recycle: 0 },
+    { label: 'T2', report: 0, recycle: 0 },
+    { label: 'T3', report: 0, recycle: 0 },
+    { label: 'T4', report: 0, recycle: 0 },
+    { label: 'T5', report: 0, recycle: 0 },
+]);
+
+// THÊM useEffect MỚI để lấy dữ liệu thật
+useEffect(() => {
+    const fetchCommunityStats = async () => {
+        try {
+            // 1. Lấy tất cả reports
+            const reportsSnap = await getDocs(collection(db, 'reports'));
+            // 2. Lấy tất cả users để tính trashSorted (vì trashSorted lưu trong users.stats.trashSorted)
+            const usersSnap = await getDocs(collection(db, 'users'));
+
+            const now = new Date();
+            const monthCounts = Array(12).fill().map(() => ({ report: 0, recycle: 0 }));
+
+            // Đếm báo cáo theo tháng
+            reportsSnap.forEach(doc => {
+                const data = doc.data();
+                if (data.createdAt) {
+                    const date = data.createdAt.toDate();
+                    const month = date.getMonth(); // 0-11
+                    monthCounts[month].report += 1;
+                }
+            });
+
+            // Đếm trashSorted theo tháng (dựa vào updatedAt của user nếu có, hoặc createdAt)
+            usersSnap.forEach(doc => {
+                const data = doc.data();
+                const trashSorted = data.stats?.trashSorted || 0;
+                if (trashSorted === 0) return;
+
+                let date;
+                if (data.updatedAt) date = data.updatedAt.toDate();
+                else if (data.createdAt) date = data.createdAt.toDate();
+                else return;
+
+                const month = date.getMonth();
+                monthCounts[month].recycle += trashSorted;
+            });
+
+            // Lấy 5 tháng gần nhất
+            const currentMonth = now.getMonth();
+            const recentFive = [];
+            for (let i = 4; i >= 0; i--) {
+                const monthIndex = (currentMonth - i + 12) % 12;
+                const monthLabel = `T${monthIndex + 1}`;
+                recentFive.push({
+                    label: monthLabel,
+                    report: monthCounts[monthIndex].report,
+                    recycle: monthCounts[monthIndex].recycle,
+                });
+            }
+
+            setCommunityChartData(recentFive);
+            setCommunityTotal(reportsSnap.size); // tổng báo cáo toàn hệ thống
+        } catch (error) {
+            console.log("Lỗi lấy thống kê cộng đồng:", error);
+        }
+    };
+
+    fetchCommunityStats();
+}, []);
 
     useEffect(() => {
         if (user?.uid) fetchUserProfile(user.uid);
@@ -51,120 +120,159 @@ const ProfileScreen = () => {
     }, []);
 
     // ==================== XUẤT PDF CÁ NHÂN ====================
-const handleExportPersonalPDF = async () => {
-    if (!currentUser) return;
-    
-    setLoadingPdf(true);
-    try {
-        // Lấy 3 thông tin cần thiết
-        const recycleCount = userProfile?.stats?.recycleCount || 0;
-        const points = userProfile?.stats?.points || 0;
-        const reportCount = realReportCount;
+    // ==================== XUẤT PDF CÁ NHÂN (HOÀN CHỈNH) ====================
+    const handleExportPersonalPDF = async () => {
+        const currentUser = auth.currentUser;
+        if (!currentUser) {
+            Alert.alert("Lỗi", "Không tìm thấy người dùng!");
+            return;
+        }
 
-        const html = `
+        setLoadingPdf(true);
+        try {
+            // 1. Lấy danh sách báo cáo của user
+            const q = query(
+                collection(db, 'reports'),
+                where('userId', '==', currentUser.uid),
+                orderBy('createdAt', 'desc')
+            );
+            const snapshot = await getDocs(q);
+            const reports = snapshot.docs.map(doc => doc.data());
+
+            if (reports.length === 0) {
+                Alert.alert("Thông báo", "Bạn chưa có báo cáo nào để xuất PDF.");
+                setLoadingPdf(false);
+                return;
+            }
+
+            // 2. Tạo bảng HTML chi tiết
+            const rows = reports.map((item, idx) => {
+                let dateStr = 'Chưa xác định';
+                if (item.createdAt) {
+                    if (item.createdAt.toDate) {
+                        dateStr = item.createdAt.toDate().toLocaleDateString('vi-VN');
+                    } else if (item.createdAt.seconds) {
+                        dateStr = new Date(item.createdAt.seconds * 1000).toLocaleDateString('vi-VN');
+                    }
+                }
+
+                const statusText = item.status === 'approved' ? 'Đã duyệt'
+                                : item.status === 'rejected' ? 'Bị từ chối'
+                                : 'Chờ duyệt';
+
+                const statusColor = item.status === 'approved' ? '#4CAF50'
+                                : item.status === 'rejected' ? '#F44336'
+                                : '#FF9800';
+
+                return `
+                    <tr>
+                        <td style="text-align:center">${idx + 1}</td>
+                        <td>${item.violationType || 'Không xác định'}</td>
+                        <td>${item.location?.address || 'Không có địa chỉ'}</td>
+                        <td style="text-align:center">${dateStr}</td>
+                        <td style="text-align:center; color:${statusColor}; font-weight:bold">${statusText}</td>
+                    </tr>
+                `;
+            }).join('');
+
+            // 3. HTML hoàn chỉnh
+            const html = `
+            <!DOCTYPE html>
             <html>
             <head>
+                <meta charset="utf-8">
                 <style>
-                    body { 
-                        font-family: Helvetica, Arial, sans-serif; 
-                        padding: 40px; 
-                    }
-                    h2 { 
-                        text-align: center; 
-                        color: #2F847C; 
-                        margin-bottom: 30px;
-                    }
-                    .user-info { 
-                        margin: 20px 0; 
-                        padding: 15px; 
-                        background-color: #f5f5f5; 
-                        border-radius: 8px; 
-                    }
-                    .user-info p { 
-                        margin: 5px 0; 
-                    }
-                    .stats-table {
-                        width: 100%;
-                        margin-top: 30px;
-                        border-collapse: collapse;
-                    }
-                    .stats-table td {
-                        padding: 15px;
-                        border-bottom: 1px solid #ddd;
-                        font-size: 16px;
-                    }
-                    .stats-table td:first-child {
-                        color: #666;
-                        width: 60%;
-                    }
-                    .stats-table td:last-child {
-                        font-weight: bold;
-                        color: #2F847C;
-                        font-size: 20px;
-                        text-align: right;
-                    }
-                    .footer { 
-                        margin-top: 40px; 
-                        text-align: center; 
-                        font-size: 11px; 
-                        color: #888; 
-                    }
+                    body { font-family: DejaVu Sans, sans-serif; padding: 30px; background: #f9f9f9; }
+                    h2 { text-align: center; color: #2F847C; margin-bottom: 30px; font-size: 24px; }
+                    .header { background: #2F847C; color: white; padding: 15px; border-radius: 10px; text-align: center; margin-bottom: 20px; }
+                    .info { background: white; padding: 15px; border-radius: 10px; margin-bottom: 20px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+                    .info p { margin: 8px 0; font-size: 14px; }
+                    table { width: 100%; border-collapse: collapse; margin-top: 20px; background: white; box-shadow: 0 2px 10px rgba(0,0,0,0.1); border-radius: 10px; overflow: hidden; }
+                    th { background: #2F847C; color: white; padding: 12px; text-align: center; font-size: 14px; }
+                    td { padding: 12px; text-align: left; border-bottom: 1px solid #eee; font-size: 13px; }
+                    tr:nth-child(even) { background-color: #f5f5f5; }
+                    .footer { margin-top: 50px; text-align: center; color: #888; font-size: 11px; }
                 </style>
             </head>
             <body>
-                <h2>BÁO CÁO CÁ NHÂN - ECOMATE</h2>
-                
-                <div class="user-info">
-                    <p><strong>Người dùng:</strong> ${userProfile?.displayName || 'Thành viên Ecomate'}</p>
-                    <p><strong>Ngày xuất:</strong> ${new Date().toLocaleDateString('vi-VN')}</p>
+                <div class="header">
+                    <h2>BÁO CÁO CÁ NHÂN - ECOMATE</h2>
                 </div>
 
-                <table class="stats-table">
-                    <tr>
-                        <td>Số lần phân loại rác</td>
-                        <td>${recycleCount} lần</td>
-                    </tr>
-                    <tr>
-                        <td>Số báo cáo đã gửi</td>
-                        <td>${reportCount} báo cáo</td>
-                    </tr>
-                    <tr>
-                        <td>Điểm thưởng</td>
-                        <td>${points} điểm</td>
-                    </tr>
+                <div class="info">
+                    <p><strong>Người dùng:</strong> ${userProfile?.displayName || 'Thành viên Ecomate'}</p>
+                    <p><strong>User ID:</strong> ${currentUser.uid}</p>
+                    <p><strong>Ngày xuất báo cáo:</strong> ${new Date().toLocaleDateString('vi-VN')}</p>
+                    <p><strong>Tổng số báo cáo:</strong> ${reports.length}</p>
+                    <p><strong>Điểm thưởng hiện tại:</strong> ${userProfile?.stats?.points || 0} điểm</p>
+                    <p><strong>Số lần phân loại rác:</strong> ${userProfile?.stats?.trashSorted || 0} lần</p>
+                </div>
+
+                <table>
+                    <thead>
+                        <tr>
+                            <th>STT</th>
+                            <th>Loại vi phạm</th>
+                            <th>Địa điểm</th>
+                            <th>Ngày gửi</th>
+                            <th>Trạng thái</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${rows}
+                    </tbody>
                 </table>
 
                 <div class="footer">
-                    <p>Cảm ơn bạn đã chung tay vì một môi trường xanh - sạch - đẹp.</p>
-                    <p>© 2024 Ecomate - Ứng dụng bảo vệ môi trường</p>
+                    <p>Cảm ơn bạn đã chung tay bảo vệ môi trường!</p>
+                    <p>© 2024-2025 Ecomate App - Ứng dụng vì một Việt Nam xanh</p>
                 </div>
             </body>
             </html>
-        `;
+            `;
 
-        const { uri } = await Print.printToFileAsync({ html });
-        await Sharing.shareAsync(uri, { 
-            UTI: '.pdf', 
-            mimeType: 'application/pdf' 
-        });
-    } catch (error) {
-        console.error("Error exporting PDF:", error);
-        Alert.alert("Lỗi", "Không thể xuất PDF: " + error.message);
-    } finally {
-        setLoadingPdf(false);
-    }
-};
-    // ==================== RENDER UI ====================
-    const displayData = userProfile || { 
-        displayName: "...", 
-        location: "...", 
-        photoURL: null 
+            // 4. Tạo file PDF
+            const { uri } = await Print.printToFileAsync({
+                html,
+                base64: false
+            });
+
+            // 5. Chia sẻ
+            if (await Sharing.isAvailableAsync()) {
+                await Sharing.shareAsync(uri, {
+                    mimeType: 'application/pdf',
+                    dialogTitle: 'Chia sẻ báo cáo cá nhân',
+                    UTI: 'com.adobe.pdf'
+                });
+            } else {
+                Alert.alert("Thành công", `File đã lưu tại: ${uri}`);
+            }
+
+        } catch (error) {
+            console.error("Lỗi xuất PDF:", error);
+            Alert.alert("Lỗi", "Không thể tạo PDF: " + error.message);
+        } finally {
+            setLoadingPdf(false);
+        }
     };
-    
+    // ==================== RENDER UI ====================
+    const stats = userProfile?.stats || {
+        points: 0,
+        highScore: 0,
+        sentReports: 0,
+        trashSorted: 0,
+        recycleCount: 0,
+        levelProgress: 0,
+        communityStats: Array(5).fill().map((_, i) => ({ label: `T${i+1}`, report: 0, recycle: 0 }))
+    };
+
+    const quizResults = userProfile?.quizResults || {};
+
+    // Dữ liệu hiển thị
     const displayStats = {
         ...stats,
-        sentReports: realReportCount,
-        community: stats.community || 0 
+        sentReports: realReportCount, // Đây là số báo cáo thật từ Firestore
+        community: communityTotal
     };
 
     const detailedBadges = getDetailedBadgeStatus(displayStats, quizResults);
@@ -188,34 +296,47 @@ const handleExportPersonalPDF = async () => {
     const isAdmin = userProfile.role === 'admin';
 
     const renderCommunityChart = () => {
-        const chartData = displayStats.communityStats || [];
-         return (
-            <View style={styles.chartContainer}>
-                <View style={styles.chartRow}>
-                    {chartData.map((item, index) => {
-                        const reportHeight = item.report === 0 ? 4 : item.report;
-                        const recycleHeight = item.recycle === 0 ? 4 : item.recycle;
-                        return (
-                            <View key={index} style={styles.chartCol}>
-                                <View style={styles.barsGroup}>
-                                    <View style={[styles.bar, { height: reportHeight, backgroundColor: item.report===0?'#E1F5FE':'#4FC3F7' }]} />
-                                    <View style={[styles.bar, { height: recycleHeight, backgroundColor: item.recycle===0?'#E0F2F1':'#2F847C' }]} />
-                                </View>
-                                <Text style={styles.chartLabel}>{item.label}</Text>
+    return (
+        <View style={styles.chartContainer}>
+            <View style={styles.chartRow}>
+                {communityChartData.map((item, index) => {
+                    const reportHeight = item.report === 0 ? 4 : Math.min(item.report * 2, 120);
+                    const recycleHeight = item.recycle === 0 ? 4 : Math.min(item.recycle * 0.5, 120);
+                    return (
+                        <View key={index} style={styles.chartCol}>
+                            <View style={styles.barsGroup}>
+                                <View style={[styles.bar, { 
+                                    height: reportHeight, 
+                                    backgroundColor: item.report === 0 ? '#E1F5FE' : '#4FC3F7' 
+                                }]} />
+                                <View style={[styles.bar, { 
+                                    height: recycleHeight, 
+                                    backgroundColor: item.recycle === 0 ? '#E0F2F1' : '#2F847C' 
+                                }]} />
                             </View>
-                        )
-                    })}
+                            <Text style={styles.chartLabel}>{item.label}</Text>
+                        </View>
+                    );
+                })}
+            </View>
+            <View style={{marginTop: 10, alignItems:'center'}}>
+                <Text style={{color:'#555', fontSize: 12}}>
+                    Tổng báo cáo toàn hệ thống: <Text style={{fontWeight:'bold', color:'#2F847C'}}>{communityTotal}</Text>
+                </Text>
+            </View>
+            <View style={styles.chartLegend}>
+                <View style={styles.legendItem}>
+                    <View style={[styles.legendDot, { backgroundColor: '#4FC3F7' }]} />
+                    <Text style={styles.legendText}>Báo vi phạm</Text>
                 </View>
-                <View style={{marginTop: 10, alignItems:'center'}}>
-                    <Text style={{color:'#555', fontSize: 12}}>Tổng báo cáo toàn hệ thống: <Text style={{fontWeight:'bold', color:'#2F847C'}}>{communityTotal}</Text></Text>
-                </View>
-                <View style={styles.chartLegend}>
-                    <View style={styles.legendItem}><View style={[styles.legendDot, { backgroundColor: '#4FC3F7' }]} /><Text style={styles.legendText}>Báo vi phạm</Text></View>
-                    <View style={styles.legendItem}><View style={[styles.legendDot, { backgroundColor: '#2F847C' }]} /><Text style={styles.legendText}>Tái chế (lần)</Text></View>
+                <View style={styles.legendItem}>
+                    <View style={[styles.legendDot, { backgroundColor: '#2F847C' }]} />
+                    <Text style={styles.legendText}>Tái chế (lần)</Text>
                 </View>
             </View>
-        );
-    };
+        </View>
+    );
+};
 
     return (
         <View style={styles.container}>
