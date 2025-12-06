@@ -210,6 +210,8 @@ function MainNavigator() {
   return (
     <MainStack.Navigator screenOptions={{ headerShown: false }}>
       <MainStack.Screen name="MainTabs" component={MainTabNavigator} />
+      
+      {/* === TÍNH NĂNG CHUNG === */}
       <MainStack.Screen name="Chatbot" component={ChatbotScreen} />
       <MainStack.Screen name="Notifications" component={NotificationListScreen} />
       <MainStack.Screen name="AqiDetail" component={AqiDetailScreen} />

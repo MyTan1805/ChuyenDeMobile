@@ -1,13 +1,15 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   View, Text, StyleSheet, Image, ScrollView, TouchableOpacity, Alert, ActivityIndicator, Dimensions, Modal 
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { WebView } from 'react-native-webview';
+import { useNotifications } from '@/hooks/useNotifications'; // Import hook thông báo
 
-// Firebase
+// Firebase & Store
 import { doc, updateDoc, getDoc } from 'firebase/firestore';
 import { db, auth } from '../../../config/firebaseConfig';
+import { useUserStore } from '@/store/userStore'; // Import user store
 
 const { width, height } = Dimensions.get('window');
 
@@ -17,6 +19,10 @@ const ReportDetailScreen = ({ route, navigation }) => {
   const [currentStatus, setCurrentStatus] = useState(reportData?.status || 'pending');
   const [fullImageVisible, setFullImageVisible] = useState(false);
   const [isUserAdmin, setIsUserAdmin] = useState(false);
+
+  // Lấy hook và store
+  const { sendAlert } = useNotifications();
+  const { awardPointsToUser } = useUserStore();
 
   if (!reportData) return null;
 
@@ -38,12 +44,52 @@ const ReportDetailScreen = ({ route, navigation }) => {
   }, []);
 
   const handleApprove = async () => {
+    const reporterId = reportData.userId;
+    const rewardPoints = 1; // Điểm thưởng cố định
+    
+    if (!reporterId || reporterId === 'guest_user') {
+        Alert.alert("Lỗi", "Không thể cộng điểm cho người dùng khách (Guest User).");
+        return;
+    }
+    
     setLoading(true);
     try {
       const reportRef = doc(db, 'reports', reportData.id);
+      
+      // 1. Cập nhật trạng thái báo cáo
       await updateDoc(reportRef, { status: 'approved', adminComment: 'Đã duyệt bởi Admin.' });
       setCurrentStatus('approved');
-      Alert.alert("Thành công", "Đã duyệt báo cáo.");
+      
+      // 2. Cộng điểm cho người báo cáo
+      const awardResult = await awardPointsToUser(reporterId, rewardPoints);
+      
+      if (awardResult.success) {
+          // 3. Gửi thông báo Local cho Admin
+          sendAlert(
+              "✅ Báo cáo đã được duyệt & Cộng điểm", 
+              `Đã cộng ${rewardPoints} điểm tích lũy cho người báo cáo (${reporterId}).`
+          );
+
+          // 4. MÔ PHỎNG PUSH NOTIFICATION cho Reporter
+          // Nếu bạn triển khai Cloud Function (backend) thật, code này sẽ nằm ở đó
+          console.log(`
+            ************************************************
+            *** MÔ PHỎNG PUSH NOTIFICATION GỬI ĐẾN REPORTER (ID: ${reporterId}) ***
+            
+            Tiêu đề: "Bạn vừa nhận được thưởng!"
+            Nội dung: "Bạn đã nhận được ${rewardPoints} điểm tích lũy vì báo cáo vi phạm môi trường thành công! Cảm ơn bạn đã hành động xanh."
+            
+            ************************************************
+          `);
+          
+          Alert.alert(
+              "Thành công", 
+              `Đã duyệt báo cáo và cộng ${rewardPoints} điểm cho người báo cáo! (Thông báo đã được gửi đến họ)`
+          );
+      } else {
+          Alert.alert("Cảnh báo", `Đã duyệt báo cáo nhưng CỘNG ĐIỂM THẤT BẠI: ${awardResult.error}. Vui lòng kiểm tra user ${reporterId}`);
+      }
+
     } catch (error) {
       Alert.alert("Lỗi", error.message);
     } finally {
@@ -57,6 +103,10 @@ const ReportDetailScreen = ({ route, navigation }) => {
       const reportRef = doc(db, 'reports', reportData.id);
       await updateDoc(reportRef, { status: 'rejected' });
       setCurrentStatus('rejected');
+      sendAlert(
+          "❌ Báo cáo đã bị từ chối", 
+          `Báo cáo "${reportData.violationType}" đã bị Admin từ chối.`
+      );
       Alert.alert("Đã từ chối", "Báo cáo không hợp lệ.");
     } catch (error) {
       Alert.alert("Lỗi", error.message);
